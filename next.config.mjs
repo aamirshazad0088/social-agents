@@ -12,41 +12,35 @@ const nextConfig = {
         hostname: '**',
       },
     ],
-    // OPTIMIZATION: Use modern image formats for better compression
     formats: ['image/avif', 'image/webp'],
   },
 
-  // OPTIMIZATION: Optimize package imports to reduce bundle size
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'react-hot-toast'],
-    // Increase body size limit for video uploads (500MB)
     serverActions: {
       bodySizeLimit: '500mb',
     },
-    // LangChain packages need to be external for dynamic imports
-    serverComponentsExternalPackages: [
-      'langchain',
-      '@langchain/core',
-      '@langchain/openai',
-      '@langchain/anthropic',
-      '@langchain/google-genai',
-      '@langchain/groq',
-      '@langchain/deepseek',
-      'fluent-ffmpeg',
-      'ffmpeg-static',
-      'ffprobe-static',
-    ],
   },
 
-  // OPTIMIZATION: Remove console logs in production and enable optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'], // Keep error and warn logs
+      exclude: ['error', 'warn'],
     } : false,
   },
 
   env: {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  },
+
+  // Proxy API requests to Python backend
+  async rewrites() {
+    const pythonBackendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+    return [
+      {
+        source: '/py-api/:path*',
+        destination: `${pythonBackendUrl}/api/v1/:path*`,
+      },
+    ];
   },
 };
 

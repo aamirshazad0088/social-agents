@@ -6,7 +6,15 @@
 'use client'
 
 import React from 'react';
-import type { ImageGenerationOptions } from '@/agents/image_agent';
+
+/** Image generation options type */
+export interface ImageGenerationOptions {
+  size?: 'auto' | '1024x1024' | '1536x1024' | '1024x1536';
+  quality?: 'auto' | 'low' | 'medium' | 'high';
+  format?: 'png' | 'jpeg' | 'webp';
+  background?: 'auto' | 'opaque' | 'transparent';
+  output_compression?: number;
+}
 
 interface ImagePresetButtonsProps {
   onPresetSelect: (options: ImageGenerationOptions) => void;
@@ -92,10 +100,10 @@ export const ImagePresetButtons: React.FC<ImagePresetButtonsProps> = ({
   return (
     <div className={`flex gap-1.5 flex-wrap items-center border-t border-emerald-200 pt-2 ${className}`}>
       <span className="text-xs font-semibold text-gray-600">Quick:</span>
-      
+
       {presets.map((preset) => {
         const isActive = isPresetActive(preset.options);
-        
+
         return (
           <button
             key={preset.id}

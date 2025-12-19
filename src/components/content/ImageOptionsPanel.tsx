@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Settings } from 'lucide-react';
-import type { ImageGenerationOptions } from '@/agents/image_agent';
+import type { ImageGenerationOptions } from './ImagePresetButtons';
 
 interface ImageOptionsPanelProps {
   options: ImageGenerationOptions;
