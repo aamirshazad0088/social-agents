@@ -1,0 +1,863 @@
+'use client';
+
+import React, { useState } from 'react';
+import {
+  Plus,
+  Search,
+  Filter,
+  Image,
+  Video,
+  FileText,
+  Eye,
+  Play,
+  Pause,
+  Edit,
+  Copy,
+  Trash2,
+  ExternalLink,
+  Upload,
+  X,
+  Sparkles,
+  Link,
+  Type,
+  FolderOpen,
+  ImagePlus,
+  Layers,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
+import type { Ad, AdSet, AdFormData, AdCreative, CallToActionType, AdStatus } from '@/types/metaAds';
+import MediaLibraryPicker, { SelectedMedia } from './MediaLibraryPicker';
+
+interface AdCreativeManagerProps {
+  ads: Ad[];
+  adSets: AdSet[];
+  onRefresh: () => void;
+  showCreate?: boolean;
+  onShowCreateChange?: (show: boolean) => void;
+  preselectedAdSetId?: string;
+}
+
+const CTA_OPTIONS = [
+  { value: 'LEARN_MORE', label: 'Learn More' },
+  { value: 'SHOP_NOW', label: 'Shop Now' },
+  { value: 'SIGN_UP', label: 'Sign Up' },
+  { value: 'SUBSCRIBE', label: 'Subscribe' },
+  { value: 'CONTACT_US', label: 'Contact Us' },
+  { value: 'DOWNLOAD', label: 'Download' },
+  { value: 'GET_QUOTE', label: 'Get Quote' },
+  { value: 'BOOK_TRAVEL', label: 'Book Now' },
+  { value: 'SEND_MESSAGE', label: 'Send Message' },
+  { value: 'CALL_NOW', label: 'Call Now' },
+  { value: 'APPLY_NOW', label: 'Apply Now' },
+  { value: 'BUY_NOW', label: 'Buy Now' },
+  { value: 'ORDER_NOW', label: 'Order Now' },
+  { value: 'LIKE_PAGE', label: 'Like Page' },
+  { value: 'MESSAGE_PAGE', label: 'Message Page' },
+  { value: 'GET_PROMOTIONS', label: 'Get Promotions' },
+  { value: 'WHATSAPP_MESSAGE', label: 'WhatsApp' },
+];
+
+const initialFormData: AdFormData = {
+  name: '',
+  adset_id: '',
+  status: 'PAUSED',
+  creative: {
+    title: '',
+    body: '',
+    call_to_action_type: 'LEARN_MORE',
+    link_url: '',
+    image_url: '',
+  },
+};
+
+export default function AdCreativeManager({ ads, adSets, onRefresh, showCreate, onShowCreateChange, preselectedAdSetId }: AdCreativeManagerProps) {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [formData, setFormData] = useState<AdFormData>(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [creativeType, setCreativeType] = useState<'image' | 'video' | 'carousel'>('image');
+
+  // Sync with external showCreate prop
+  React.useEffect(() => {
+    if (showCreate !== undefined) {
+      setShowCreateModal(showCreate);
+    }
+  }, [showCreate]);
+
+  // Pre-select ad set if provided
+  React.useEffect(() => {
+    if (preselectedAdSetId && showCreate) {
+      setFormData(prev => ({ ...prev, adset_id: preselectedAdSetId }));
+    }
+  }, [preselectedAdSetId, showCreate]);
+
+  const handleModalChange = (show: boolean) => {
+    setShowCreateModal(show);
+    onShowCreateChange?.(show);
+  };
+
+  const filteredAds = ads.filter(ad => {
+    const matchesSearch = ad.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || ad.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const handleCreateAd = async () => {
+    setIsSubmitting(true);
+    try {
+      // Prepare request data - carousel items should already be in formData.creative.carousel_items
+      // from the CreateAdModal component
+      const requestData = { ...formData };
+      
+      const response = await fetch('/api/meta-ads/ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success('Ad created successfully!');
+        handleModalChange(false);
+        setFormData(initialFormData);
+        onRefresh();
+      } else {
+        // Handle error response
+        const errorMessage = data.error || 'Failed to create ad';
+        const errorDetails = data.details 
+          ? (Array.isArray(data.details) 
+              ? data.details.map((d: any) => `${d.path}: ${d.message}`).join(', ')
+              : data.details)
+          : data.message || 'Unknown error';
+        
+        toast.error(`${errorMessage}: ${errorDetails}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create ad';
+      toast.error(`Error: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (adId: string, newStatus: AdStatus) => {
+    try {
+      const response = await fetch(`/api/meta-ads/ads/${adId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (response.ok) {
+        toast.success(`Ad ${newStatus.toLowerCase()} successfully`);
+        onRefresh();
+      } else {
+        const data = await response.json();
+        const errorMessage = data.error || 'Failed to update ad status';
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      toast.error('Failed to update ad status');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">Ads</h2>
+          <p className="text-muted-foreground">Create and manage your ad creatives</p>
+        </div>
+        <Button
+          onClick={() => handleModalChange(true)}
+          className="gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+        >
+          <Plus className="w-4 h-4" />
+          Create Ad
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search ads..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="PAUSED">Paused</SelectItem>
+                <SelectItem value="PENDING_REVIEW">Pending Review</SelectItem>
+                <SelectItem value="DISAPPROVED">Disapproved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Ads Grid */}
+      {filteredAds.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredAds.map((ad) => (
+            <AdCard
+              key={ad.id}
+              ad={ad}
+              adSet={adSets.find(a => a.id === ad.adset_id)}
+              onStatusChange={handleStatusChange}
+            />
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center text-center">
+              <div className="p-4 rounded-full bg-muted mb-4">
+                <Image className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold mb-1">No ads found</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {searchQuery ? 'Try adjusting your search' : 'Create your first ad to start advertising'}
+              </p>
+              <Button onClick={() => handleModalChange(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Create Ad
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Create Ad Modal */}
+      {showCreateModal && (
+        <CreateAdModal
+          formData={formData}
+          setFormData={setFormData}
+          adSets={adSets}
+          creativeType={creativeType}
+          setCreativeType={setCreativeType}
+          onClose={() => {
+            handleModalChange(false);
+            setFormData(initialFormData);
+          }}
+          onSubmit={async () => {
+            // Carousel items are already added to formData by CreateAdModal before calling onSubmit
+            await handleCreateAd();
+          }}
+          isSubmitting={isSubmitting}
+        />
+      )}
+    </div>
+  );
+}
+
+function AdCard({
+  ad,
+  adSet,
+  onStatusChange,
+}: {
+  ad: Ad;
+  adSet?: AdSet;
+  onStatusChange: (id: string, status: AdStatus) => void;
+}) {
+  const statusColors: Record<string, string> = {
+    ACTIVE: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    PAUSED: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+    PENDING_REVIEW: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    DISAPPROVED: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    DELETED: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+    ARCHIVED: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+  };
+
+  return (
+    <Card className="overflow-hidden group">
+      {/* Preview */}
+      <div className="relative aspect-video bg-muted">
+        {ad.creative.image_url ? (
+          <img
+            src={ad.creative.image_url}
+            alt={ad.name}
+            className="w-full h-full object-cover"
+          />
+        ) : ad.creative.video_id ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Video className="w-12 h-12 text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <FileText className="w-12 h-12 text-muted-foreground" />
+          </div>
+        )}
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <Button size="sm" variant="secondary" className="gap-1">
+            <Eye className="w-4 h-4" />
+            Preview
+          </Button>
+        </div>
+        {/* Status Badge */}
+        <div className="absolute top-2 right-2">
+          <span className={cn("px-2 py-1 rounded-full text-xs font-medium", statusColors[ad.status] || statusColors.PAUSED)}>
+            {ad.status.replace(/_/g, ' ')}
+          </span>
+        </div>
+      </div>
+
+      <CardContent className="p-4">
+        <h3 className="font-semibold mb-1 truncate">{ad.name}</h3>
+        <p className="text-sm text-muted-foreground mb-3 truncate">
+          {adSet?.name || 'No ad set'}
+        </p>
+
+        {/* Creative Preview */}
+        {ad.creative.title && (
+          <p className="text-sm font-medium mb-1 truncate">{ad.creative.title}</p>
+        )}
+        {ad.creative.body && (
+          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{ad.creative.body}</p>
+        )}
+
+        {/* Metrics */}
+        {ad.insights && (
+          <div className="grid grid-cols-3 gap-2 py-3 border-t border-b mb-3">
+            <div className="text-center">
+              <p className="font-bold">{formatNumber(ad.insights.impressions)}</p>
+              <p className="text-xs text-muted-foreground">Impr.</p>
+            </div>
+            <div className="text-center">
+              <p className="font-bold">{formatNumber(ad.insights.clicks)}</p>
+              <p className="text-xs text-muted-foreground">Clicks</p>
+            </div>
+            <div className="text-center">
+              <p className="font-bold">{ad.insights.ctr.toFixed(2)}%</p>
+              <p className="text-xs text-muted-foreground">CTR</p>
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          {ad.status === 'ACTIVE' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1"
+              onClick={() => onStatusChange(ad.id, 'PAUSED')}
+            >
+              <Pause className="w-3 h-3" />
+              Pause
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1"
+              onClick={() => onStatusChange(ad.id, 'ACTIVE')}
+            >
+              <Play className="w-3 h-3" />
+              Activate
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="gap-1">
+            <Edit className="w-3 h-3" />
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1">
+            <Copy className="w-3 h-3" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CreateAdModal({
+  formData,
+  setFormData,
+  adSets,
+  creativeType,
+  setCreativeType,
+  onClose,
+  onSubmit,
+  isSubmitting,
+}: {
+  formData: AdFormData;
+  setFormData: React.Dispatch<React.SetStateAction<AdFormData>>;
+  adSets: AdSet[];
+  creativeType: 'image' | 'video' | 'carousel';
+  setCreativeType: React.Dispatch<React.SetStateAction<'image' | 'video' | 'carousel'>>;
+  onClose: () => void;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+}) {
+  const [step, setStep] = useState(1);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [carouselMedia, setCarouselMedia] = useState<SelectedMedia[]>([]);
+
+  const updateCreative = (updates: Partial<AdCreative>) => {
+    setFormData(prev => ({
+      ...prev,
+      creative: { ...prev.creative, ...updates },
+    }));
+  };
+
+  const handleMediaSelect = (media: SelectedMedia | SelectedMedia[]) => {
+    if (Array.isArray(media)) {
+      // Carousel - multiple items
+      setCarouselMedia(media);
+      if (media.length > 0) {
+        updateCreative({ image_url: media[0].url });
+      }
+    } else {
+      // Single item
+      updateCreative({ 
+        image_url: media.url,
+        video_id: media.type === 'video' ? media.id : undefined,
+      });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-background rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] mx-4 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b shrink-0">
+          <div>
+            <h2 className="text-xl font-bold">Create Ad</h2>
+            <p className="text-sm text-muted-foreground">Step {step} of 3</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {/* Progress */}
+        <div className="px-6 pt-4 shrink-0">
+          <div className="flex gap-2">
+            {[1, 2, 3].map((s) => (
+              <div
+                key={s}
+                className={cn(
+                  "h-1 flex-1 rounded-full transition-colors",
+                  s <= step ? "bg-primary" : "bg-muted"
+                )}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
+          {step === 1 && (
+            <div className="space-y-6">
+              <div>
+                <Label htmlFor="ad-name">Ad Name</Label>
+                <Input
+                  id="ad-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter ad name"
+                  className="mt-2"
+                />
+              </div>
+
+              <div>
+                <Label>Ad Set</Label>
+                <Select
+                  value={formData.adset_id}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, adset_id: value }))}
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select an ad set" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[100]" position="popper" sideOffset={4}>
+                    {adSets.length === 0 ? (
+                      <SelectItem value="_none" disabled>
+                        No ad sets available
+                      </SelectItem>
+                    ) : (
+                      adSets.map((adSet) => (
+                        <SelectItem key={adSet.id} value={adSet.id}>
+                          {adSet.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Creative Type</Label>
+                <div className="grid grid-cols-3 gap-3 mt-2">
+                  {[
+                    { value: 'image', label: 'Single Image', icon: Image },
+                    { value: 'video', label: 'Video', icon: Video },
+                    { value: 'carousel', label: 'Carousel', icon: Layers },
+                  ].map((type) => (
+                    <button
+                      key={type.value}
+                      onClick={() => setCreativeType(type.value as 'image' | 'video' | 'carousel')}
+                      className={cn(
+                        "p-4 rounded-xl border-2 transition-all text-center",
+                        creativeType === type.value
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <type.icon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="font-medium text-sm">{type.label}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="grid grid-cols-2 gap-6">
+              {/* Creative Form */}
+              <div className="space-y-4">
+                <div>
+                  <Label>Media</Label>
+                  <div className="mt-2 space-y-3">
+                    {/* Media Preview */}
+                    {(formData.creative.image_url || carouselMedia.length > 0) ? (
+                      <div className="relative rounded-xl overflow-hidden border bg-muted">
+                        {creativeType === 'carousel' && carouselMedia.length > 0 ? (
+                          <div className="grid grid-cols-3 gap-1 p-2">
+                            {carouselMedia.map((media, idx) => (
+                              <div key={media.id} className="relative aspect-square rounded-lg overflow-hidden">
+                                {media.type === 'image' ? (
+                                  <img src={media.url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <video src={media.url} className="w-full h-full object-cover" muted />
+                                )}
+                                <div className="absolute top-1 left-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
+                                  {idx + 1}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="aspect-video">
+                            <img 
+                              src={formData.creative.image_url} 
+                              alt="Preview" 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        <button
+                          onClick={() => {
+                            updateCreative({ image_url: '' });
+                            setCarouselMedia([]);
+                          }}
+                          className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="border-2 border-dashed rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                        onClick={() => setMediaPickerOpen(true)}
+                      >
+                        <FolderOpen className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                        <p className="text-sm font-medium mb-1">Select from Media Library</p>
+                        <p className="text-xs text-muted-foreground">
+                          Choose {creativeType === 'carousel' ? 'multiple images/videos' : creativeType === 'video' ? 'a video' : 'an image'} from your library
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-2"
+                        onClick={() => setMediaPickerOpen(true)}
+                      >
+                        <FolderOpen className="w-4 h-4" />
+                        {formData.creative.image_url ? 'Change Media' : 'Browse Library'}
+                      </Button>
+                    </div>
+
+                    {/* URL Input */}
+                    <div className="relative">
+                      <Input
+                        type="url"
+                        placeholder="Or paste media URL directly"
+                        value={formData.creative.image_url || ''}
+                        onChange={(e) => updateCreative({ image_url: e.target.value })}
+                        className="pr-10"
+                      />
+                      {formData.creative.image_url && (
+                        <button
+                          onClick={() => updateCreative({ image_url: '' })}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
+                        >
+                          <X className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="headline">Headline</Label>
+                  <Input
+                    id="headline"
+                    value={formData.creative.title || ''}
+                    onChange={(e) => updateCreative({ title: e.target.value })}
+                    placeholder="Enter headline (max 40 characters)"
+                    maxLength={40}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1 text-right">
+                    {(formData.creative.title || '').length}/40
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="primary-text">Primary Text</Label>
+                  <Textarea
+                    id="primary-text"
+                    value={formData.creative.body || ''}
+                    onChange={(e) => updateCreative({ body: e.target.value })}
+                    placeholder="Enter primary text (max 125 characters recommended)"
+                    rows={3}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1 text-right">
+                    {(formData.creative.body || '').length} characters
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="link-url">Destination URL</Label>
+                  <div className="relative mt-2">
+                    <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="link-url"
+                      value={formData.creative.link_url || ''}
+                      onChange={(e) => updateCreative({ link_url: e.target.value })}
+                      placeholder="https://example.com"
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Call to Action</Label>
+                  <Select
+                    value={formData.creative.call_to_action_type || 'LEARN_MORE'}
+                    onValueChange={(value) => updateCreative({ call_to_action_type: value as CallToActionType })}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CTA_OPTIONS.map((cta) => (
+                        <SelectItem key={cta.value} value={cta.value}>
+                          {cta.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div>
+                <Label className="mb-2 block">Preview</Label>
+                <div className="border rounded-xl overflow-hidden bg-white dark:bg-gray-900">
+                  {/* Facebook Post Preview */}
+                  <div className="p-3 border-b flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600" />
+                    <div>
+                      <p className="font-semibold text-sm">Your Page Name</p>
+                      <p className="text-xs text-muted-foreground">Sponsored</p>
+                    </div>
+                  </div>
+                  {formData.creative.body && (
+                    <p className="px-3 py-2 text-sm">{formData.creative.body}</p>
+                  )}
+                  <div className="aspect-video bg-muted flex items-center justify-center">
+                    {formData.creative.image_url ? (
+                      <img
+                        src={formData.creative.image_url}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <Image className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Add media to preview</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 bg-muted/50">
+                    <p className="text-xs text-muted-foreground uppercase mb-1">
+                      {formData.creative.link_url ? new URL(formData.creative.link_url).hostname : 'example.com'}
+                    </p>
+                    <p className="font-semibold text-sm">
+                      {formData.creative.title || 'Your headline here'}
+                    </p>
+                  </div>
+                  <div className="p-3 border-t">
+                    <Button size="sm" className="w-full">
+                      {CTA_OPTIONS.find(c => c.value === formData.creative.call_to_action_type)?.label || 'Learn More'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    Review Your Ad
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Ad Name</p>
+                      <p className="font-medium">{formData.name || '-'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Ad Set</p>
+                      <p className="font-medium">
+                        {adSets.find(a => a.id === formData.adset_id)?.name || '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Creative Type</p>
+                      <p className="font-medium capitalize">{creativeType}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Call to Action</p>
+                      <p className="font-medium">
+                        {CTA_OPTIONS.find(c => c.value === formData.creative.call_to_action_type)?.label || '-'}
+                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Destination URL</p>
+                      <p className="font-medium truncate">{formData.creative.link_url || '-'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Note:</strong> Your ad will be submitted for review. This usually takes less than 24 hours.
+                  You'll be notified once your ad is approved.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between p-6 border-t bg-muted/30">
+          <Button
+            variant="outline"
+            onClick={() => step > 1 ? setStep(step - 1) : onClose()}
+          >
+            {step > 1 ? 'Back' : 'Cancel'}
+          </Button>
+          <Button
+            onClick={() => {
+              if (step < 3) {
+                setStep(step + 1);
+              } else {
+                // Prepare form data with carousel items before submission
+                const dataToSubmit = { ...formData };
+                if (creativeType === 'carousel' && carouselMedia.length > 0) {
+                  dataToSubmit.creative = {
+                    ...dataToSubmit.creative,
+                    carousel_items: carouselMedia.map(media => ({
+                      image_url: media.url,
+                      title: formData.creative.title,
+                      description: formData.creative.body,
+                      link: formData.creative.link_url,
+                    })),
+                  };
+                }
+                // Update formData temporarily for submission
+                setFormData(dataToSubmit);
+                // Call onSubmit which will use the updated formData
+                setTimeout(() => onSubmit(), 0);
+              }
+            }}
+            disabled={isSubmitting || (step === 1 && (!formData.name || !formData.adset_id))}
+            className="gap-2"
+          >
+            {step < 3 ? 'Continue' : isSubmitting ? 'Creating...' : 'Create Ad'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Media Library Picker */}
+      <MediaLibraryPicker
+        open={mediaPickerOpen}
+        onOpenChange={setMediaPickerOpen}
+        onSelect={handleMediaSelect}
+        mediaType={creativeType === 'video' ? 'video' : creativeType === 'carousel' ? 'all' : 'image'}
+        multiple={creativeType === 'carousel'}
+        maxItems={10}
+        title={creativeType === 'carousel' ? 'Select Carousel Media' : 'Select Media'}
+        description={creativeType === 'carousel' 
+          ? 'Choose 2-10 images or videos for your carousel ad' 
+          : `Choose ${creativeType === 'video' ? 'a video' : 'an image'} from your media library`
+        }
+      />
+    </div>
+  );
+}
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toString();
+}
