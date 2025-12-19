@@ -1,0 +1,91 @@
+# Python Backend Dockerfile
+# Multi-stage build for Content Creator FastAPI Backend
+
+# ============================================================================
+# Stage 1: Build stage - Install dependencies with uv
+# ============================================================================
+FROM python:3.13-slim AS builder
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files
+COPY python_backend/uv.lock python_backend/.python-version ./
+
+# Create a minimal pyproject.toml for uv sync
+# Extract dependencies from uv.lock
+RUN cat > pyproject.toml << 'EOF'
+[project]
+name = "content-creator-backend"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "asyncpg>=0.29.0",
+    "elevenlabs>=2.27.0",
+    "fastapi>=0.115.0",
+    "google-genai>=1.56.0",
+    "httpx>=0.27.0",
+    "langchain>=1.2.0",
+    "langchain-anthropic>=1.3.0",
+    "langchain-core>=1.1.0",
+    "langchain-deepseek>=1.0.0",
+    "langchain-google-genai>=4.0.0",
+    "langchain-groq>=1.1.0",
+    "langchain-openai>=1.1.0",
+    "langgraph>=1.0.0",
+    "langgraph-checkpoint-postgres>=3.0.0",
+    "openai>=2.14.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "python-multipart>=0.0.9",
+    "supabase>=2.10.0",
+    "uvicorn[standard]>=0.30.0",
+]
+EOF
+
+# Install dependencies using uv
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+RUN uv sync --frozen --no-install-project --no-dev
+
+# ============================================================================
+# Stage 2: Production stage - Slim runtime image
+# ============================================================================
+FROM python:3.13-slim AS runtime
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Create non-root user for security
+RUN groupadd --gid 1000 appgroup && \
+    useradd --uid 1000 --gid 1000 --no-create-home appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy virtual environment from builder
+COPY --from=builder /app/.venv /app/.venv
+
+# Copy application source code
+COPY python_backend/src ./src
+
+# Change ownership to non-root user
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+# Run the application
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

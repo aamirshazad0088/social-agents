@@ -1,0 +1,123 @@
+# =============================================================================
+# Render Blueprint Configuration
+# Deploy Content Creator with Docker Compose
+# =============================================================================
+# 
+# To deploy:
+# 1. Push this file to your repository
+# 2. Connect your repository to Render
+# 3. Render will detect this file and create a Blueprint
+# 4. Configure environment variables in the Render dashboard
+#
+# Documentation: https://render.com/docs/infrastructure-as-code
+# =============================================================================
+
+services:
+  # ==========================================================================
+  # Python FastAPI Backend
+  # ==========================================================================
+  - type: web
+    name: content-creator-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    region: oregon
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      # Server Config
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8000
+      - key: DEBUG
+        value: false
+      
+      # Frontend URL for CORS
+      - key: APP_URL
+        fromService:
+          type: web
+          name: content-creator-frontend
+          property: host
+      
+      # AI Provider API Keys (set in Render Dashboard)
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      
+      # Supabase (set in Render Dashboard)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      
+      # Database URL (set in Render Dashboard)
+      - key: DATABASE_URL
+        sync: false
+      
+      # Social Platform OAuth (set in Render Dashboard)
+      - key: FACEBOOK_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_CLIENT_SECRET
+        sync: false
+      - key: INSTAGRAM_CLIENT_ID
+        sync: false
+      - key: INSTAGRAM_CLIENT_SECRET
+        sync: false
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: TWITTER_CLIENT_ID
+        sync: false
+      - key: TWITTER_CLIENT_SECRET
+        sync: false
+      - key: TIKTOK_CLIENT_ID
+        sync: false
+      - key: TIKTOK_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+
+  # ==========================================================================
+  # Next.js Frontend
+  # ==========================================================================
+  - type: web
+    name: content-creator-frontend
+    runtime: docker
+    dockerfilePath: ./Dockerfile.frontend
+    dockerContext: .
+    region: oregon
+    plan: starter
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      
+      # Python Backend URL (auto-linked to backend service)
+      - key: NEXT_PUBLIC_PYTHON_BACKEND_URL
+        fromService:
+          type: web
+          name: content-creator-backend
+          property: hostport
+      
+      # Supabase Client (set in Render Dashboard)
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      
+      # Feature Flags
+      - key: NEXT_PUBLIC_USE_PYTHON_BACKEND_ALL
+        value: true
