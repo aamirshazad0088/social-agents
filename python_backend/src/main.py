@@ -99,6 +99,11 @@ from .api import (
     media_generating_router,
     comments_router,
     auth_router,
+    media_studio_router,
+    storage_router,
+    webhooks_router,
+    canva_router,
+    workspace_router,
     facebook_router,
     instagram_router,
     linkedin_router,
@@ -111,6 +116,11 @@ app.include_router(improve_media_prompts_router)
 app.include_router(media_generating_router)
 app.include_router(comments_router)
 app.include_router(auth_router)
+app.include_router(media_studio_router)
+app.include_router(storage_router)
+app.include_router(webhooks_router)
+app.include_router(canva_router)
+app.include_router(workspace_router)
 app.include_router(facebook_router)
 app.include_router(instagram_router)
 app.include_router(linkedin_router)
