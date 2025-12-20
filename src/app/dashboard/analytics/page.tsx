@@ -1,11 +1,11 @@
 'use client'
 
 import { useDashboard } from '@/contexts/DashboardContext';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 
 // Dynamic import with no SSR to prevent hydration errors with Recharts
-const AnalyticsDashboard = dynamic(
+const AnalyticsDashboard = dynamicImport(
     () => import('@/components/analytics/AnalyticsDashboard'),
     {
         ssr: false,

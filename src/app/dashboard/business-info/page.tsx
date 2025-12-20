@@ -5,14 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Building2, 
-  Target, 
-  Palette, 
-  MessageSquare, 
-  Plus, 
-  X, 
-  Save, 
+import {
+  Building2,
+  Target,
+  Palette,
+  MessageSquare,
+  Plus,
+  X,
+  Save,
   CheckCircle,
   Globe,
   Package,
@@ -21,29 +21,29 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBusinessInfo } from '@/hooks/useBusinessInfo';
-import { 
-  INDUSTRIES, 
-  TONES, 
-  CONTENT_GOALS, 
+import {
+  INDUSTRIES,
+  TONES,
+  CONTENT_GOALS,
   BRAND_VALUES,
-  BusinessInfo 
+  BusinessInfo
 } from '@/types/businessInfo.types';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
 export default function BusinessInfoPage() {
-  const { 
-    businessInfo, 
-    isLoaded, 
+  const {
+    businessInfo,
+    isLoaded,
     isSaving,
     error: apiError,
-    saveBusinessInfo, 
+    saveBusinessInfo,
     updateField,
     addToArray,
     removeFromArray,
-    isComplete 
+    isComplete
   } = useBusinessInfo();
-  
+
   const [newUSP, setNewUSP] = useState('');
   const [newProduct, setNewProduct] = useState('');
   const [newLocation, setNewLocation] = useState('');
@@ -110,8 +110,8 @@ export default function BusinessInfoPage() {
             This information helps AI generate personalized content for your brand
           </p>
         </div>
-        <Button 
-          onClick={handleSave} 
+        <Button
+          onClick={handleSave}
           disabled={isSaving}
           className={cn("gap-2", saved && "bg-green-600 hover:bg-green-700")}
         >
@@ -459,8 +459,8 @@ export default function BusinessInfoPage() {
 
       {/* Save Button */}
       <div className="flex justify-end pt-4">
-        <Button 
-          onClick={handleSave} 
+        <Button
+          onClick={handleSave}
           disabled={isSaving}
           size="lg"
           className={cn("gap-2", saved && "bg-green-600 hover:bg-green-700")}

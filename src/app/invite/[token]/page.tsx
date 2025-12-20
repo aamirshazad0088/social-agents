@@ -1,5 +1,8 @@
 'use client'
 
+// Force dynamic rendering to prevent SSG during build
+export const dynamic = 'force-dynamic';
+
 import React, { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'

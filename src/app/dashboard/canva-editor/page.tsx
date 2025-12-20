@@ -15,7 +15,7 @@ export default function CanvaEditorPage() {
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-pink-500/20 rounded-full blur-3xl animate-pulse" />
           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
-        
+
         <div className="relative px-6 py-5">
           <div className="flex items-center gap-4">
             {/* Logo */}
@@ -25,7 +25,7 @@ export default function CanvaEditorPage() {
                 <Palette className="w-8 h-8 text-white" />
               </div>
             </div>
-            
+
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-2">
                 Canva Editor

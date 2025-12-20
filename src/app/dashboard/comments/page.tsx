@@ -6,10 +6,10 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  MessageSquare, 
-  RefreshCw, 
-  Bot, 
+import {
+  MessageSquare,
+  RefreshCw,
+  Bot,
   Send,
   Trash2,
   Instagram,
@@ -437,64 +437,64 @@ export default function CommentsPage() {
 
                 {/* Actions */}
                 <div className="px-5 py-4 border-t border-border bg-muted/30">
-                    {replyingTo === comment.id ? (
-                      <div className="space-y-4">
-                        <textarea
-                          value={replyText}
-                          onChange={(e) => setReplyText(e.target.value)}
-                          placeholder="Type your reply..."
-                          className="w-full px-4 py-3 border border-border rounded-xl resize-none h-32 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card shadow-sm text-foreground placeholder:text-muted-foreground"
-                          autoFocus
-                        />
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => sendReply(comment)}
-                            disabled={!replyText.trim() || sendingReply}
-                            className={`${replyButtonStyles} disabled:cursor-not-allowed disabled:opacity-50`}
-                          >
-                            {sendingReply ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Send className="h-4 w-4" />
-                            )}
-                            Send Reply
-                          </button>
-                          <button
-                            onClick={() => {
-                              setReplyingTo(null);
-                              setReplyText('');
-                            }}
-                            className={neutralButtonStyles}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3">
+                  {replyingTo === comment.id ? (
+                    <div className="space-y-4">
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Type your reply..."
+                        className="w-full px-4 py-3 border border-border rounded-xl resize-none h-32 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-card shadow-sm text-foreground placeholder:text-muted-foreground"
+                        autoFocus
+                      />
+                      <div className="flex gap-3">
                         <button
-                          onClick={() => setReplyingTo(comment.id)}
-                          className={replyButtonStyles}
+                          onClick={() => sendReply(comment)}
+                          disabled={!replyText.trim() || sendingReply}
+                          className={`${replyButtonStyles} disabled:cursor-not-allowed disabled:opacity-50`}
                         >
-                          <Send className="h-4 w-4" />
-                          Reply
+                          {sendingReply ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                          Send Reply
                         </button>
                         <button
-                          onClick={() => deleteComment(comment)}
-                          className={deleteButtonStyles}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </button>
-                        <button
-                          onClick={() => dismissComment(comment.id)}
+                          onClick={() => {
+                            setReplyingTo(null);
+                            setReplyText('');
+                          }}
                           className={neutralButtonStyles}
                         >
-                          Dismiss
+                          Cancel
                         </button>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setReplyingTo(comment.id)}
+                        className={replyButtonStyles}
+                      >
+                        <Send className="h-4 w-4" />
+                        Reply
+                      </button>
+                      <button
+                        onClick={() => deleteComment(comment)}
+                        className={deleteButtonStyles}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => dismissComment(comment.id)}
+                        className={neutralButtonStyles}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))
           )}

@@ -1,3 +1,6 @@
+// Force all dashboard routes to be dynamically rendered (prevents SSG during build)
+export const dynamic = 'force-dynamic';
+
 'use client'
 
 import React from 'react';

@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 
 // Dynamic import to avoid SSR issues with the complex component
-const MetaAdsManager = dynamic(
+const MetaAdsManager = dynamicImport(
   () => import('@/components/meta-ads/MetaAdsManager'),
   {
     loading: () => (
