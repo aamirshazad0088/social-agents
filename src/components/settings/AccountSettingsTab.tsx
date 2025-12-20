@@ -97,7 +97,7 @@ const AccountSettingsTab: React.FC = () => {
     try {
       setIsLoading(true)
       // Use Python backend API
-      const data = await credentialsApi.getConnectionStatus(user.id)
+      const data = await credentialsApi.getConnectionStatus()
 
       // Map the connection status response
       const mappedStatus: Record<Platform, any> = {
@@ -313,7 +313,7 @@ const AccountSettingsTab: React.FC = () => {
             try {
               // Use Python backend API
               if (!user) return
-              const status = await credentialsApi.getConnectionStatus(user.id)
+              const status = await credentialsApi.getConnectionStatus()
               const mappedStatus: Record<Platform, any> = {
                 twitter: { isConnected: status.twitter?.connected ?? false, ...status.twitter },
                 linkedin: { isConnected: status.linkedin?.connected ?? false, ...status.linkedin },
@@ -384,7 +384,7 @@ const AccountSettingsTab: React.FC = () => {
         try {
           if (!user) return
           // Use Python backend API
-          const data = await credentialsApi.getConnectionStatus(user.id)
+          const data = await credentialsApi.getConnectionStatus()
           const mappedStatus: Record<Platform, any> = {
             twitter: { isConnected: data.twitter?.connected ?? false, ...data.twitter },
             linkedin: { isConnected: data.linkedin?.connected ?? false, ...data.linkedin },
@@ -429,7 +429,7 @@ const AccountSettingsTab: React.FC = () => {
           try {
             setIsLoading(true)
             // Use Python backend API
-            const data = await credentialsApi.getConnectionStatus(user.id)
+            const data = await credentialsApi.getConnectionStatus()
             const mappedStatus: Record<Platform, any> = {
               twitter: { isConnected: data.twitter?.connected ?? false, ...data.twitter },
               linkedin: { isConnected: data.linkedin?.connected ?? false, ...data.linkedin },

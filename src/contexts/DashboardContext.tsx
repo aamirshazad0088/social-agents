@@ -70,7 +70,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             // Load posts and credentials status in parallel using Python backend
             const [postsData, accountsStatus] = await Promise.all([
                 postsApi.getPosts(user.id, workspaceId),
-                credentialsApi.getConnectionStatus(user.id)
+                credentialsApi.getConnectionStatus()
             ]);
 
             // Map connection status to account summary
