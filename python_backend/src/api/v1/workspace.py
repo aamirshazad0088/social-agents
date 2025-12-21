@@ -106,7 +106,7 @@ def require_admin(role: str) -> None:
 
 # ================== WORKSPACE ENDPOINTS ==================
 
-@router.get("/")
+@router.get("")
 async def get_workspace(user: Dict[str, Any] = Depends(get_current_user)):
     """
     GET /api/v1/workspace
@@ -132,7 +132,7 @@ async def get_workspace(user: Dict[str, Any] = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Failed to get workspace")
 
 
-@router.patch("/")
+@router.patch("")
 async def update_workspace(
     request: UpdateWorkspaceRequest,
     user: Dict[str, Any] = Depends(get_current_user)
@@ -192,7 +192,7 @@ async def update_workspace(
         raise HTTPException(status_code=500, detail="Failed to update workspace")
 
 
-@router.delete("/")
+@router.delete("")
 async def delete_workspace(user: Dict[str, Any] = Depends(get_current_user)):
     """
     DELETE /api/v1/workspace
