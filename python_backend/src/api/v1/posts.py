@@ -125,7 +125,7 @@ def transform_db_post(db_post: dict) -> dict:
 
 # ================== ENDPOINTS ==================
 
-@router.get("/")
+@router.get("")
 async def get_posts(
     user_id: str,
     workspace_id: str = Query(..., alias="workspace_id")
@@ -150,7 +150,7 @@ async def get_posts(
         raise HTTPException(status_code=500, detail="Failed to get posts")
 
 
-@router.post("/")
+@router.post("")
 async def create_post(user_id: str, request: CreatePostRequest):
     """
     POST /api/v1/posts
