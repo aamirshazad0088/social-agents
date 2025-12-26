@@ -1,13 +1,9 @@
-"""Schemas module - Re-exports from agent folders for backward compatibility"""
+"""Schemas module - Re-exports from agent folders"""
 
-# Import from agent folders
 from ..agents.content_strategist_agent import (
-    AttachmentInput,
-    ChatMessage,
     ChatStrategistRequest,
     ChatStrategistResponse,
-    PlatformContent,
-    GeneratedContent,
+    ContentBlock,
 )
 from ..agents.content_improvement_agent import (
     ImproveContentRequest,
@@ -22,18 +18,11 @@ from ..agents.media_prompt_agent import (
     MEDIA_TYPE_GUIDELINES,
 )
 
-# Alias for media prompt schemas
-MediaImprovePromptRequest = ImprovePromptRequest
-MediaImprovePromptResponse = ImprovePromptResponse
-
 __all__ = [
-    # Content Agent
-    "AttachmentInput",
-    "ChatMessage",
+    # Content Strategist Agent
     "ChatStrategistRequest",
     "ChatStrategistResponse",
-    "PlatformContent",
-    "GeneratedContent",
+    "ContentBlock",
     # Content Improvement
     "ImproveContentRequest",
     "ImproveContentResponse",
@@ -41,8 +30,6 @@ __all__ = [
     # Media Prompt Improvement
     "ImprovePromptRequest",
     "ImprovePromptResponse",
-    "MediaImprovePromptRequest",
-    "MediaImprovePromptResponse",
     "MediaType",
     "MediaProvider",
     "MEDIA_TYPE_GUIDELINES",

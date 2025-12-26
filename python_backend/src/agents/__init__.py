@@ -1,15 +1,11 @@
 """Agents Module - AI Agents for Content Creation"""
 
-# Content Agent (Content Strategist Chat)
+# Content Strategist Agent
 from .content_strategist_agent import (
     content_strategist_chat,
-    get_content_agent_memory,
-    close_content_agent_memory,
     ChatStrategistRequest,
     ChatStrategistResponse,
-    PlatformContent,
-    GeneratedContent,
-    AttachmentInput,
+    ContentBlock,
 )
 
 # Content Improvement Agent
@@ -74,15 +70,11 @@ from .comment_agent import (
 )
 
 __all__ = [
-    # Content Agent
+    # Content Strategist Agent
     "content_strategist_chat",
-    "get_content_agent_memory",
-    "close_content_agent_memory",
     "ChatStrategistRequest",
     "ChatStrategistResponse",
-    "PlatformContent",
-    "GeneratedContent",
-    "AttachmentInput",
+    "ContentBlock",
     # Content Improvement Agent
     "improve_content_description",
     "ImproveContentRequest",
