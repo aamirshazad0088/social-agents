@@ -5,12 +5,30 @@
  * Based on langchain-ai/agent-chat-ui pattern.
  */
 
+// All supported file types for upload
 export const SUPPORTED_FILE_TYPES = [
+    // Images
     "image/jpeg",
     "image/png",
     "image/gif",
     "image/webp",
+    // Documents
     "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+    "application/msword", // .doc
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
+    "application/vnd.ms-powerpoint", // .ppt
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+    "application/vnd.ms-excel", // .xls
+    // Text formats
+    "text/plain",
+    "text/markdown",
+    "text/html",
+    "text/csv",
+    // Data formats
+    "application/json",
+    "application/xml",
+    "text/xml",
 ];
 
 export const SUPPORTED_IMAGE_TYPES = [
@@ -18,6 +36,23 @@ export const SUPPORTED_IMAGE_TYPES = [
     "image/png",
     "image/gif",
     "image/webp",
+];
+
+export const SUPPORTED_DOCUMENT_TYPES = [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "text/plain",
+    "text/markdown",
+    "text/html",
+    "text/csv",
+    "application/json",
+    "application/xml",
+    "text/xml",
 ];
 
 /**
@@ -98,6 +133,13 @@ export function isFileTypeSupported(mimeType: string): boolean {
  */
 export function isImageType(mimeType: string): boolean {
     return SUPPORTED_IMAGE_TYPES.includes(mimeType);
+}
+
+/**
+ * Check if a file is a document
+ */
+export function isDocumentType(mimeType: string): boolean {
+    return SUPPORTED_DOCUMENT_TYPES.includes(mimeType);
 }
 
 /**

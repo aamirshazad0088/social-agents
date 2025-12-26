@@ -112,13 +112,14 @@ def build_multimodal_content(message: str, content_blocks: List[ContentBlock] = 
     Converts ContentBlocks to LangChain format:
     - text: {"type": "text", "text": "..."}
     - image: {"type": "image_url", "image_url": {"url": "data:mime;base64,..."}}
+    - file: Extracted text content using document processor
     """
+    from src.utils.document_processor import process_document_from_base64
+    
     content = []
+    document_texts = []
     
-    # Add text message
-    content.append({"type": "text", "text": message})
-    
-    # Add content blocks (images, files)
+    # Process content blocks (images, files) first to gather document context
     if content_blocks:
         for block in content_blocks:
             if block.type == "image" and block.data:
@@ -130,18 +131,44 @@ def build_multimodal_content(message: str, content_blocks: List[ContentBlock] = 
                     "image_url": {"url": data_url}
                 })
             elif block.type == "file" and block.data:
-                # PDF/document - add as text description for now
-                # Note: Full document processing would require additional handling
-                name = block.metadata.get("filename", "document") if block.metadata else "document"
-                content.append({
-                    "type": "text",
-                    "text": f"[Attached file: {name}]"
-                })
+                # PDF/document - extract text using document processor
+                filename = None
+                if block.metadata:
+                    filename = block.metadata.get("filename") or block.metadata.get("name")
+                
+                mime_type = block.mimeType or "application/pdf"
+                
+                try:
+                    extracted_text = process_document_from_base64(
+                        data=block.data,
+                        mime_type=mime_type,
+                        filename=filename
+                    )
+                    if extracted_text:
+                        document_texts.append(extracted_text)
+                        logger.info(f"Extracted {len(extracted_text)} chars from document: {filename}")
+                except Exception as e:
+                    logger.error(f"Failed to process document {filename}: {e}")
+                    document_texts.append(f"[Failed to process document: {filename}]")
+                    
             elif block.type == "text" and block.text:
                 content.append({
                     "type": "text",
                     "text": block.text
                 })
+    
+    # Build the message with document context
+    full_message = message
+    
+    if document_texts:
+        # Prepend document context to the message
+        doc_context = "\n\n---\n## Attached Documents\n\nThe following document(s) have been provided for analysis:\n\n"
+        doc_context += "\n\n---\n\n".join(document_texts)
+        doc_context += "\n\n---\n\n**User's Request:** "
+        full_message = doc_context + message
+    
+    # Add the combined text message
+    content.insert(0, {"type": "text", "text": full_message})
     
     # If only one text block, return simple string for compatibility
     if len(content) == 1 and content[0]["type"] == "text":

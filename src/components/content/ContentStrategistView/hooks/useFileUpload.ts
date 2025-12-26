@@ -53,7 +53,7 @@ export const useFileUpload = () => {
 
         // Report errors
         if (invalidFiles.length > 0) {
-            setError(`Invalid file type. Supported: JPEG, PNG, GIF, WebP, PDF`);
+            setError(`Invalid file type. Supported: Images (JPEG, PNG, GIF, WebP), Documents (PDF, DOCX, PPTX, XLSX), Text (TXT, MD, CSV, JSON)`);
         }
         if (duplicateFiles.length > 0) {
             setError(`Duplicate file: ${duplicateFiles.map(f => f.name).join(', ')}`);
