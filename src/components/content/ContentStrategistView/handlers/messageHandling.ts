@@ -85,11 +85,23 @@ export function handleMessageResult(
     result: MessageResult,
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>
 ): void {
+    console.log('[handleMessageResult] Result:', JSON.stringify(result));
+    console.log('[handleMessageResult] Response exists:', !!result?.response);
+    console.log('[handleMessageResult] Response length:', result?.response?.length);
+
     if (result?.response) {
-        setMessages(prev => [...prev, {
-            role: 'model',
-            content: result.response,
-        }]);
+        console.log('[handleMessageResult] Adding AI message:', result.response.substring(0, 200));
+        setMessages(prev => {
+            const newMessages = [...prev, {
+                role: 'model' as const,
+                content: result.response,
+                isStreaming: false,
+            }];
+            console.log('[handleMessageResult] New messages count:', newMessages.length);
+            return newMessages;
+        });
+    } else {
+        console.error('[handleMessageResult] NO RESPONSE! Result was:', result);
     }
 }
 

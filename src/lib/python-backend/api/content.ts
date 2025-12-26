@@ -80,19 +80,24 @@ export async function chatStrategist(
             for (const line of lines) {
                 if (line.startsWith('data: ')) {
                     try {
-                        const data: StreamEvent = JSON.parse(line.slice(6));
+                        const jsonStr = line.slice(6);
+                        console.log('[Stream] Received:', jsonStr);
+                        const data: StreamEvent = JSON.parse(jsonStr);
 
                         if (data.type === 'update' && data.content) {
                             fullResponse = data.content;
+                            console.log('[Stream] Update:', data.content.substring(0, 100) + '...');
                             onUpdate(data.content);
                         } else if (data.type === 'done') {
+                            console.log('[Stream] Done:', data.response?.substring(0, 100) || fullResponse.substring(0, 100) + '...');
                             onComplete(data.response || fullResponse);
                             return;
                         } else if (data.type === 'error') {
+                            console.error('[Stream] Error:', data.message);
                             throw new Error(data.message || 'Stream error');
                         }
                     } catch (parseError) {
-                        // Skip invalid JSON
+                        console.warn('[Stream] Parse error:', parseError, 'Line:', line);
                     }
                 }
             }

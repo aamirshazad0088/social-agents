@@ -174,26 +174,53 @@ async def content_strategist_chat(
         
         agent = await get_agent()
         
-        accumulated_content = ""
-        
-        # Use astream_events (v2) for token-level streaming
-        # This provides immediate feedback vs waiting for full response
-        async for event in agent.astream_events(
+        async for chunk in agent.astream(
             {"messages": [{"role": "user", "content": message_content}]},
-            config={"configurable": {"thread_id": thread_id}},
-            version="v2"
+            {"configurable": {"thread_id": thread_id}},
+            stream_mode="updates",
         ):
-            kind = event["event"]
-            
-            # Stream tokens from the model
-            if kind == "on_chat_model_stream":
-                chunk = event["data"]["chunk"]
-                if hasattr(chunk, "content") and chunk.content:
-                    accumulated_content += chunk.content
-                    yield {"step": "stream", "content": accumulated_content}
+            for step, data in chunk.items():
+                messages = data.get("messages", [])
+                if messages:
+                    last_message = messages[-1]
+                    raw_content = (
+                        last_message.content 
+                        if hasattr(last_message, 'content') 
+                        else str(last_message)
+                    )
+                    
+                    # Extract text from content - handle both string and list formats
+                    content = extract_text_content(raw_content)
+                    yield {"step": step, "content": content}
         
         logger.info(f"Content strategist completed - Thread: {thread_id}")
         
     except Exception as e:
         logger.error(f"Content strategist error: {e}", exc_info=True)
         yield {"step": "error", "content": str(e)}
+
+
+def extract_text_content(content) -> str:
+    """
+    Extract text from LangChain message content.
+    
+    Content can be:
+    - A plain string
+    - A list of content blocks [{"type": "text", "text": "..."}]
+    """
+    if isinstance(content, str):
+        return content
+    
+    if isinstance(content, list):
+        # Extract text from content blocks
+        text_parts = []
+        for block in content:
+            if isinstance(block, dict):
+                if block.get("type") == "text":
+                    text_parts.append(block.get("text", ""))
+            elif isinstance(block, str):
+                text_parts.append(block)
+        return "\n".join(text_parts)
+    
+    # Fallback: convert to string
+    return str(content)

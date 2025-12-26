@@ -123,6 +123,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
 
     // Scroll to bottom when messages change
     useEffect(() => {
+        console.log('[Messages] Updated, count:', messages.length, 'Messages:', messages.map(m => ({ role: m.role, content: m.content?.substring?.(0, 50) || m.content })));
         if (chatContainerRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
@@ -215,14 +216,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             content: userInput,
             attachments: attachedFiles.length > 0 ? attachedFiles : undefined
         };
-
-        // Add user message AND placeholder AI message
-        setMessages(prev => [
-            ...prev,
-            userMessage,
-            { role: 'model', content: '', isStreaming: true }
-        ]);
-
+        setMessages(prev => [...prev, userMessage]);
         setUserInput('');
         clearBlocks();
         setIsLoading(true);
@@ -232,8 +226,15 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             setHasUserSentMessage(true);
         }
 
+        // Add a placeholder AI message for streaming
+        const aiMessageIndex = messages.length; // Position after user message
+        setMessages(prev => [...prev, {
+            role: 'model',
+            content: '',
+            isStreaming: true,
+        }]);
+
         try {
-            // Use streaming for better UX
             await sendMessageStream(
                 {
                     message: currentMessage,
@@ -241,83 +242,54 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                     contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
                     modelId: selectedModelId,
                 },
-                // onUpdate
-                (content) => {
-                    setMessages(prev => {
-                        const newMessages = [...prev];
-                        const lastMsg = newMessages[newMessages.length - 1];
-                        if (lastMsg.role === 'model') {
-                            lastMsg.content = content;
-                            lastMsg.isStreaming = true;
-                        }
-                        return newMessages;
-                    });
+                // onUpdate - called for each chunk
+                (content: string) => {
+                    setMessages(prev => prev.map((msg, idx) =>
+                        idx === aiMessageIndex + 1
+                            ? { ...msg, content, isStreaming: true }
+                            : msg
+                    ));
                 },
-                // onComplete
-                async (fullResponse) => {
-                    setMessages(prev => {
-                        const newMessages = [...prev];
-                        const lastMsg = newMessages[newMessages.length - 1];
-                        if (lastMsg.role === 'model') {
-                            lastMsg.content = fullResponse;
-                            lastMsg.isStreaming = false;
-                        }
-                        return newMessages;
-                    });
-                    setIsLoading(false);
+                // onComplete - called when done
+                (response: string) => {
+                    setMessages(prev => prev.map((msg, idx) =>
+                        idx === aiMessageIndex + 1
+                            ? { ...msg, content: response, isStreaming: false }
+                            : msg
+                    ));
 
-                    // Create thread if needed (after first response)
+                    // Create thread on first successful response
                     const currentWorkspaceId = workspaceIdRef.current;
                     const currentUser = userRef.current;
                     if (!currentThreadId && currentWorkspaceId && currentUser && langThreadId) {
-                        try {
-                            const title = currentMessage.substring(0, 50) + (currentMessage.length > 50 ? '...' : '');
-                            const newThread = await createThread(
-                                title,
-                                currentWorkspaceId,
-                                currentUser.id,
-                                langThreadId
-                            );
-                            addThread(newThread);
-                        } catch (e) {
-                            console.error("Failed to create thread record:", e);
-                        }
-                    }
-
-                    // Trigger metadata update
-                    if (currentWorkspaceId && langThreadId) {
-                        // This is handled by the useEffect, but we can trigger it or let it naturally happen
+                        const title = currentMessage.substring(0, 50) + (currentMessage.length > 50 ? '...' : '');
+                        createThread(title, currentWorkspaceId, currentUser.id, langThreadId)
+                            .then(newThread => addThread(newThread))
+                            .catch(() => { });
                     }
                 },
                 // onError
-                (err) => {
-                    console.error("Streaming error:", err);
-                    const userFriendlyMessage = formatErrorMessage(err);
-                    setError(userFriendlyMessage);
-                    // Update the streaming message to show error or remove it
-                    setMessages(prev => {
-                        const newMessages = [...prev];
-                        const lastMsg = newMessages[newMessages.length - 1];
-                        if (lastMsg.role === 'model' && lastMsg.isStreaming) {
-                            // Replace streaming placeholder with error
-                            lastMsg.content = "Sorry, I encountered an error generating the response.";
-                            lastMsg.isStreaming = false;
-                        }
-                        // Add system error message
-                        newMessages.push({ role: 'system', content: userFriendlyMessage });
-                        return newMessages;
-                    });
-                    setIsLoading(false);
+                (error: Error) => {
+                    setMessages(prev => prev.map((msg, idx) =>
+                        idx === aiMessageIndex + 1
+                            ? { role: 'system', content: formatErrorMessage(error), isStreaming: false }
+                            : msg
+                    ));
+                    setError(formatErrorMessage(error));
                 }
             );
-
         } catch (err: any) {
-            console.error("Setup error:", err);
             const userFriendlyMessage = formatErrorMessage(err);
             setError(userFriendlyMessage);
+            // Remove the streaming placeholder and add error
+            setMessages(prev => {
+                const filtered = prev.filter((_, idx) => idx !== aiMessageIndex + 1);
+                return [...filtered, { role: 'system', content: userFriendlyMessage }];
+            });
+        } finally {
             setIsLoading(false);
         }
-    }, [userInput, isLoading, isCreatingNewChat, contentBlocks, attachedFiles, hasUserSentMessage, langThreadId, currentThreadId, createThread, addThread, clearBlocks, selectedModelId]);
+    }, [messages.length, userInput, isLoading, isCreatingNewChat, contentBlocks, attachedFiles, hasUserSentMessage, langThreadId, currentThreadId, createThread, addThread, clearBlocks, selectedModelId]);
 
     // Send a message directly (used by suggestion clicks)
     const sendMessageDirect = useCallback(async (messageText: string) => {
@@ -327,14 +299,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             role: 'user',
             content: messageText,
         };
-
-        // Add user message AND placeholder AI message
-        setMessages(prev => [
-            ...prev,
-            userMessage,
-            { role: 'model', content: '', isStreaming: true }
-        ]);
-
+        setMessages(prev => [...prev, userMessage]);
         setUserInput('');
         setIsLoading(true);
         setError(null);
@@ -344,62 +309,20 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
         }
 
         try {
-            await sendMessageStream(
-                {
-                    message: messageText,
-                    threadId: langThreadId ?? '',
-                    modelId: selectedModelId,
-                },
-                // onUpdate
-                (content) => {
-                    setMessages(prev => {
-                        const newMessages = [...prev];
-                        const lastMsg = newMessages[newMessages.length - 1];
-                        if (lastMsg.role === 'model') {
-                            lastMsg.content = content;
-                            lastMsg.isStreaming = true;
-                        }
-                        return newMessages;
-                    });
-                },
-                // onComplete
-                async (fullResponse) => {
-                    setMessages(prev => {
-                        const newMessages = [...prev];
-                        const lastMsg = newMessages[newMessages.length - 1];
-                        if (lastMsg.role === 'model') {
-                            lastMsg.content = fullResponse;
-                            lastMsg.isStreaming = false;
-                        }
-                        return newMessages;
-                    });
-                    setIsLoading(false);
-                },
-                // onError
-                (err) => {
-                    console.error("Streaming error:", err);
-                    const userFriendlyMessage = formatErrorMessage(err);
-                    setError(userFriendlyMessage);
-                    setMessages(prev => {
-                        const newMessages = [...prev];
-                        const lastMsg = newMessages[newMessages.length - 1];
-                        if (lastMsg.role === 'model' && lastMsg.isStreaming) {
-                            lastMsg.content = "Sorry, I encountered an error.";
-                            lastMsg.isStreaming = false;
-                        }
-                        newMessages.push({ role: 'system', content: userFriendlyMessage });
-                        return newMessages;
-                    });
-                    setIsLoading(false);
-                }
-            );
+            const result = await sendMessage({
+                message: messageText,
+                threadId: langThreadId ?? '',
+            });
+
+            handleMessageResult(result, setMessages);
         } catch (err: any) {
-            console.error("Setup error:", err);
             const userFriendlyMessage = formatErrorMessage(err);
             setError(userFriendlyMessage);
+            setMessages(prev => [...prev, { role: 'system', content: userFriendlyMessage }]);
+        } finally {
             setIsLoading(false);
         }
-    }, [isLoading, isCreatingNewChat, hasUserSentMessage, langThreadId, selectedModelId]);
+    }, [isLoading, isCreatingNewChat, hasUserSentMessage, langThreadId]);
 
     // Handle suggestion click - send suggestion as message
     const handleSuggestionClick = useCallback((suggestion: string) => {
