@@ -31,6 +31,12 @@ from .social_service import (
     social_service,
     close_social_service,
 )
+from .token_refresh_service import (
+    token_refresh_service,
+    close_token_refresh_service,
+    CredentialsResult,
+    RefreshErrorType,
+)
 
 __all__ = [
     # Supabase
@@ -61,4 +67,11 @@ __all__ = [
     # Social
     "social_service",
     "close_social_service",
+    # Token Refresh (On-Demand)
+    "token_refresh_service",
+    "close_token_refresh_service",
+    "CredentialsResult",
+    "RefreshErrorType",
 ]
+
+

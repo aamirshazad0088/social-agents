@@ -48,6 +48,17 @@ const nextConfig = {
         source: '/py-api/:path*',
         destination: `${pythonBackendUrl}/api/v1/:path*`,
       },
+      // OAuth Authentication routes (critical for platform connections)
+      {
+        source: '/api/auth/:path*',
+        destination: `${pythonBackendUrl}/api/v1/auth/:path*`,
+      },
+      // Credentials API routes
+      {
+        source: '/api/credentials/:path*',
+        destination: `${pythonBackendUrl}/api/v1/credentials/:path*`,
+      },
+
       // Media Studio API routes
       {
         source: '/api/media-studio/:path*',
@@ -126,6 +137,39 @@ const nextConfig = {
       {
         source: '/api/ai/media/prompt/improve',
         destination: `${pythonBackendUrl}/api/v1/improve/prompt`,
+      },
+      // ===========================================
+      // Social Platform API Routes (Publishing)
+      // ===========================================
+      // Twitter/X API routes
+      {
+        source: '/api/twitter/:path*',
+        destination: `${pythonBackendUrl}/api/v1/social/twitter/:path*`,
+      },
+      // Instagram API routes
+      {
+        source: '/api/instagram/:path*',
+        destination: `${pythonBackendUrl}/api/v1/social/instagram/:path*`,
+      },
+      // Facebook API routes
+      {
+        source: '/api/facebook/:path*',
+        destination: `${pythonBackendUrl}/api/v1/social/facebook/:path*`,
+      },
+      // LinkedIn API routes
+      {
+        source: '/api/linkedin/:path*',
+        destination: `${pythonBackendUrl}/api/v1/social/linkedin/:path*`,
+      },
+      // TikTok API routes
+      {
+        source: '/api/tiktok/:path*',
+        destination: `${pythonBackendUrl}/api/v1/social/tiktok/:path*`,
+      },
+      // YouTube API routes
+      {
+        source: '/api/youtube/:path*',
+        destination: `${pythonBackendUrl}/api/v1/social/youtube/:path*`,
       },
     ];
   },

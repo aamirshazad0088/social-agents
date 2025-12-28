@@ -1094,6 +1094,210 @@ class SocialMediaService:
 social_service = SocialMediaService()
 
 
+# ============================================================================
+# ADDITIONAL OAUTH METHODS (Added to fix missing functions)
+# These are monkey-patched onto the class instance for backwards compatibility
+# ============================================================================
+
+async def _instagram_get_accounts(self, access_token: str):
+    """Get Instagram Business Accounts connected to user's Facebook Pages"""
+    try:
+        app_secret = settings.FACEBOOK_CLIENT_SECRET
+        app_secret_proof = self.generate_app_secret_proof(access_token, app_secret)
+        
+        pages_response = await self.http_client.get(
+            'https://graph.facebook.com/v24.0/me/accounts',
+            params={
+                'fields': 'id,name,access_token,instagram_business_account{id,username,name,profile_picture_url}',
+                'access_token': access_token,
+                'appsecret_proof': app_secret_proof
+            }
+        )
+        pages_response.raise_for_status()
+        pages_data = pages_response.json()
+        
+        accounts = []
+        for page in pages_data.get('data', []):
+            ig_account = page.get('instagram_business_account')
+            if ig_account:
+                accounts.append({
+                    'id': ig_account['id'],
+                    'username': ig_account.get('username'),
+                    'name': ig_account.get('name'),
+                    'profile_picture_url': ig_account.get('profile_picture_url'),
+                    'page_id': page['id'],
+                    'page_name': page.get('name')
+                })
+        
+        if not accounts:
+            return {'success': False, 'error': 'No Instagram Business accounts found'}
+        return {'success': True, 'accounts': accounts}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+async def _twitter_exchange_code_for_token(self, code: str, redirect_uri: str, code_verifier: str):
+    """Exchange Twitter authorization code for access token (OAuth 2.0 PKCE)"""
+    try:
+        import base64
+        client_id = settings.TWITTER_CLIENT_ID
+        client_secret = settings.TWITTER_CLIENT_SECRET
+        
+        if not client_id:
+            return {'success': False, 'error': 'Twitter credentials not configured'}
+        
+        auth_string = f"{client_id}:{client_secret}"
+        auth_header = base64.b64encode(auth_string.encode()).decode()
+        
+        response = await self.http_client.post(
+            'https://api.twitter.com/2/oauth2/token',
+            headers={'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': f'Basic {auth_header}'},
+            data={'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirect_uri, 'code_verifier': code_verifier}
+        )
+        response.raise_for_status()
+        data = response.json()
+        return {'success': True, 'access_token': data['access_token'], 'refresh_token': data.get('refresh_token'), 'expires_in': data.get('expires_in', 7200)}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+async def _twitter_get_user(self, access_token: str):
+    """Get authenticated Twitter user info"""
+    try:
+        response = await self.http_client.get(
+            'https://api.twitter.com/2/users/me',
+            headers={'Authorization': f'Bearer {access_token}'},
+            params={'user.fields': 'id,name,username,profile_image_url'}
+        )
+        response.raise_for_status()
+        return {'success': True, 'user': response.json().get('data', {})}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+async def _linkedin_exchange_code_for_token(self, code: str, redirect_uri: str):
+    """Exchange LinkedIn authorization code for access token"""
+    try:
+        client_id = settings.LINKEDIN_CLIENT_ID
+        client_secret = settings.LINKEDIN_CLIENT_SECRET
+        
+        if not client_id or not client_secret:
+            return {'success': False, 'error': 'LinkedIn credentials not configured'}
+        
+        response = await self.http_client.post(
+            'https://www.linkedin.com/oauth/v2/accessToken',
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+            data={'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirect_uri, 'client_id': client_id, 'client_secret': client_secret}
+        )
+        response.raise_for_status()
+        data = response.json()
+        return {'success': True, 'access_token': data['access_token'], 'refresh_token': data.get('refresh_token'), 'expires_in': data.get('expires_in', 5184000)}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+async def _linkedin_get_user(self, access_token: str):
+    """Get authenticated LinkedIn user info"""
+    try:
+        response = await self.http_client.get(
+            'https://api.linkedin.com/v2/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        response.raise_for_status()
+        return {'success': True, 'user': response.json()}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+async def _tiktok_exchange_code_for_token(self, code: str, redirect_uri: str, code_verifier: str):
+    """Exchange TikTok authorization code for access token"""
+    try:
+        client_key = settings.TIKTOK_CLIENT_ID
+        client_secret = settings.TIKTOK_CLIENT_SECRET
+        
+        if not client_key or not client_secret:
+            return {'success': False, 'error': 'TikTok credentials not configured'}
+        
+        response = await self.http_client.post(
+            'https://open.tiktokapis.com/v2/oauth/token/',
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+            data={'client_key': client_key, 'client_secret': client_secret, 'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirect_uri, 'code_verifier': code_verifier}
+        )
+        response.raise_for_status()
+        data = response.json()
+        return {'success': True, 'access_token': data['access_token'], 'refresh_token': data.get('refresh_token'), 'expires_in': data.get('expires_in', 86400), 'open_id': data.get('open_id')}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+async def _tiktok_get_user(self, access_token: str):
+    """Get authenticated TikTok user info"""
+    try:
+        response = await self.http_client.post(
+            'https://open.tiktokapis.com/v2/user/info/',
+            headers={'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'},
+            json={'fields': ['open_id', 'display_name', 'avatar_url', 'username']}
+        )
+        response.raise_for_status()
+        return {'success': True, 'user': response.json().get('data', {}).get('user', {})}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+async def _youtube_exchange_code_for_token(self, code: str, redirect_uri: str, code_verifier: str):
+    """Exchange YouTube/Google authorization code for access token"""
+    try:
+        client_id = settings.YOUTUBE_CLIENT_ID
+        client_secret = settings.YOUTUBE_CLIENT_SECRET
+        
+        if not client_id or not client_secret:
+            return {'success': False, 'error': 'YouTube credentials not configured'}
+        
+        response = await self.http_client.post(
+            'https://oauth2.googleapis.com/token',
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+            data={'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirect_uri, 'client_id': client_id, 'client_secret': client_secret, 'code_verifier': code_verifier}
+        )
+        response.raise_for_status()
+        data = response.json()
+        return {'success': True, 'access_token': data['access_token'], 'refresh_token': data.get('refresh_token'), 'expires_in': data.get('expires_in', 3600)}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+async def _youtube_get_channel(self, access_token: str):
+    """Get authenticated YouTube channel info"""
+    try:
+        response = await self.http_client.get(
+            'https://www.googleapis.com/youtube/v3/channels',
+            headers={'Authorization': f'Bearer {access_token}'},
+            params={'part': 'snippet,contentDetails', 'mine': 'true'}
+        )
+        response.raise_for_status()
+        data = response.json()
+        items = data.get('items', [])
+        if not items:
+            return {'success': False, 'error': 'No YouTube channel found'}
+        channel = items[0]
+        snippet = channel.get('snippet', {})
+        return {'success': True, 'channel': {'id': channel['id'], 'title': snippet.get('title'), 'thumbnail': snippet.get('thumbnails', {}).get('default', {}).get('url')}}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+# Bind methods to the singleton instance
+import types
+social_service.instagram_get_accounts = types.MethodType(_instagram_get_accounts, social_service)
+social_service.twitter_exchange_code_for_token = types.MethodType(_twitter_exchange_code_for_token, social_service)
+social_service.twitter_get_user = types.MethodType(_twitter_get_user, social_service)
+social_service.linkedin_exchange_code_for_token = types.MethodType(_linkedin_exchange_code_for_token, social_service)
+social_service.linkedin_get_user = types.MethodType(_linkedin_get_user, social_service)
+social_service.tiktok_exchange_code_for_token = types.MethodType(_tiktok_exchange_code_for_token, social_service)
+social_service.tiktok_get_user = types.MethodType(_tiktok_get_user, social_service)
+social_service.youtube_exchange_code_for_token = types.MethodType(_youtube_exchange_code_for_token, social_service)
+social_service.youtube_get_channel = types.MethodType(_youtube_get_channel, social_service)
+
+
 # Helper functions for easy access
 async def close_social_service():
     """Close social media service HTTP client"""

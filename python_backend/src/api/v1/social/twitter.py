@@ -99,14 +99,20 @@ async def get_twitter_credentials(
     if not account.get("is_active"):
         raise HTTPException(status_code=400, detail="X account is inactive")
     
-    credentials = account.get("credentials", {})
+    credentials = account.get("credentials_encrypted", {})
     
-    # OAuth 1.0a requires both accessToken and accessTokenSecret
-    if not credentials.get("accessToken") or not credentials.get("accessTokenSecret"):
+    # OAuth 2.0 requires accessToken only
+    # OAuth 1.0a also needs accessTokenSecret (for legacy media upload)
+    if not credentials.get("accessToken"):
         raise HTTPException(
             status_code=400,
             detail="Invalid X configuration. Please reconnect your account."
         )
+    
+    # For OAuth 2.0 flow, we don't have accessTokenSecret
+    # Set empty string as placeholder for OAuth 1.0a signature if not present
+    if not credentials.get("accessTokenSecret"):
+        credentials["accessTokenSecret"] = ""
     
     return credentials
 
@@ -422,21 +428,27 @@ async def twitter_api_info():
     return {
         "success": True,
         "message": "X (Twitter) API is operational",
-        "version": "1.0.0",
-        "apiVersion": "v2",
+        "version": "2.0.0",
+        "apiVersion": "v2 (December 2025)",
         "authMethod": "OAuth 1.0a",
+        "mediaUploadApi": "v2 chunked upload (INIT/APPEND/FINALIZE)",
         "endpoints": {
             "post": "POST /post - Post tweet to X",
-            "uploadMedia": "POST /upload-media - Upload media and get ID",
+            "uploadMedia": "POST /upload-media - Upload media using v2 API",
             "verify": "GET /verify - Verify connection status"
         },
         "supportedMediaTypes": ["image", "video", "gif"],
+        "limits": {
+            "text": "280 characters",
+            "image": "5MB max, up to 4 per tweet",
+            "video": "512MB max, 2min 20sec, 1 per tweet",
+            "gif": "15MB max, 1 per tweet"
+        },
         "notes": [
-            "Text max length: 280 characters",
-            "Images: max 5MB, up to 4 per tweet",
-            "Videos: max 512MB, 1 per tweet",
-            "GIFs: max 15MB, 1 per tweet",
-            "OAuth 1.0a tokens don't expire",
-            "New domain: x.com (replaces twitter.com)"
+            "Uses X API v2 media upload (Dec 2025)",
+            "Chunked upload for videos/large files",
+            "Async processing for video content",
+            "OAuth 1.0a tokens don't expire"
         ]
     }
+

@@ -5,7 +5,7 @@ Supports: text posts, photos, videos, carousels, reels, stories
 """
 import logging
 from typing import Optional, List, Literal
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Header
 from pydantic import BaseModel, Field
 
@@ -112,7 +112,7 @@ async def get_facebook_credentials(
     if not account.get("is_active"):
         raise HTTPException(status_code=400, detail="Facebook account is inactive")
     
-    credentials = account.get("credentials", {})
+    credentials = account.get("credentials_encrypted", {})
     
     if not credentials.get("accessToken") or not credentials.get("pageId"):
         raise HTTPException(status_code=400, detail="Invalid Facebook configuration")
@@ -126,59 +126,6 @@ async def get_facebook_credentials(
                 status_code=401,
                 detail="Access token expired. Please reconnect your Facebook account."
             )
-    
-    return credentials
-
-
-async def refresh_facebook_token_if_needed(
-    credentials: dict,
-    workspace_id: str
-) -> dict:
-    """
-    Refresh Facebook token if it expires within 7 days
-    
-    Args:
-        credentials: Current Facebook credentials
-        workspace_id: Workspace ID
-        
-    Returns:
-        Updated credentials (refreshed if needed)
-    """
-    expires_at = credentials.get("expiresAt")
-    if not expires_at:
-        return credentials
-    
-    # Refresh if token expires within 7 days
-    REFRESH_BUFFER = timedelta(days=7)
-    expiry_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-    
-    if datetime.utcnow() + REFRESH_BUFFER > expiry_date:
-        try:
-            # Refresh token
-            refresh_result = await social_service.facebook_get_long_lived_token(
-                credentials["accessToken"]
-            )
-            
-            if refresh_result.get("success"):
-                # Update credentials
-                new_expiry = datetime.utcnow() + timedelta(seconds=refresh_result.get("expires_in", 5184000))
-                credentials["accessToken"] = refresh_result["access_token"]
-                credentials["expiresAt"] = new_expiry.isoformat()
-                
-                # Save to database
-                await db_update(
-                    table="social_accounts",
-                    data={"credentials": credentials},
-                    filters={
-                        "workspace_id": workspace_id,
-                        "platform": "facebook"
-                    }
-                )
-                
-                logger.info(f"Refreshed Facebook token for workspace {workspace_id}")
-        except Exception as e:
-            logger.warning(f"Failed to refresh Facebook token: {e}")
-            # Continue with existing token if refresh fails
     
     return credentials
 
@@ -265,9 +212,6 @@ async def post_to_facebook(
         
         # Get Facebook credentials
         credentials = await get_facebook_credentials(user_id, workspace_id, is_cron)
-        
-        # Refresh token if needed
-        credentials = await refresh_facebook_token_if_needed(credentials, workspace_id)
         
         # Get app secret
         app_secret = settings.FACEBOOK_CLIENT_SECRET

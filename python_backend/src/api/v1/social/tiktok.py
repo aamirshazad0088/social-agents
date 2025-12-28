@@ -6,7 +6,7 @@ Uses TikTok API v2 with OAuth 2.0 authentication
 """
 import logging
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Header
 from pydantic import BaseModel, Field
 
@@ -71,69 +71,10 @@ async def get_tiktok_credentials(
     if not account.get("is_active"):
         raise HTTPException(status_code=400, detail="TikTok account is inactive")
     
-    credentials = account.get("credentials", {})
+    credentials = account.get("credentials_encrypted", {})
     
     if not credentials.get("accessToken"):
         raise HTTPException(status_code=400, detail="Invalid TikTok configuration")
-    
-    return credentials
-
-
-async def refresh_tiktok_token_if_needed(
-    credentials: dict,
-    workspace_id: str
-) -> dict:
-    """Refresh TikTok token if it expires within 30 minutes"""
-    expires_at = credentials.get("expiresAt")
-    if not expires_at:
-        return credentials
-    
-    # Refresh if token expires within 30 minutes
-    REFRESH_BUFFER = timedelta(minutes=30)
-    expiry_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-    
-    if datetime.utcnow() + REFRESH_BUFFER > expiry_date:
-        refresh_token = credentials.get("refreshToken")
-        if not refresh_token:
-            if datetime.utcnow() > expiry_date:
-                raise HTTPException(
-                    status_code=401,
-                    detail="TikTok token expired. Please reconnect your account."
-                )
-            return credentials
-        
-        try:
-            client_key = settings.TIKTOK_CLIENT_ID
-            client_secret = settings.TIKTOK_CLIENT_SECRET
-            
-            if not client_key or not client_secret:
-                logger.warning("TikTok client credentials not configured")
-                return credentials
-            
-            refresh_result = await tiktok_service.refresh_access_token(
-                refresh_token,
-                client_key,
-                client_secret
-            )
-            
-            if refresh_result.get("success"):
-                new_expiry = datetime.utcnow() + timedelta(seconds=refresh_result.get("expires_in", 86400))
-                credentials["accessToken"] = refresh_result["access_token"]
-                credentials["refreshToken"] = refresh_result.get("refresh_token", refresh_token)
-                credentials["expiresAt"] = new_expiry.isoformat()
-                
-                await db_update(
-                    table="social_accounts",
-                    data={"credentials": credentials},
-                    filters={
-                        "workspace_id": workspace_id,
-                        "platform": "tiktok"
-                    }
-                )
-                
-                logger.info(f"Refreshed TikTok token for workspace {workspace_id}")
-        except Exception as e:
-            logger.warning(f"Failed to refresh TikTok token: {e}")
     
     return credentials
 
@@ -209,9 +150,6 @@ async def post_to_tiktok(
         
         # Get TikTok credentials
         credentials = await get_tiktok_credentials(user_id, workspace_id, is_cron)
-        
-        # Refresh token if needed
-        credentials = await refresh_tiktok_token_if_needed(credentials, workspace_id)
         
         # Prepare video URL - use proxy if needed
         video_url = request_body.videoUrl

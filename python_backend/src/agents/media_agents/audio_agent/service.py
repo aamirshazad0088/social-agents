@@ -1,13 +1,13 @@
 """
 Audio Generation Service
 Production implementation using ElevenLabs API
-Supports: TTS, Music, Sound Effects, Voice Cloning
+Supports: TTS, Music, Sound Effects, Voice Cloning, Voice Design, Dialog
 """
 import logging
 import time
 import base64
 import httpx
-from typing import Optional
+from typing import Optional, List
 
 from .schemas import (
     TTSRequest,
@@ -18,6 +18,12 @@ from .schemas import (
     SoundEffectsResponse,
     VoiceCloningRequest,
     VoiceCloningResponse,
+    VoiceDesignRequest,
+    VoiceDesignResponse,
+    VoiceDesignPreview,
+    DialogRequest,
+    DialogResponse,
+    DialogInput,
     Voice,
     VoicesResponse,
 )
@@ -240,6 +246,9 @@ async def generate_sound_effects(request: SoundEffectsRequest) -> SoundEffectsRe
         if request.promptInfluence is not None:
             body["prompt_influence"] = request.promptInfluence
         
+        if request.loop:
+            body["seamless_loop"] = True
+        
         logger.info(f"Generating sound effect: {request.prompt[:50]}...")
         
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -400,3 +409,266 @@ async def clone_voice(request: VoiceCloningRequest) -> VoiceCloningResponse:
     except Exception as e:
         logger.error(f"Voice cloning error: {e}", exc_info=True)
         return VoiceCloningResponse(success=False, error=str(e))
+
+
+# ============================================================================
+# Voice Design (Text-to-Voice)
+# ============================================================================
+
+async def design_voice(request: VoiceDesignRequest) -> VoiceDesignResponse:
+    """
+    Design a custom voice from text description.
+    
+    Uses ElevenLabs Text-to-Voice API to generate voice previews
+    from a text description of the desired voice characteristics.
+    
+    Models:
+    - eleven_multilingual_ttv_v2: Stable, supports many languages
+    - eleven_ttv_v3: More expressive, newer model
+    
+    Args:
+        request: Voice design request with description and preview text
+        
+    Returns:
+        VoiceDesignResponse with list of voice previews
+    """
+    start_time = time.time()
+    
+    try:
+        api_key = get_api_key()
+        
+        if not request.voiceDescription:
+            return VoiceDesignResponse(
+                success=False,
+                error="Voice description is required for design action"
+            )
+        
+        if not request.text:
+            return VoiceDesignResponse(
+                success=False,
+                error="Preview text is required for design action"
+            )
+        
+        body = {
+            "voice_description": request.voiceDescription,
+            "text": request.text,
+        }
+        
+        if request.model:
+            body["model_id"] = request.model
+        
+        logger.info(f"Designing voice: {request.voiceDescription[:50]}...")
+        
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            response = await client.post(
+                f"{ELEVENLABS_BASE_URL}/text-to-voice/design",
+                headers={
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json",
+                },
+                json=body,
+            )
+            
+            if not response.is_success:
+                error_text = response.text
+                logger.error(f"Voice design error: {response.status_code} - {error_text}")
+                return VoiceDesignResponse(
+                    success=False,
+                    error=f"Voice design failed: {response.status_code}"
+                )
+            
+            result = response.json()
+            
+            # Parse previews from response
+            previews = []
+            for preview in result.get("previews", []):
+                audio_base64 = preview.get("audio_base_64", "")
+                generated_id = preview.get("generated_voice_id", "")
+                if audio_base64 and generated_id:
+                    previews.append(VoiceDesignPreview(
+                        generatedVoiceId=generated_id,
+                        audioBase64=audio_base64
+                    ))
+            
+            if not previews:
+                return VoiceDesignResponse(
+                    success=False,
+                    error="No voice previews generated. Try a different description."
+                )
+            
+            generation_time = int((time.time() - start_time) * 1000)
+            logger.info(f"Voice design generated {len(previews)} previews in {generation_time}ms")
+            
+            return VoiceDesignResponse(success=True, previews=previews)
+            
+    except ValueError as e:
+        return VoiceDesignResponse(success=False, error=str(e))
+    
+    except Exception as e:
+        logger.error(f"Voice design error: {e}", exc_info=True)
+        return VoiceDesignResponse(success=False, error=str(e))
+
+
+async def save_designed_voice(request: VoiceDesignRequest) -> VoiceDesignResponse:
+    """
+    Save a designed voice to the voice library.
+    
+    After generating voice previews with design_voice(), use this function
+    to save the selected voice to your ElevenLabs account.
+    
+    Args:
+        request: Voice design request with generatedVoiceId and name
+        
+    Returns:
+        VoiceDesignResponse with saved voiceId
+    """
+    try:
+        api_key = get_api_key()
+        
+        if not request.generatedVoiceId:
+            return VoiceDesignResponse(
+                success=False,
+                error="Generated voice ID is required for save action"
+            )
+        
+        if not request.name:
+            return VoiceDesignResponse(
+                success=False,
+                error="Voice name is required for save action"
+            )
+        
+        body = {
+            "voice_name": request.name,
+            "generated_voice_id": request.generatedVoiceId,
+        }
+        
+        if request.description:
+            body["voice_description"] = request.description
+        
+        logger.info(f"Saving designed voice: {request.name}")
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{ELEVENLABS_BASE_URL}/text-to-voice",
+                headers={
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json",
+                },
+                json=body,
+            )
+            
+            if not response.is_success:
+                error_text = response.text
+                logger.error(f"Save voice error: {response.status_code} - {error_text}")
+                return VoiceDesignResponse(
+                    success=False,
+                    error=f"Failed to save voice: {response.status_code}"
+                )
+            
+            result = response.json()
+            voice_id = result.get("voice_id")
+            
+            logger.info(f"Voice saved successfully: {voice_id}")
+            
+            return VoiceDesignResponse(success=True, voiceId=voice_id)
+            
+    except ValueError as e:
+        return VoiceDesignResponse(success=False, error=str(e))
+    
+    except Exception as e:
+        logger.error(f"Save voice error: {e}", exc_info=True)
+        return VoiceDesignResponse(success=False, error=str(e))
+
+
+# ============================================================================
+# Dialog Generation (Text-to-Dialogue)
+# ============================================================================
+
+async def generate_dialog(request: DialogRequest) -> DialogResponse:
+    """
+    Generate multi-speaker dialog using ElevenLabs Text-to-Dialogue API.
+    
+    Creates natural-sounding conversations with multiple voices.
+    Uses the Eleven v3 model for best results.
+    
+    Supports audio tags for emotions and delivery:
+    - Emotions: [sad], [laughing], [whispering], [excited]
+    - Events: [applause], [footsteps], [door creaking]
+    
+    Args:
+        request: Dialog request with list of speaker inputs
+        
+    Returns:
+        DialogResponse with combined audio
+    """
+    start_time = time.time()
+    
+    try:
+        api_key = get_api_key()
+        
+        if len(request.inputs) < 2:
+            return DialogResponse(
+                success=False,
+                error="Dialog requires at least 2 speakers"
+            )
+        
+        # Build inputs for ElevenLabs API (flat array per docs)
+        inputs = [
+            {
+                "voice_id": inp.voiceId,
+                "text": inp.text,
+            }
+            for inp in request.inputs
+        ]
+        
+        body = {
+            "inputs": inputs,
+            "model_id": request.modelId or "eleven_v3",
+        }
+        
+        # Build query params for output format
+        params = {}
+        if request.outputFormat:
+            params["output_format"] = request.outputFormat
+        
+        logger.info(f"Generating dialog with {len(request.inputs)} speakers")
+        
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                f"{ELEVENLABS_BASE_URL}/text-to-dialogue",
+                headers={
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json",
+                },
+                params=params,
+                json=body,
+            )
+            
+            if not response.is_success:
+                error_text = response.text
+                logger.error(f"Dialog generation error: {response.status_code} - {error_text}")
+                return DialogResponse(
+                    success=False,
+                    error=f"Dialog generation failed: {response.status_code}"
+                )
+            
+            audio_bytes = response.content
+            audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+            
+            generation_time = int((time.time() - start_time) * 1000)
+            
+            logger.info(f"Dialog generated successfully in {generation_time}ms")
+            
+            return DialogResponse(
+                success=True,
+                audioBase64=audio_base64,
+                audioUrl=audio_to_data_url(audio_bytes, "mp3"),
+                generationTime=generation_time
+            )
+            
+    except ValueError as e:
+        return DialogResponse(success=False, error=str(e))
+    
+    except Exception as e:
+        logger.error(f"Dialog generation error: {e}", exc_info=True)
+        return DialogResponse(success=False, error=str(e))

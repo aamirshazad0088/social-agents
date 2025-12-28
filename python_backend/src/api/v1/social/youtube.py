@@ -6,7 +6,7 @@ Uses YouTube API v3 with OAuth 2.0 authentication
 """
 import logging
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Header
 from pydantic import BaseModel, Field
 
@@ -75,69 +75,10 @@ async def get_youtube_credentials(
     if not account.get("is_active"):
         raise HTTPException(status_code=400, detail="YouTube account is inactive")
     
-    credentials = account.get("credentials", {})
+    credentials = account.get("credentials_encrypted", {})
     
     if not credentials.get("accessToken"):
         raise HTTPException(status_code=400, detail="Invalid YouTube configuration")
-    
-    return credentials
-
-
-async def refresh_youtube_token_if_needed(
-    credentials: dict,
-    workspace_id: str
-) -> dict:
-    """Refresh YouTube token if it expires within 5 minutes"""
-    expires_at = credentials.get("expiresAt")
-    if not expires_at:
-        return credentials
-    
-    # Refresh if token expires within 5 minutes
-    REFRESH_BUFFER = timedelta(minutes=5)
-    expiry_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-    
-    if datetime.utcnow() + REFRESH_BUFFER > expiry_date:
-        refresh_token = credentials.get("refreshToken")
-        if not refresh_token:
-            if datetime.utcnow() > expiry_date:
-                raise HTTPException(
-                    status_code=401,
-                    detail="YouTube token expired. Please reconnect your account."
-                )
-            return credentials
-        
-        try:
-            client_id = settings.YOUTUBE_CLIENT_ID
-            client_secret = settings.YOUTUBE_CLIENT_SECRET
-            
-            if not client_id or not client_secret:
-                logger.warning("YouTube client credentials not configured")
-                return credentials
-            
-            refresh_result = await youtube_service.refresh_access_token(
-                refresh_token,
-                client_id,
-                client_secret
-            )
-            
-            if refresh_result.get("success"):
-                new_expiry = datetime.utcnow() + timedelta(seconds=refresh_result.get("expires_in", 3600))
-                credentials["accessToken"] = refresh_result["access_token"]
-                credentials["refreshToken"] = refresh_result.get("refresh_token", refresh_token)
-                credentials["expiresAt"] = new_expiry.isoformat()
-                
-                await db_update(
-                    table="social_accounts",
-                    data={"credentials": credentials},
-                    filters={
-                        "workspace_id": workspace_id,
-                        "platform": "youtube"
-                    }
-                )
-                
-                logger.info(f"Refreshed YouTube token for workspace {workspace_id}")
-        except Exception as e:
-            logger.warning(f"Failed to refresh YouTube token: {e}")
     
     return credentials
 
@@ -209,9 +150,6 @@ async def post_to_youtube(
         
         # Get YouTube credentials
         credentials = await get_youtube_credentials(user_id, workspace_id, is_cron)
-        
-        # Refresh token if needed
-        credentials = await refresh_youtube_token_if_needed(credentials, workspace_id)
         
         # Upload video from URL
         result = await youtube_service.upload_video_from_url(

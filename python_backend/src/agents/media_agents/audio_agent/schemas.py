@@ -65,6 +65,7 @@ class SoundEffectsRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=500, description="Sound effect prompt")
     durationSeconds: Optional[float] = Field(None, ge=0.1, le=30.0, description="Duration in seconds")
     promptInfluence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Prompt influence")
+    loop: Optional[bool] = Field(False, description="Create seamless loop (eleven_text_to_sound_v2 only)")
 
 
 class SoundEffectsResponse(BaseModel):
@@ -93,6 +94,61 @@ class VoiceCloningResponse(BaseModel):
     success: bool
     voiceId: Optional[str] = None
     error: Optional[str] = None
+
+
+# ============================================================================
+# Voice Design Types (Text-to-Voice)
+# ============================================================================
+
+class VoiceDesignRequest(BaseModel):
+    """Request for voice design from text description"""
+    action: Literal["design", "save"] = Field(..., description="'design' to create previews, 'save' to save voice")
+    voiceDescription: Optional[str] = Field(None, min_length=20, max_length=1000, description="Voice description for design")
+    text: Optional[str] = Field(None, min_length=100, max_length=1000, description="Preview text to speak")
+    generatedVoiceId: Optional[str] = Field(None, description="Generated voice ID for save action")
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="Voice name for save action")
+    description: Optional[str] = Field(None, max_length=500, description="Voice description for save action")
+    model: Optional[str] = Field("eleven_multilingual_ttv_v2", description="TTV model: eleven_multilingual_ttv_v2 or eleven_ttv_v3")
+
+
+class VoiceDesignPreview(BaseModel):
+    """Voice design preview with audio"""
+    generatedVoiceId: str
+    audioBase64: str
+
+
+class VoiceDesignResponse(BaseModel):
+    """Response from voice design"""
+    success: bool
+    previews: Optional[List[VoiceDesignPreview]] = None
+    voiceId: Optional[str] = None
+    error: Optional[str] = None
+
+
+# ============================================================================
+# Dialog Generation Types (Text-to-Dialogue)
+# ============================================================================
+
+class DialogInput(BaseModel):
+    """Single dialog line with voice"""
+    text: str = Field(..., min_length=1, max_length=2000, description="Dialog text")
+    voiceId: str = Field(..., description="Voice ID for this line")
+
+
+class DialogRequest(BaseModel):
+    """Request for multi-speaker dialog generation"""
+    inputs: List[DialogInput] = Field(..., min_length=2, description="Dialog inputs (min 2 speakers)")
+    modelId: Optional[str] = Field("eleven_v3", description="Model ID (eleven_v3 recommended)")
+    outputFormat: Optional[str] = Field("mp3_44100_128", description="Output audio format")
+
+
+class DialogResponse(BaseModel):
+    """Response from dialog generation"""
+    success: bool
+    audioBase64: Optional[str] = None
+    audioUrl: Optional[str] = None
+    error: Optional[str] = None
+    generationTime: Optional[int] = None
 
 
 # ============================================================================

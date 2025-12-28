@@ -14,6 +14,7 @@ from .v1 import (
     posts_router,
     credentials_router,
     cloudinary_router,
+    token_refresh_router,
     facebook_router,
     instagram_router,
     linkedin_router,
@@ -37,6 +38,7 @@ __all__ = [
     "posts_router",
     "credentials_router",
     "cloudinary_router",
+    "token_refresh_router",
     "facebook_router",
     "instagram_router",
     "linkedin_router",
@@ -44,6 +46,7 @@ __all__ = [
     "tiktok_router",
     "youtube_router"
 ]
+
 
 
 

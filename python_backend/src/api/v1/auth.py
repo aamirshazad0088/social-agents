@@ -4,7 +4,7 @@ Production-ready OAuth2 endpoints for social platform authentication
 Supports: Facebook, Instagram, LinkedIn, Twitter, TikTok, YouTube
 """
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Literal
 from urllib.parse import urlencode
 
@@ -122,8 +122,8 @@ async def initiate_oauth(platform: Platform, request: Request):
         if not client_id:
             raise HTTPException(status_code=500, detail=f"{platform.title()} is not configured")
         
-        # Build callback URL
-        callback_url = f"{settings.APP_URL}/api/v1/auth/oauth/{platform}/callback"
+        # Build callback URL using BACKEND_URL for OAuth redirects
+        callback_url = settings.get_oauth_callback_url(platform)
         
         # Create OAuth state
         ip_address = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
@@ -259,8 +259,8 @@ async def oauth_callback(
         if not code_verifier and platform not in ["facebook", "instagram"]:
             code_verifier = request.cookies.get(f"oauth_{platform}_verifier")
         
-        # Platform-specific token exchange
-        callback_url = f"{settings.APP_URL}/api/v1/auth/oauth/{platform}/callback"
+        # Platform-specific token exchange - use BACKEND_URL for verification
+        callback_url = settings.get_oauth_callback_url(platform)
         
         if platform == "facebook":
             return await _handle_facebook_callback(code, workspace_id, callback_url)
@@ -287,26 +287,53 @@ async def _save_social_account(
     platform: str,
     account_id: str,
     account_name: str,
-    credentials: dict
+    credentials: dict,
+    expires_at: datetime = None
 ) -> None:
-    """Save or update social account credentials"""
+    """
+    Save or update social account credentials with token expiration tracking.
+    
+    Args:
+        workspace_id: Workspace UUID
+        platform: Platform name (twitter, instagram, etc.)
+        account_id: Platform-specific account ID
+        account_name: Display name for the account
+        credentials: OAuth credentials dict
+        expires_at: Token expiration datetime (UTC)
+    """
+    now = datetime.now(timezone.utc)
+    
+    data = {
+        "workspace_id": workspace_id,
+        "platform": platform,
+        "account_id": account_id,
+        "account_name": account_name,
+        "credentials_encrypted": credentials,
+        "is_active": True,
+        "is_connected": True,
+        "connected_at": now.isoformat(),
+        "last_refreshed_at": now.isoformat(),
+        "refresh_error_count": 0,
+        "last_error_message": None,
+        "updated_at": now.isoformat()
+    }
+    
+    # Add token expiration if provided
+    if expires_at:
+        data["expires_at"] = expires_at.isoformat()
+        # Also store in credentials for frontend access
+        credentials["expiresAt"] = expires_at.isoformat()
+        data["credentials_encrypted"] = credentials
+    
     await db_upsert(
         table="social_accounts",
-        data={
-            "workspace_id": workspace_id,
-            "platform": platform,
-            "account_id": account_id,
-            "account_name": account_name,
-            "credentials": credentials,
-            "is_active": True,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        },
+        data=data,
         on_conflict="workspace_id,platform,account_id"
     )
 
 
 async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: str):
-    """Handle Facebook OAuth callback"""
+    """Handle Facebook OAuth callback with token expiration tracking"""
     try:
         # Exchange code for token
         token_result = await social_service.facebook_exchange_code_for_token(code, callback_url)
@@ -315,11 +342,22 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
             return RedirectResponse(url=get_error_redirect("token_exchange_failed"))
         
         access_token = token_result["access_token"]
+        expires_in = token_result.get("expires_in")  # Short-lived token expiry
         
-        # Get long-lived token
+        # Get long-lived token (60 days)
         long_lived_result = await social_service.facebook_get_long_lived_token(access_token)
         if long_lived_result.get("success"):
             access_token = long_lived_result["access_token"]
+            # Long-lived tokens expire in ~60 days (5184000 seconds)
+            expires_in = long_lived_result.get("expires_in", 5184000)
+        
+        # Calculate token expiration timestamp
+        expires_at = None
+        if expires_in:
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+        else:
+            # Default to 60 days for long-lived tokens
+            expires_at = datetime.now(timezone.utc) + timedelta(days=60)
         
         # Get Facebook pages
         pages_result = await social_service.facebook_get_pages(access_token)
@@ -344,10 +382,11 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
             platform="facebook",
             account_id=selected_page["id"],
             account_name=selected_page["name"],
-            credentials=credentials
+            credentials=credentials,
+            expires_at=expires_at
         )
         
-        logger.info(f"Facebook connected - workspace: {workspace_id}")
+        logger.info(f"Facebook connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}")
         return RedirectResponse(url=get_success_redirect("facebook"))
         
     except Exception as e:
@@ -356,7 +395,7 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
 
 
 async def _handle_instagram_callback(code: str, workspace_id: str, callback_url: str):
-    """Handle Instagram OAuth callback (via Facebook)"""
+    """Handle Instagram OAuth callback (via Facebook) with token expiration tracking"""
     try:
         # Exchange code for token (same as Facebook)
         token_result = await social_service.facebook_exchange_code_for_token(code, callback_url)
@@ -365,11 +404,21 @@ async def _handle_instagram_callback(code: str, workspace_id: str, callback_url:
             return RedirectResponse(url=get_error_redirect("token_exchange_failed"))
         
         access_token = token_result["access_token"]
+        expires_in = token_result.get("expires_in")
         
-        # Get long-lived token
+        # Get long-lived token (60 days)
         long_lived_result = await social_service.facebook_get_long_lived_token(access_token)
         if long_lived_result.get("success"):
             access_token = long_lived_result["access_token"]
+            expires_in = long_lived_result.get("expires_in", 5184000)
+        
+        # Calculate token expiration timestamp
+        expires_at = None
+        if expires_in:
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+        else:
+            # Default to 60 days for Instagram long-lived tokens
+            expires_at = datetime.now(timezone.utc) + timedelta(days=60)
         
         # Get Instagram business accounts
         ig_result = await social_service.instagram_get_accounts(access_token)
@@ -391,10 +440,11 @@ async def _handle_instagram_callback(code: str, workspace_id: str, callback_url:
             platform="instagram",
             account_id=selected_account["id"],
             account_name=selected_account.get("username", "Instagram Account"),
-            credentials=credentials
+            credentials=credentials,
+            expires_at=expires_at
         )
         
-        logger.info(f"Instagram connected - workspace: {workspace_id}")
+        logger.info(f"Instagram connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}")
         return RedirectResponse(url=get_success_redirect("instagram"))
         
     except Exception as e:
@@ -403,7 +453,7 @@ async def _handle_instagram_callback(code: str, workspace_id: str, callback_url:
 
 
 async def _handle_twitter_callback(code: str, workspace_id: str, callback_url: str, code_verifier: str):
-    """Handle Twitter OAuth callback"""
+    """Handle Twitter OAuth callback with token expiration tracking"""
     try:
         if not code_verifier:
             return RedirectResponse(url=get_error_redirect("missing_verifier"))
@@ -418,6 +468,14 @@ async def _handle_twitter_callback(code: str, workspace_id: str, callback_url: s
         
         access_token = token_result["access_token"]
         refresh_token = token_result.get("refresh_token")
+        expires_in = token_result.get("expires_in")
+        
+        # Calculate token expiration timestamp
+        # Twitter OAuth 2.0 tokens expire in 2 hours (7200 seconds)
+        if expires_in:
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+        else:
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=2)
         
         # Get user info
         user_result = await social_service.twitter_get_user(access_token)
@@ -441,10 +499,11 @@ async def _handle_twitter_callback(code: str, workspace_id: str, callback_url: s
             platform="twitter",
             account_id=user_data["id"],
             account_name=f"@{user_data['username']}",
-            credentials=credentials
+            credentials=credentials,
+            expires_at=expires_at
         )
         
-        logger.info(f"Twitter connected - workspace: {workspace_id}")
+        logger.info(f"Twitter connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}")
         return RedirectResponse(url=get_success_redirect("twitter"))
         
     except Exception as e:
@@ -453,7 +512,7 @@ async def _handle_twitter_callback(code: str, workspace_id: str, callback_url: s
 
 
 async def _handle_linkedin_callback(code: str, workspace_id: str, callback_url: str):
-    """Handle LinkedIn OAuth callback"""
+    """Handle LinkedIn OAuth callback with token expiration tracking"""
     try:
         # Exchange code for token
         token_result = await social_service.linkedin_exchange_code_for_token(code, callback_url)
@@ -462,6 +521,15 @@ async def _handle_linkedin_callback(code: str, workspace_id: str, callback_url: 
             return RedirectResponse(url=get_error_redirect("token_exchange_failed"))
         
         access_token = token_result["access_token"]
+        expires_in = token_result.get("expires_in")
+        refresh_token = token_result.get("refresh_token")
+        
+        # Calculate token expiration timestamp
+        # LinkedIn access tokens expire in 60 days (5184000 seconds)
+        if expires_in:
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+        else:
+            expires_at = datetime.now(timezone.utc) + timedelta(days=60)
         
         # Get user info
         user_result = await social_service.linkedin_get_user(access_token)
@@ -472,6 +540,7 @@ async def _handle_linkedin_callback(code: str, workspace_id: str, callback_url: 
         
         credentials = {
             "accessToken": access_token,
+            "refreshToken": refresh_token,
             "userId": user_data["sub"],
             "name": user_data.get("name"),
             "email": user_data.get("email"),
@@ -485,10 +554,11 @@ async def _handle_linkedin_callback(code: str, workspace_id: str, callback_url: 
             platform="linkedin",
             account_id=user_data["sub"],
             account_name=user_data.get("name", "LinkedIn User"),
-            credentials=credentials
+            credentials=credentials,
+            expires_at=expires_at
         )
         
-        logger.info(f"LinkedIn connected - workspace: {workspace_id}")
+        logger.info(f"LinkedIn connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}")
         return RedirectResponse(url=get_success_redirect("linkedin"))
         
     except Exception as e:
@@ -497,7 +567,7 @@ async def _handle_linkedin_callback(code: str, workspace_id: str, callback_url: 
 
 
 async def _handle_tiktok_callback(code: str, workspace_id: str, callback_url: str, code_verifier: str):
-    """Handle TikTok OAuth callback"""
+    """Handle TikTok OAuth callback with token expiration tracking"""
     try:
         if not code_verifier:
             return RedirectResponse(url=get_error_redirect("missing_verifier"))
@@ -512,6 +582,14 @@ async def _handle_tiktok_callback(code: str, workspace_id: str, callback_url: st
         
         access_token = token_result["access_token"]
         refresh_token = token_result.get("refresh_token")
+        expires_in = token_result.get("expires_in")
+        
+        # Calculate token expiration timestamp
+        # TikTok access tokens expire in 24 hours (86400 seconds)
+        if expires_in:
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+        else:
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
         
         # Get user info
         user_result = await social_service.tiktok_get_user(access_token)
@@ -535,10 +613,11 @@ async def _handle_tiktok_callback(code: str, workspace_id: str, callback_url: st
             platform="tiktok",
             account_id=user_data.get("open_id", "unknown"),
             account_name=user_data.get("display_name", "TikTok User"),
-            credentials=credentials
+            credentials=credentials,
+            expires_at=expires_at
         )
         
-        logger.info(f"TikTok connected - workspace: {workspace_id}")
+        logger.info(f"TikTok connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}")
         return RedirectResponse(url=get_success_redirect("tiktok"))
         
     except Exception as e:
@@ -547,7 +626,7 @@ async def _handle_tiktok_callback(code: str, workspace_id: str, callback_url: st
 
 
 async def _handle_youtube_callback(code: str, workspace_id: str, callback_url: str, code_verifier: str):
-    """Handle YouTube OAuth callback"""
+    """Handle YouTube OAuth callback with token expiration tracking"""
     try:
         if not code_verifier:
             return RedirectResponse(url=get_error_redirect("missing_verifier"))
@@ -562,6 +641,14 @@ async def _handle_youtube_callback(code: str, workspace_id: str, callback_url: s
         
         access_token = token_result["access_token"]
         refresh_token = token_result.get("refresh_token")
+        expires_in = token_result.get("expires_in")
+        
+        # Calculate token expiration timestamp
+        # YouTube/Google access tokens expire in 1 hour (3600 seconds)
+        if expires_in:
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(expires_in))
+        else:
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
         
         # Get channel info
         channel_result = await social_service.youtube_get_channel(access_token)
@@ -585,10 +672,11 @@ async def _handle_youtube_callback(code: str, workspace_id: str, callback_url: s
             platform="youtube",
             account_id=channel_data["id"],
             account_name=channel_data.get("title", "YouTube Channel"),
-            credentials=credentials
+            credentials=credentials,
+            expires_at=expires_at
         )
         
-        logger.info(f"YouTube connected - workspace: {workspace_id}")
+        logger.info(f"YouTube connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}")
         return RedirectResponse(url=get_success_redirect("youtube"))
         
     except Exception as e:

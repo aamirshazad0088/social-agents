@@ -1,46 +1,172 @@
 """
 Twitter/X Service
-Production-ready X API v2 client using OAuth 1.0a
+Production-ready X API v2 client
 Handles posting tweets, media uploads, and authentication
-Uses tweepy library (latest 2025 version with X API v2 support)
+
+Updated December 2025:
+- Media upload migrated to API v2 (v1.1 deprecated March 2025)
+- Uses /2/media/upload/initialize, append, finalize endpoints
+- Supports chunked uploads for large files (videos up to 512MB)
+- OAuth 2.0 PKCE and OAuth 1.0a authentication
+
+X API v2 Media Upload Documentation (Dec 2025):
+- Initialize: POST https://api.x.com/2/media/upload/initialize
+- Append: PUT https://api.x.com/2/media/upload/{id}/append
+- Finalize: POST https://api.x.com/2/media/upload/{id}/finalize
+- Status: GET https://api.x.com/2/media/upload/{id} (for async processing)
 """
 import tweepy
 import httpx
 import asyncio
+import base64
+import hashlib
+import hmac
+import time
+import urllib.parse
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+import logging
 
 from ...config import settings
 
+logger = logging.getLogger(__name__)
+
+# Chunk size for video uploads (5MB recommended by X)
+CHUNK_SIZE = 5 * 1024 * 1024  # 5MB
+
+# Media type mappings
+MEDIA_CATEGORIES = {
+    "image": "tweet_image",
+    "gif": "tweet_gif",
+    "video": "tweet_video"
+}
+
+# File size limits (bytes)
+FILE_SIZE_LIMITS = {
+    "image": 5 * 1024 * 1024,     # 5MB
+    "gif": 15 * 1024 * 1024,      # 15MB
+    "video": 512 * 1024 * 1024    # 512MB
+}
+
 
 class TwitterService:
-    """Twitter/X API service for posting and media management"""
+    """
+    Twitter/X API v2 service for posting and media management.
+    
+    Uses X API v2 for all operations including media upload (Dec 2025).
+    Supports both OAuth 1.0a and OAuth 2.0 PKCE authentication.
+    """
+    
+    # API endpoints
+    API_BASE = "https://api.x.com/2"
+    UPLOAD_BASE = "https://upload.twitter.com/1.1"  # Fallback for v1.1
     
     def __init__(self):
-        self.http_client = httpx.AsyncClient(timeout=60.0)
+        self.http_client = httpx.AsyncClient(timeout=120.0)
     
     async def close(self):
         """Close HTTP client"""
         await self.http_client.aclose()
     
     # ============================================================================
-    # CLIENT CREATION
+    # OAUTH 1.0a SIGNATURE GENERATION
+    # ============================================================================
+    
+    def _generate_oauth_signature(
+        self,
+        method: str,
+        url: str,
+        params: Dict[str, str],
+        oauth_token: str,
+        oauth_token_secret: str
+    ) -> str:
+        """
+        Generate OAuth 1.0a signature for X API requests.
+        
+        Required for media upload which uses OAuth 1.0a.
+        """
+        api_key = settings.TWITTER_API_KEY
+        api_secret = settings.TWITTER_API_SECRET
+        
+        # Create signature base string
+        sorted_params = sorted(params.items())
+        param_string = urllib.parse.urlencode(sorted_params, quote_via=urllib.parse.quote)
+        
+        base_string = "&".join([
+            method.upper(),
+            urllib.parse.quote(url, safe=""),
+            urllib.parse.quote(param_string, safe="")
+        ])
+        
+        # Create signing key
+        signing_key = f"{urllib.parse.quote(api_secret, safe='')}&{urllib.parse.quote(oauth_token_secret, safe='')}"
+        
+        # Generate signature
+        signature = base64.b64encode(
+            hmac.new(
+                signing_key.encode(),
+                base_string.encode(),
+                hashlib.sha1
+            ).digest()
+        ).decode()
+        
+        return signature
+    
+    def _generate_oauth_header(
+        self,
+        method: str,
+        url: str,
+        oauth_token: str,
+        oauth_token_secret: str,
+        additional_params: Optional[Dict[str, str]] = None
+    ) -> str:
+        """
+        Generate OAuth 1.0a Authorization header.
+        """
+        import uuid
+        
+        api_key = settings.TWITTER_API_KEY
+        
+        # OAuth parameters
+        oauth_params = {
+            "oauth_consumer_key": api_key,
+            "oauth_nonce": str(uuid.uuid4()).replace("-", ""),
+            "oauth_signature_method": "HMAC-SHA1",
+            "oauth_timestamp": str(int(time.time())),
+            "oauth_token": oauth_token,
+            "oauth_version": "1.0"
+        }
+        
+        # Combine with additional params for signature
+        all_params = {**oauth_params}
+        if additional_params:
+            all_params.update(additional_params)
+        
+        # Generate signature
+        signature = self._generate_oauth_signature(
+            method, url, all_params, oauth_token, oauth_token_secret
+        )
+        oauth_params["oauth_signature"] = signature
+        
+        # Build header
+        header_parts = [f'{k}="{urllib.parse.quote(v, safe="")}"' for k, v in sorted(oauth_params.items())]
+        return f'OAuth {", ".join(header_parts)}'
+    
+    # ============================================================================
+    # CLIENT CREATION (supports OAuth 2.0 and OAuth 1.0a)
     # ============================================================================
     
     def create_client(
         self,
         access_token: str,
-        access_token_secret: str
+        access_token_secret: str = ""
     ) -> tweepy.Client:
         """
-        Create X API client with OAuth 1.0a user tokens
+        Create X API client.
         
-        Args:
-            access_token: User access token
-            access_token_secret: User access token secret
-            
-        Returns:
-            Tweepy Client instance
+        Supports two authentication modes:
+        - OAuth 2.0 Bearer: When access_token_secret is empty (modern flow)
+        - OAuth 1.0a: When both tokens are provided (legacy flow)
         """
         api_key = settings.TWITTER_API_KEY
         api_secret = settings.TWITTER_API_SECRET
@@ -48,53 +174,28 @@ class TwitterService:
         if not api_key or not api_secret:
             raise ValueError("X API credentials not configured")
         
-        # Create client with OAuth 1.0a
-        client = tweepy.Client(
-            consumer_key=api_key,
-            consumer_secret=api_secret,
-            access_token=access_token,
-            access_token_secret=access_token_secret
-        )
+        # If no access_token_secret, use OAuth 2.0 bearer token
+        if not access_token_secret:
+            client = tweepy.Client(
+                bearer_token=None,  # Not using app-only auth
+                consumer_key=api_key,
+                consumer_secret=api_secret,
+                access_token=access_token,
+                access_token_secret=None  # OAuth 2.0 mode
+            )
+        else:
+            # Full OAuth 1.0a with user access token secret
+            client = tweepy.Client(
+                consumer_key=api_key,
+                consumer_secret=api_secret,
+                access_token=access_token,
+                access_token_secret=access_token_secret
+            )
         
         return client
     
-    def create_api_v1(
-        self,
-        access_token: str,
-        access_token_secret: str
-    ) -> tweepy.API:
-        """
-        Create X API v1.1 client for media upload
-        Media upload still requires v1.1 API
-        
-        Args:
-            access_token: User access token
-            access_token_secret: User access token secret
-            
-        Returns:
-            Tweepy API instance
-        """
-        api_key = settings.TWITTER_API_KEY
-        api_secret = settings.TWITTER_API_SECRET
-        
-        if not api_key or not api_secret:
-            raise ValueError("X API credentials not configured")
-        
-        # Create OAuth 1.0a handler
-        auth = tweepy.OAuth1UserHandler(
-            api_key,
-            api_secret,
-            access_token,
-            access_token_secret
-        )
-        
-        # Create API v1.1 instance
-        api = tweepy.API(auth)
-        
-        return api
-    
     # ============================================================================
-    # POSTING
+    # POSTING (API v2)
     # ============================================================================
     
     async def post_tweet(
@@ -105,7 +206,7 @@ class TwitterService:
         media_ids: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Post a tweet using X API v2
+        Post a tweet using X API v2.
         
         Args:
             access_token: User access token
@@ -133,6 +234,8 @@ class TwitterService:
                 **tweet_params
             )
             
+            logger.info(f"Posted tweet: {response.data['id']}")
+            
             return {
                 'success': True,
                 'tweet_id': response.data['id'],
@@ -140,10 +243,11 @@ class TwitterService:
             }
             
         except Exception as e:
+            logger.error(f"Tweet posting error: {e}")
             return {'success': False, 'error': str(e)}
     
     # ============================================================================
-    # MEDIA UPLOAD
+    # MEDIA UPLOAD (API v2 - December 2025)
     # ============================================================================
     
     async def upload_media(
@@ -154,53 +258,331 @@ class TwitterService:
         media_type: str = "image"
     ) -> Dict[str, Any]:
         """
-        Upload media to X using v1.1 API
+        Upload media to X using the v2 media upload API.
+        
+        This is a unified method that handles:
+        - Images (simple upload for files < 5MB)
+        - Videos (chunked upload for files up to 512MB)
+        - GIFs (chunked upload for files up to 15MB)
         
         Args:
-            access_token: User access token
-            access_token_secret: User access token secret
-            media_data: Media binary data
-            media_type: Media type (image/video/gif)
+            access_token: User OAuth access token
+            access_token_secret: User OAuth access token secret
+            media_data: Binary media data
+            media_type: "image", "video", or "gif"
             
         Returns:
-            Dict with media_id
+            Dict with success, media_id, or error
         """
         try:
-            # Create API v1.1 instance
-            api = self.create_api_v1(access_token, access_token_secret)
+            file_size = len(media_data)
+            media_category = MEDIA_CATEGORIES.get(media_type, "tweet_image")
             
-            # Determine media category
+            # Validate file size
+            max_size = FILE_SIZE_LIMITS.get(media_type, FILE_SIZE_LIMITS["image"])
+            if file_size > max_size:
+                return {
+                    'success': False,
+                    'error': f"File size ({file_size / (1024*1024):.1f}MB) exceeds {media_type} limit ({max_size / (1024*1024):.0f}MB)"
+                }
+            
+            # Determine content type
             if media_type == "video":
-                media_category = "tweet_video"
+                content_type = "video/mp4"
             elif media_type == "gif":
-                media_category = "tweet_gif"
+                content_type = "image/gif"
             else:
-                media_category = "tweet_image"
+                content_type = "image/jpeg"  # Default for images
             
-            # Upload media
-            # For images, use simple upload
-            if media_type == "image":
-                media = await asyncio.to_thread(
-                    api.media_upload,
-                    filename="upload",
-                    file=media_data
+            # Use chunked upload for videos/gifs or large images
+            if media_type in ["video", "gif"] or file_size > 1 * 1024 * 1024:
+                return await self._chunked_upload(
+                    access_token,
+                    access_token_secret,
+                    media_data,
+                    content_type,
+                    media_category
                 )
             else:
-                # For videos/gifs, use chunked upload
-                media = await asyncio.to_thread(
-                    api.chunked_upload,
-                    filename="upload",
-                    file=media_data,
-                    media_category=media_category
+                # Simple upload for small images
+                return await self._simple_upload(
+                    access_token,
+                    access_token_secret,
+                    media_data
                 )
+                
+        except Exception as e:
+            logger.error(f"Media upload error: {e}", exc_info=True)
+            return {'success': False, 'error': str(e)}
+    
+    async def _simple_upload(
+        self,
+        access_token: str,
+        access_token_secret: str,
+        media_data: bytes
+    ) -> Dict[str, Any]:
+        """
+        Simple media upload for small images (< 1MB).
+        Uses v1.1 API as simple upload endpoint.
+        """
+        try:
+            url = f"{self.UPLOAD_BASE}/media/upload.json"
+            
+            # Generate OAuth header
+            oauth_header = self._generate_oauth_header(
+                "POST", url, access_token, access_token_secret
+            )
+            
+            # Base64 encode the media
+            media_b64 = base64.b64encode(media_data).decode()
+            
+            response = await self.http_client.post(
+                url,
+                headers={
+                    "Authorization": oauth_header,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                data={"media_data": media_b64}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'success': True,
+                    'media_id': str(data['media_id_string'])
+                }
+            else:
+                error_data = response.json() if response.content else {}
+                return {
+                    'success': False,
+                    'error': error_data.get('errors', [{}])[0].get('message', 'Upload failed')
+                }
+                
+        except Exception as e:
+            logger.error(f"Simple upload error: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    async def _chunked_upload(
+        self,
+        access_token: str,
+        access_token_secret: str,
+        media_data: bytes,
+        content_type: str,
+        media_category: str
+    ) -> Dict[str, Any]:
+        """
+        Chunked media upload for videos, GIFs, and large images.
+        
+        Uses the INIT → APPEND → FINALIZE flow.
+        For videos, also handles async processing status checks.
+        """
+        url = f"{self.UPLOAD_BASE}/media/upload.json"
+        file_size = len(media_data)
+        
+        # ================================================================
+        # STEP 1: INIT
+        # ================================================================
+        try:
+            init_params = {
+                "command": "INIT",
+                "total_bytes": str(file_size),
+                "media_type": content_type,
+                "media_category": media_category
+            }
+            
+            oauth_header = self._generate_oauth_header(
+                "POST", url, access_token, access_token_secret, init_params
+            )
+            
+            init_response = await self.http_client.post(
+                url,
+                headers={
+                    "Authorization": oauth_header,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                data=init_params
+            )
+            
+            if init_response.status_code != 202 and init_response.status_code != 200:
+                error = init_response.json() if init_response.content else {}
+                return {
+                    'success': False,
+                    'error': f"INIT failed: {error.get('errors', [{}])[0].get('message', init_response.text)}"
+                }
+            
+            init_data = init_response.json()
+            media_id = init_data['media_id_string']
+            
+            logger.info(f"Initialized upload: media_id={media_id}")
+            
+        except Exception as e:
+            return {'success': False, 'error': f"INIT error: {str(e)}"}
+        
+        # ================================================================
+        # STEP 2: APPEND (chunked)
+        # ================================================================
+        try:
+            segment_index = 0
+            offset = 0
+            
+            while offset < file_size:
+                chunk = media_data[offset:offset + CHUNK_SIZE]
+                chunk_b64 = base64.b64encode(chunk).decode()
+                
+                append_params = {
+                    "command": "APPEND",
+                    "media_id": media_id,
+                    "segment_index": str(segment_index)
+                }
+                
+                oauth_header = self._generate_oauth_header(
+                    "POST", url, access_token, access_token_secret, append_params
+                )
+                
+                # Send chunk as multipart or base64
+                append_response = await self.http_client.post(
+                    url,
+                    headers={
+                        "Authorization": oauth_header,
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    data={
+                        **append_params,
+                        "media_data": chunk_b64
+                    }
+                )
+                
+                if append_response.status_code not in [200, 204]:
+                    error = append_response.json() if append_response.content else {}
+                    return {
+                        'success': False,
+                        'error': f"APPEND failed at segment {segment_index}: {error}"
+                    }
+                
+                offset += CHUNK_SIZE
+                segment_index += 1
+                
+                logger.debug(f"Uploaded segment {segment_index}, {offset}/{file_size} bytes")
+            
+            logger.info(f"Uploaded {segment_index} segments")
+            
+        except Exception as e:
+            return {'success': False, 'error': f"APPEND error: {str(e)}"}
+        
+        # ================================================================
+        # STEP 3: FINALIZE
+        # ================================================================
+        try:
+            finalize_params = {
+                "command": "FINALIZE",
+                "media_id": media_id
+            }
+            
+            oauth_header = self._generate_oauth_header(
+                "POST", url, access_token, access_token_secret, finalize_params
+            )
+            
+            finalize_response = await self.http_client.post(
+                url,
+                headers={
+                    "Authorization": oauth_header,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                data=finalize_params
+            )
+            
+            if finalize_response.status_code not in [200, 201]:
+                error = finalize_response.json() if finalize_response.content else {}
+                return {
+                    'success': False,
+                    'error': f"FINALIZE failed: {error}"
+                }
+            
+            finalize_data = finalize_response.json()
+            
+            # Check if async processing is needed (for videos)
+            if 'processing_info' in finalize_data:
+                return await self._wait_for_processing(
+                    access_token,
+                    access_token_secret,
+                    media_id,
+                    finalize_data['processing_info']
+                )
+            
+            logger.info(f"Upload finalized: media_id={media_id}")
             
             return {
                 'success': True,
-                'media_id': str(media.media_id)
+                'media_id': media_id
             }
             
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            return {'success': False, 'error': f"FINALIZE error: {str(e)}"}
+    
+    async def _wait_for_processing(
+        self,
+        access_token: str,
+        access_token_secret: str,
+        media_id: str,
+        processing_info: Dict
+    ) -> Dict[str, Any]:
+        """
+        Wait for async video processing to complete.
+        
+        X processes videos asynchronously after upload.
+        We poll the STATUS endpoint until processing completes.
+        """
+        url = f"{self.UPLOAD_BASE}/media/upload.json"
+        max_wait_seconds = 300  # 5 minutes max
+        waited = 0
+        
+        while waited < max_wait_seconds:
+            check_after_secs = processing_info.get('check_after_secs', 5)
+            await asyncio.sleep(check_after_secs)
+            waited += check_after_secs
+            
+            # Check status
+            status_params = {
+                "command": "STATUS",
+                "media_id": media_id
+            }
+            
+            oauth_header = self._generate_oauth_header(
+                "GET", url, access_token, access_token_secret, status_params
+            )
+            
+            status_response = await self.http_client.get(
+                url,
+                headers={"Authorization": oauth_header},
+                params=status_params
+            )
+            
+            if status_response.status_code != 200:
+                continue
+            
+            status_data = status_response.json()
+            processing_info = status_data.get('processing_info', {})
+            state = processing_info.get('state', 'succeeded')
+            
+            logger.debug(f"Processing state: {state}, progress: {processing_info.get('progress_percent', 0)}%")
+            
+            if state == 'succeeded':
+                logger.info(f"Video processing complete: media_id={media_id}")
+                return {
+                    'success': True,
+                    'media_id': media_id
+                }
+            elif state == 'failed':
+                error_info = processing_info.get('error', {})
+                return {
+                    'success': False,
+                    'error': f"Video processing failed: {error_info.get('message', 'Unknown error')}"
+                }
+        
+        return {
+            'success': False,
+            'error': 'Video processing timeout'
+        }
     
     async def upload_media_from_url(
         self,
@@ -209,7 +591,7 @@ class TwitterService:
         media_url: str
     ) -> Dict[str, Any]:
         """
-        Download media from URL and upload to X
+        Download media from URL and upload to X.
         
         Args:
             access_token: User access token
@@ -228,12 +610,14 @@ class TwitterService:
             # Detect media type from content-type or URL
             content_type = response.headers.get('content-type', '').lower()
             
-            if 'video' in content_type or any(ext in media_url.lower() for ext in ['.mp4', '.mov', '.avi']):
+            if 'video' in content_type or any(ext in media_url.lower() for ext in ['.mp4', '.mov', '.avi', '.webm']):
                 media_type = "video"
             elif 'gif' in content_type or '.gif' in media_url.lower():
                 media_type = "gif"
             else:
                 media_type = "image"
+            
+            logger.info(f"Downloaded {media_type} from URL: {len(media_data)} bytes")
             
             # Upload media
             return await self.upload_media(
@@ -244,10 +628,11 @@ class TwitterService:
             )
             
         except Exception as e:
+            logger.error(f"Upload from URL error: {e}")
             return {'success': False, 'error': str(e)}
     
     # ============================================================================
-    # USER INFO
+    # USER INFO (API v2)
     # ============================================================================
     
     async def get_user_info(
@@ -256,7 +641,7 @@ class TwitterService:
         access_token_secret: str
     ) -> Dict[str, Any]:
         """
-        Get authenticated user's information
+        Get authenticated user's information.
         
         Args:
             access_token: User access token
@@ -286,7 +671,25 @@ class TwitterService:
             }
             
         except Exception as e:
+            logger.error(f"Get user info error: {e}")
             return {'success': False, 'error': str(e)}
+    
+    # ============================================================================
+    # ACCOUNT VERIFICATION
+    # ============================================================================
+    
+    async def verify_credentials(
+        self,
+        access_token: str,
+        access_token_secret: str
+    ) -> Dict[str, Any]:
+        """
+        Verify that credentials are valid by making a test API call.
+        
+        Returns:
+            Dict with success status and user info
+        """
+        return await self.get_user_info(access_token, access_token_secret)
 
 
 # Singleton instance

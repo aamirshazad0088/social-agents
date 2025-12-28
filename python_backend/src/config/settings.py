@@ -44,19 +44,24 @@ class Settings(BaseSettings):
     
     # App Configuration
     APP_URL: str = Field(default="http://localhost:3000", description="Frontend app URL")
+    BACKEND_URL: str = Field(default="http://localhost:8000", description="Backend API URL for OAuth callbacks")
     
     # CORS Configuration
     CORS_ORIGINS: str = Field(
         default="http://localhost:3000",
         description="Comma-separated list of allowed origins"
     )
+
     
-    @field_validator('APP_URL', mode='before')
+    @field_validator('APP_URL', 'BACKEND_URL', mode='before')
     @classmethod
-    def normalize_app_url(cls, v: str) -> str:
-        """Transform Render's internal URL format to external HTTPS URL"""
+    def normalize_url(cls, v: str, info) -> str:
+        """Transform URL to proper format for production"""
+        field_name = info.field_name
+        default = "http://localhost:3000" if field_name == "APP_URL" else "http://localhost:8000"
+        
         if not v:
-            return "http://localhost:3000"
+            return default
         
         url = v.strip()
         
@@ -73,6 +78,11 @@ class Settings(BaseSettings):
                 url = f"https://{url}"
         
         return url.rstrip('/')
+    
+    def get_oauth_callback_url(self, platform: str) -> str:
+        """Get the OAuth callback URL for a platform."""
+        return f"{self.BACKEND_URL}/api/v1/auth/{platform}/callback"
+
     
     @property
     def cors_origins_list(self) -> List[str]:
@@ -134,6 +144,10 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = Field(default=100, description="Max requests per minute")
     RATE_LIMIT_AUTH_ATTEMPTS: int = Field(default=5, description="Max auth attempts per 15 min")
+    
+    # Cron/Scheduled Jobs
+    CRON_SECRET: Optional[str] = Field(default=None, description="Secret for authenticating cron/scheduled jobs")
+
     
     # Model Configuration
     DEFAULT_MODEL_ID: str = Field(

@@ -20,6 +20,9 @@ from ...agents.media_agents.audio_agent import (
     generate_sound_effects,
     get_voices,
     clone_voice,
+    design_voice,
+    save_designed_voice,
+    generate_dialog,
     TTSRequest,
     TTSResponse,
     MusicRequest,
@@ -28,6 +31,10 @@ from ...agents.media_agents.audio_agent import (
     SoundEffectsResponse,
     VoiceCloningRequest,
     VoiceCloningResponse,
+    VoiceDesignRequest,
+    VoiceDesignResponse,
+    DialogRequest,
+    DialogResponse,
     VoicesResponse,
     TTS_MODELS,
     OUTPUT_FORMATS,
@@ -442,6 +449,62 @@ async def api_voice_cloning_alias(request: VoiceCloningRequest):
     return await api_clone_voice(request)
 
 
+@router.post("/audio/voice-design", response_model=VoiceDesignResponse)
+async def api_voice_design(request: VoiceDesignRequest):
+    """
+    Design a custom voice from text description or save a designed voice.
+    
+    Actions:
+    - 'design': Generate voice previews from description
+    - 'save': Save selected voice to library
+    
+    Models: eleven_multilingual_ttv_v2, eleven_ttv_v3
+    """
+    try:
+        if request.action == "design":
+            logger.info(f"Voice design request: {request.voiceDescription[:50] if request.voiceDescription else 'N/A'}...")
+            result = await design_voice(request)
+        else:
+            logger.info(f"Voice save request: {request.name}")
+            result = await save_designed_voice(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Voice design error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/audio/dialog", response_model=DialogResponse)
+async def api_generate_dialog(request: DialogRequest):
+    """
+    Generate multi-speaker dialog using ElevenLabs Text-to-Dialogue API.
+    
+    Requires at least 2 speakers with voice IDs.
+    Supports audio tags: [laughs], [sighs], [whispers], etc.
+    Model: eleven_v3 (recommended)
+    """
+    try:
+        logger.info(f"Dialog generation: {len(request.inputs)} speakers")
+        result = await generate_dialog(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Dialog generation error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================================
 # VIDEO ENDPOINTS
 # ============================================================================
@@ -774,8 +837,8 @@ async def media_info():
                 "endpoints": ["/imagen", "/imagen/edit", "/imagen/chat", "/imagen/models"]
             },
             "audio": {
-                "features": ["text-to-speech", "music", "sound-effects", "voice-cloning"],
-                "endpoints": ["/audio/speech", "/audio/music", "/audio/sound-effects", "/audio/voices"]
+                "features": ["text-to-speech", "music", "sound-effects", "voice-cloning", "voice-design", "dialog"],
+                "endpoints": ["/audio/speech", "/audio/music", "/audio/sound-effects", "/audio/voices", "/audio/voice-design", "/audio/dialog", "/audio/clone-voice"]
             },
             "video-veo": {
                 "models": ["veo-3.1-generate-preview", "veo-3.1-fast-preview"],

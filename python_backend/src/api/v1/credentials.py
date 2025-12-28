@@ -5,7 +5,7 @@ Platform connection status and disconnect functionality
 
 import logging
 from typing import Literal, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends
 
@@ -22,6 +22,27 @@ logger = logging.getLogger(__name__)
 VALID_PLATFORMS = ["twitter", "linkedin", "facebook", "instagram", "tiktok", "youtube"]
 
 Platform = Literal["twitter", "linkedin", "facebook", "instagram", "tiktok", "youtube"]
+
+
+# ================== HELPERS ==================
+
+def check_token_status(expires_at_str):
+    """Check if token is expired or expiring soon"""
+    if not expires_at_str:
+        return False, False
+    try:
+        if isinstance(expires_at_str, str):
+            if expires_at_str.endswith("Z"):
+                expires_at_str = expires_at_str.replace("Z", "+00:00")
+            expires_at = datetime.fromisoformat(expires_at_str)
+        else:
+            expires_at = expires_at_str
+        now = datetime.now(timezone.utc)
+        is_expired = now > expires_at
+        is_expiring_soon = not is_expired and (expires_at - now) < timedelta(days=7)
+        return is_expired, is_expiring_soon
+    except:
+        return False, False
 
 
 # ================== ENDPOINTS ==================
@@ -60,12 +81,15 @@ async def get_connection_status(
             )
             
             if cred:
+                is_expired, is_expiring_soon = check_token_status(cred.get("expires_at"))
                 status[platform] = {
                     "connected": True,
                     "accountId": cred.get("account_id"),
                     "accountName": cred.get("account_name"),
                     "connectedAt": cred.get("created_at"),
-                    "expiresAt": cred.get("expires_at")
+                    "expiresAt": cred.get("expires_at"),
+                    "isExpired": is_expired,
+                    "isExpiringSoon": is_expiring_soon
                 }
             else:
                 status[platform] = {

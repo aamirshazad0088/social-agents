@@ -13,6 +13,7 @@ from .workspace import router as workspace_router
 from .posts import router as posts_router
 from .credentials import router as credentials_router
 from .cloudinary import router as cloudinary_router
+from .token_refresh import router as token_refresh_router
 from .social import facebook_router, instagram_router, linkedin_router, twitter_router, tiktok_router, youtube_router
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "posts_router",
     "credentials_router",
     "cloudinary_router",
+    "token_refresh_router",
     "facebook_router",
     "instagram_router",
     "linkedin_router",
@@ -37,6 +39,7 @@ __all__ = [
     "tiktok_router",
     "youtube_router"
 ]
+
 
 
 

@@ -6,7 +6,7 @@ Uses LinkedIn REST API v2 with API Version 202411
 """
 import logging
 from typing import Optional, List, Literal
-from datetime import datetime, timedelta
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request, Header
 from pydantic import BaseModel, Field
 
@@ -115,10 +115,16 @@ async def get_linkedin_credentials(
     if not account.get("is_active"):
         raise HTTPException(status_code=400, detail="LinkedIn account is inactive")
     
-    credentials = account.get("credentials", {})
+    credentials = account.get("credentials_encrypted", {})
     
-    if not credentials.get("accessToken") or not credentials.get("profileId"):
+    # Check for profile ID - auth saves as userId, with fallback to profileId
+    profile_id = credentials.get("userId") or credentials.get("profileId")
+    if not credentials.get("accessToken") or not profile_id:
         raise HTTPException(status_code=400, detail="Invalid LinkedIn configuration")
+    
+    # Normalize field name for consistency with publishing service
+    if not credentials.get("profileId") and profile_id:
+        credentials["profileId"] = profile_id
     
     # Check token expiration
     expires_at = credentials.get("expiresAt")
@@ -129,79 +135,6 @@ async def get_linkedin_credentials(
                 status_code=401,
                 detail="Access token expired. Please reconnect your LinkedIn account."
             )
-    
-    return credentials
-
-
-async def refresh_linkedin_token_if_needed(
-    credentials: dict,
-    workspace_id: str
-) -> dict:
-    """
-    Refresh LinkedIn token if it expires within 7 days
-    
-    Args:
-        credentials: Current LinkedIn credentials
-        workspace_id: Workspace ID
-        
-    Returns:
-        Updated credentials (refreshed if needed)
-    """
-    expires_at = credentials.get("expiresAt")
-    if not expires_at:
-        return credentials
-    
-    # Refresh if token expires within 7 days
-    REFRESH_BUFFER = timedelta(days=7)
-    expiry_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-    
-    if datetime.utcnow() + REFRESH_BUFFER > expiry_date:
-        refresh_token = credentials.get("refreshToken")
-        if not refresh_token:
-            # No refresh token, check if actually expired
-            if datetime.utcnow() > expiry_date:
-                raise HTTPException(
-                    status_code=401,
-                    detail="LinkedIn token expired. Please reconnect your account."
-                )
-            return credentials
-        
-        try:
-            # Refresh token
-            client_id = settings.LINKEDIN_CLIENT_ID
-            client_secret = settings.LINKEDIN_CLIENT_SECRET
-            
-            if not client_id or not client_secret:
-                logger.warning("LinkedIn client credentials not configured")
-                return credentials
-            
-            refresh_result = await linkedin_service.refresh_token(
-                refresh_token,
-                client_id,
-                client_secret
-            )
-            
-            if refresh_result.get("success"):
-                # Update credentials
-                new_expiry = datetime.utcnow() + timedelta(seconds=refresh_result.get("expires_in", 5184000))
-                credentials["accessToken"] = refresh_result["access_token"]
-                credentials["refreshToken"] = refresh_result.get("refresh_token", refresh_token)
-                credentials["expiresAt"] = new_expiry.isoformat()
-                
-                # Save to database
-                await db_update(
-                    table="social_accounts",
-                    data={"credentials": credentials},
-                    filters={
-                        "workspace_id": workspace_id,
-                        "platform": "linkedin"
-                    }
-                )
-                
-                logger.info(f"Refreshed LinkedIn token for workspace {workspace_id}")
-        except Exception as e:
-            logger.warning(f"Failed to refresh LinkedIn token: {e}")
-            # Continue with existing token if refresh fails
     
     return credentials
 
@@ -287,9 +220,6 @@ async def post_to_linkedin(
         
         # Get LinkedIn credentials
         credentials = await get_linkedin_credentials(user_id, workspace_id, is_cron)
-        
-        # Refresh token if needed
-        credentials = await refresh_linkedin_token_if_needed(credentials, workspace_id)
         
         # Determine if posting to organization page or personal profile
         should_post_to_page = request_body.postToPage if request_body.postToPage is not None else credentials.get("postToPage", False)

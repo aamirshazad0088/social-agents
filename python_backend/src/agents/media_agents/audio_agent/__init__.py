@@ -5,6 +5,9 @@ from .service import (
     generate_sound_effects,
     get_voices,
     clone_voice,
+    design_voice,
+    save_designed_voice,
+    generate_dialog,
 )
 from .schemas import (
     TTSRequest,
@@ -15,6 +18,12 @@ from .schemas import (
     SoundEffectsResponse,
     VoiceCloningRequest,
     VoiceCloningResponse,
+    VoiceDesignRequest,
+    VoiceDesignResponse,
+    VoiceDesignPreview,
+    DialogRequest,
+    DialogResponse,
+    DialogInput,
     Voice,
     VoicesResponse,
     TTS_MODELS,
@@ -28,6 +37,9 @@ __all__ = [
     "generate_sound_effects",
     "get_voices",
     "clone_voice",
+    "design_voice",
+    "save_designed_voice",
+    "generate_dialog",
     # Schemas
     "TTSRequest",
     "TTSResponse",
@@ -37,8 +49,15 @@ __all__ = [
     "SoundEffectsResponse",
     "VoiceCloningRequest",
     "VoiceCloningResponse",
+    "VoiceDesignRequest",
+    "VoiceDesignResponse",
+    "VoiceDesignPreview",
+    "DialogRequest",
+    "DialogResponse",
+    "DialogInput",
     "Voice",
     "VoicesResponse",
     "TTS_MODELS",
     "OUTPUT_FORMATS",
 ]
+

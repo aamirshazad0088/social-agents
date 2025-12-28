@@ -100,10 +100,16 @@ async def get_instagram_credentials(
     if not account.get("is_active"):
         raise HTTPException(status_code=400, detail="Instagram account is inactive")
     
-    credentials = account.get("credentials", {})
+    credentials = account.get("credentials_encrypted", {})
     
-    if not credentials.get("accessToken") or not credentials.get("userId"):
+    # Check for Instagram account ID - auth saves as instagramAccountId, with fallback to userId
+    instagram_account_id = credentials.get("instagramAccountId") or credentials.get("userId")
+    if not credentials.get("accessToken") or not instagram_account_id:
         raise HTTPException(status_code=400, detail="Invalid Instagram configuration")
+    
+    # Normalize field name for consistency
+    if not credentials.get("userId") and instagram_account_id:
+        credentials["userId"] = instagram_account_id
     
     # Check token expiration
     expires_at = credentials.get("expiresAt")
@@ -114,59 +120,6 @@ async def get_instagram_credentials(
                 status_code=401,
                 detail="Access token expired. Please reconnect your Instagram account."
             )
-    
-    return credentials
-
-
-async def refresh_instagram_token_if_needed(
-    credentials: dict,
-    workspace_id: str
-) -> dict:
-    """
-    Refresh Instagram token if it expires within 7 days
-    
-    Args:
-        credentials: Current Instagram credentials
-        workspace_id: Workspace ID
-        
-    Returns:
-        Updated credentials (refreshed if needed)
-    """
-    expires_at = credentials.get("expiresAt")
-    if not expires_at:
-        return credentials
-    
-    # Refresh if token expires within 7 days
-    REFRESH_BUFFER = timedelta(days=7)
-    expiry_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-    
-    if datetime.utcnow() + REFRESH_BUFFER > expiry_date:
-        try:
-            # Refresh token (Instagram uses Facebook's token refresh)
-            refresh_result = await social_service.facebook_get_long_lived_token(
-                credentials["accessToken"]
-            )
-            
-            if refresh_result.get("success"):
-                # Update credentials
-                new_expiry = datetime.utcnow() + timedelta(seconds=refresh_result.get("expires_in", 5184000))
-                credentials["accessToken"] = refresh_result["access_token"]
-                credentials["expiresAt"] = new_expiry.isoformat()
-                
-                # Save to database
-                await db_update(
-                    table="social_accounts",
-                    data={"credentials": credentials},
-                    filters={
-                        "workspace_id": workspace_id,
-                        "platform": "instagram"
-                    }
-                )
-                
-                logger.info(f"Refreshed Instagram token for workspace {workspace_id}")
-        except Exception as e:
-            logger.warning(f"Failed to refresh Instagram token: {e}")
-            # Continue with existing token if refresh fails
     
     return credentials
 
@@ -316,9 +269,6 @@ async def post_to_instagram(
         
         # Get Instagram credentials
         credentials = await get_instagram_credentials(user_id, workspace_id, is_cron)
-        
-        # Refresh token if needed
-        credentials = await refresh_instagram_token_if_needed(credentials, workspace_id)
         
         # Get app secret
         app_secret = settings.FACEBOOK_CLIENT_SECRET or getattr(settings, 'INSTAGRAM_APP_SECRET', None)
