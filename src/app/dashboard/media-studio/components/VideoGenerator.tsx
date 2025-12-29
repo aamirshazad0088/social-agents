@@ -652,9 +652,9 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
   const completedVideos = recentVideos.filter(v => v.status === 'completed' && v.url);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Configuration Panel */}
-      <Card className="border rounded-xl">
+      <Card className="border rounded-xl lg:col-span-3">
         <CardHeader className="p-5 pb-4">
           <CardTitle className="flex items-center gap-3 text-[15px]">
             <div className="p-2.5 rounded-lg" style={{ background: 'var(--ms-gradient-primary)' }}>
@@ -674,7 +674,7 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
               <button
                 onClick={() => setMode('text')}
                 className={`
-                  h-[72px] rounded-lg border text-center transition-all duration-200 group
+                  h-12 rounded-lg border text-center transition-all duration-200 group
                   ${mode === 'text'
                     ? 'border-transparent shadow-sm'
                     : 'border-[var(--ms-border)] hover:border-[var(--ms-primary)] bg-card'
@@ -685,13 +685,13 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
                   boxShadow: '0 2px 6px rgba(13, 148, 136, 0.2)'
                 } : undefined}
               >
-                <Clapperboard className={`w-[18px] h-[18px] mx-auto mb-1 ${mode === 'text' ? 'text-white' : 'text-[var(--ms-primary)]'}`} />
-                <div className={`text-[13px] font-medium ${mode === 'text' ? 'text-white' : 'text-foreground'}`}>Text</div>
+                <Clapperboard className={`w-4 h-4 mx-auto mb-0.5 ${mode === 'text' ? 'text-white' : 'text-[var(--ms-primary)]'}`} />
+                <div className={`text-[12px] font-medium ${mode === 'text' ? 'text-white' : 'text-foreground'}`}>Text</div>
               </button>
               <button
                 onClick={() => setMode('image')}
                 className={`
-                  h-[72px] rounded-lg border text-center transition-all duration-200 group
+                  h-12 rounded-lg border text-center transition-all duration-200 group
                   ${mode === 'image'
                     ? 'border-transparent shadow-sm'
                     : 'border-[var(--ms-border)] hover:border-[var(--ms-accent)] bg-card'
@@ -702,13 +702,13 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
                   boxShadow: '0 2px 6px rgba(245, 158, 11, 0.2)'
                 } : undefined}
               >
-                <Film className={`w-[18px] h-[18px] mx-auto mb-1 ${mode === 'image' ? 'text-white' : 'text-[var(--ms-accent)]'}`} />
-                <div className={`text-[13px] font-medium ${mode === 'image' ? 'text-[var(--ms-accent-foreground)]' : 'text-foreground'}`}>Image</div>
+                <Film className={`w-4 h-4 mx-auto mb-0.5 ${mode === 'image' ? 'text-white' : 'text-[var(--ms-accent)]'}`} />
+                <div className={`text-[12px] font-medium ${mode === 'image' ? 'text-[var(--ms-accent-foreground)]' : 'text-foreground'}`}>Image</div>
               </button>
               <button
                 onClick={() => setMode('remix')}
                 className={`
-                  h-[72px] rounded-lg border text-center transition-all duration-200 group
+                  h-12 rounded-lg border text-center transition-all duration-200 group
                   ${mode === 'remix'
                     ? 'border-transparent shadow-sm'
                     : 'border-[var(--ms-border)] hover:border-[var(--ms-secondary)] bg-card'
@@ -719,8 +719,8 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
                   boxShadow: '0 2px 6px rgba(100, 116, 139, 0.2)'
                 } : undefined}
               >
-                <Wand2 className={`w-[18px] h-[18px] mx-auto mb-1 ${mode === 'remix' ? 'text-white' : 'text-[var(--ms-secondary)]'}`} />
-                <div className={`text-[13px] font-medium ${mode === 'remix' ? 'text-white' : 'text-foreground'}`}>Remix</div>
+                <Wand2 className={`w-4 h-4 mx-auto mb-0.5 ${mode === 'remix' ? 'text-white' : 'text-[var(--ms-secondary)]'}`} />
+                <div className={`text-[12px] font-medium ${mode === 'remix' ? 'text-white' : 'text-foreground'}`}>Remix</div>
               </button>
             </div>
           </div>
@@ -1032,33 +1032,7 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
             </div>
           )}
 
-          {/* Platform Presets - Enterprise Standard */}
-          {mode !== 'remix' && (
-            <div className="space-y-2.5">
-              <label className="text-[13px] font-medium text-foreground">Platform Presets</label>
-              <div className="flex flex-wrap gap-2">
-                {PLATFORM_PRESETS.map((preset) => {
-                  const isSelected = size === preset.size && seconds === preset.seconds && model === preset.model;
 
-                  return (
-                    <button
-                      key={preset.id}
-                      onClick={() => applyPreset(preset.id)}
-                      className={`
-                        h-9 px-4 rounded-lg border text-[13px] font-medium transition-all duration-200
-                        ${isSelected
-                          ? 'border-[var(--ms-primary)] bg-[var(--ms-primary)] text-white shadow-sm'
-                          : 'border-[var(--ms-border)] hover:border-[var(--ms-primary)]/50 hover:bg-muted/50 text-foreground'
-                        }
-                      `}
-                    >
-                      {preset.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Model Selection */}
           {mode !== 'remix' && (
@@ -1159,7 +1133,7 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
       </Card>
 
       {/* Preview Panel */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden lg:col-span-2">
         <CardHeader style={{ background: 'var(--ms-gradient-subtle)', borderBottom: '1px solid var(--ms-border)' }}>
           <CardTitle className="flex items-center gap-2">
             <div className="p-2 rounded-lg" style={{ background: 'var(--ms-gradient-primary)' }}>

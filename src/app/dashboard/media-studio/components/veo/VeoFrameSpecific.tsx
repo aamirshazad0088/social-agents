@@ -355,11 +355,11 @@ export function VeoFrameSpecific({
   return (
     <div className="space-y-4">
       {/* Info Banner */}
-      <div className="flex items-start gap-2 text-xs bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 p-3 rounded-lg">
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+      <div className="flex items-start gap-2 text-xs bg-card border border-border text-foreground p-3 rounded-lg">
+        <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
         <div>
           <p className="font-medium">Frame-Specific Generation</p>
-          <p className="mt-1">
+          <p className="mt-1 text-muted-foreground">
             Veo will create a smooth transition between your first and last frame images.
             Both images should have matching aspect ratios for best results.
           </p>

@@ -300,11 +300,11 @@ export function VeoReferenceImages({
   return (
     <div className="space-y-4">
       {/* Info Banner */}
-      <div className="flex items-start gap-2 text-xs bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 p-3 rounded-lg">
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+      <div className="flex items-start gap-2 text-xs bg-card border border-border text-foreground p-3 rounded-lg">
+        <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
         <div>
           <p className="font-medium">Reference Image Generation</p>
-          <p className="mt-1">
+          <p className="mt-1 text-muted-foreground">
             Use 1-3 images to guide style, characters, or scene elements. Duration is fixed to 8 seconds.
           </p>
         </div>
@@ -415,8 +415,8 @@ export function VeoReferenceImages({
                     onClick={() => handleSelectLibraryImage(img.url)}
                     disabled={referenceImages.length >= VEO_MAX_REFERENCE_IMAGES}
                     className={`relative aspect-square rounded-lg overflow-hidden transition-all ${referenceImages.length >= VEO_MAX_REFERENCE_IMAGES
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:ring-2 ring-purple-500'
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:ring-2 ring-purple-500'
                       }`}
                   >
                     <img
@@ -435,8 +435,8 @@ export function VeoReferenceImages({
                     onClick={() => handleSelectLibraryImage(img.url)}
                     disabled={referenceImages.length >= VEO_MAX_REFERENCE_IMAGES}
                     className={`relative aspect-square rounded-lg overflow-hidden transition-all ${referenceImages.length >= VEO_MAX_REFERENCE_IMAGES
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:ring-2 ring-purple-500'
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:ring-2 ring-purple-500'
                       }`}
                   >
                     <img

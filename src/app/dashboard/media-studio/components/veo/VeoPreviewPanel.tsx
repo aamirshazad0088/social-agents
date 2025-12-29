@@ -105,7 +105,7 @@ export function VeoPreviewPanel({
 }: VeoPreviewPanelProps) {
   const handleDownload = async (video: GeneratedVeoVideo) => {
     if (!video.url) return;
-    
+
     try {
       const response = await fetch(video.url);
       const blob = await response.blob();
@@ -122,7 +122,7 @@ export function VeoPreviewPanel({
   };
 
   return (
-    <Card className="flex flex-col h-[600px]">
+    <Card className="flex flex-col h-[600px] lg:col-span-2">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
@@ -140,7 +140,7 @@ export function VeoPreviewPanel({
           {isGenerating ? 'Generating video...' : 'Your generated videos'}
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden">
         {/* Main Preview Area */}
         <div className="flex-shrink-0">
@@ -267,11 +267,10 @@ export function VeoPreviewPanel({
                   <button
                     key={video.id}
                     onClick={() => onSelectVideo(video)}
-                    className={`w-full flex items-start gap-3 p-2 rounded-lg border transition-all text-left ${
-                      currentVideo?.id === video.id
+                    className={`w-full flex items-start gap-3 p-2 rounded-lg border transition-all text-left ${currentVideo?.id === video.id
                         ? 'border-purple-500 bg-purple-500/10'
                         : 'border-border hover:border-purple-500/50'
-                    }`}
+                      }`}
                   >
                     {/* Thumbnail */}
                     <div className="w-16 h-10 rounded overflow-hidden bg-muted flex-shrink-0 relative">

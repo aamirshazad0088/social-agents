@@ -527,9 +527,9 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
   const currentImage = generatedImages[selectedImageIndex];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Configuration Panel */}
-      <Card className="border rounded-xl">
+      <Card className="border rounded-xl lg:col-span-3">
         <CardHeader className="p-5 pb-4">
           <CardTitle className="flex items-center gap-3 text-[15px]">
             <div className="p-2.5 rounded-lg" style={{ background: 'var(--ms-gradient-primary)' }}>
@@ -894,7 +894,7 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
       </Card>
 
       {/* Preview Panel */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden lg:col-span-2">
         <CardHeader style={{ background: 'var(--ms-gradient-subtle)', borderBottom: '1px solid var(--ms-border)' }}>
           <CardTitle className="flex items-center gap-2">
             <div className="p-2 rounded-lg" style={{ background: 'var(--ms-gradient-primary)' }}>

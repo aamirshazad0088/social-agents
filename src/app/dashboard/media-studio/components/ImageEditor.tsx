@@ -702,9 +702,9 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
       {/* Editor Panel */}
-      <Card>
+      <Card className="lg:col-span-3">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Edit3 className="w-5 h-5" />
@@ -718,7 +718,7 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
           {/* Edit Mode Selection */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Edit Mode</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               {EDIT_MODES.map((mode) => (
                 <button
                   key={mode.value}
@@ -726,13 +726,13 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
                     setEditMode(mode.value);
                     clearMask();
                   }}
-                  className={`p-3 rounded-lg border text-center transition-all ${editMode === mode.value
+                  className={`h-11 px-1.5 rounded-lg border text-center transition-all ${editMode === mode.value
                     ? 'border-primary bg-primary/10 ring-1 ring-primary'
                     : 'border-border hover:border-primary/50'
                     }`}
                 >
-                  <mode.icon className="w-5 h-5 mx-auto mb-1" />
-                  <div className="font-medium text-xs">{mode.label}</div>
+                  <mode.icon className="w-4 h-4 mx-auto mb-0.5" />
+                  <div className="font-medium text-[10px] leading-tight">{mode.label}</div>
                 </button>
               ))}
             </div>
@@ -934,22 +934,22 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
           {/* REFERENCE MODE: Fidelity Selection */}
           {editMode === 'reference' && (
             <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Sliders className="w-4 h-4" />
+              <label className="text-xs font-medium flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5" />
                 Input Fidelity
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
                 {FIDELITY_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setInputFidelity(opt.value as 'low' | 'high')}
-                    className={`p-3 rounded-lg border text-left transition-all ${inputFidelity === opt.value
+                    className={`py-2 px-2.5 rounded-lg border text-left transition-all ${inputFidelity === opt.value
                       ? 'border-primary bg-primary/10 ring-1 ring-primary'
                       : 'border-border hover:border-primary/50'
                       }`}
                   >
-                    <div className="font-medium text-sm">{opt.label}</div>
-                    <div className="text-xs text-muted-foreground">{opt.description}</div>
+                    <div className="font-medium text-xs">{opt.label}</div>
+                    <div className="text-[10px] text-muted-foreground">{opt.description}</div>
                   </button>
                 ))}
               </div>
@@ -958,70 +958,70 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
 
           {/* OPENAI EDIT OPTIONS - For inpaint and reference modes */}
           {(editMode === 'inpaint' || editMode === 'reference') && (
-            <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4" />
-                <span className="text-sm font-medium">Output Options</span>
+            <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+              <div className="flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">Output Options</span>
               </div>
 
               {/* Size */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Size</label>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-muted-foreground">Size</label>
+                <div className="grid grid-cols-3 gap-1.5">
                   {OPENAI_EDIT_SIZES.map((s) => (
                     <button
                       key={s.value}
                       onClick={() => setEditSize(s.value)}
-                      className={`p-2 rounded-lg border text-center transition-all ${editSize === s.value
-                          ? 'border-primary bg-primary/10 ring-1 ring-primary'
-                          : 'border-border hover:border-primary/50'
+                      className={`py-1.5 px-2 rounded-md border text-center transition-all ${editSize === s.value
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                        : 'border-border hover:border-primary/50'
                         }`}
                     >
-                      <div className="font-medium text-xs">{s.label}</div>
+                      <div className="font-medium text-[10px]">{s.label}</div>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Quality */}
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Quality</label>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-muted-foreground">Quality</label>
+                <div className="grid grid-cols-3 gap-1.5">
                   {OPENAI_EDIT_QUALITIES.map((q) => (
                     <button
                       key={q.value}
                       onClick={() => setEditQuality(q.value)}
-                      className={`p-2 rounded-lg border text-center transition-all ${editQuality === q.value
-                          ? 'border-primary bg-primary/10 ring-1 ring-primary'
-                          : 'border-border hover:border-primary/50'
+                      className={`py-1.5 px-2 rounded-md border text-center transition-all ${editQuality === q.value
+                        ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                        : 'border-border hover:border-primary/50'
                         }`}
                     >
-                      <div className="font-medium text-xs">{q.label}</div>
+                      <div className="font-medium text-[10px]">{q.label}</div>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Format and Background Row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">Format</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">Format</label>
                   <select
                     value={editFormat}
                     onChange={(e) => setEditFormat(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    className="w-full px-2 py-1.5 rounded-md border border-input bg-background text-xs"
                   >
                     {OPENAI_EDIT_FORMATS.map((f) => (
                       <option key={f.value} value={f.value}>{f.label}</option>
                     ))}
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground">Background</label>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">Background</label>
                   <select
                     value={editBackground}
                     onChange={(e) => setEditBackground(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+                    className="w-full px-2 py-1.5 rounded-md border border-input bg-background text-xs"
                   >
                     {OPENAI_EDIT_BACKGROUNDS.map((b) => (
                       <option key={b.value} value={b.value}>{b.label}</option>
@@ -1030,7 +1030,7 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Info className="w-3 h-3" />
                 Transparent background works with PNG/WebP and medium+ quality
               </p>
@@ -1465,7 +1465,7 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
       </Card>
 
       {/* Preview Panel */}
-      <Card>
+      <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ImageIcon className="w-5 h-5" />

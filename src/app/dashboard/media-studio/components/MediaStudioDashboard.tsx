@@ -130,7 +130,7 @@ export function MediaStudioDashboard() {
         <div className="absolute inset-0 ms-pattern-diagonal opacity-50" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20" />
 
-        <div className="relative px-6 py-5">
+        <div className="relative px-6 pb-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {/* Logo - Enterprise Standard */}
@@ -190,15 +190,15 @@ export function MediaStudioDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6" style={{ background: 'var(--ms-gradient-subtle)' }}>
+      <div className="flex-1 pt-2 px-6 pb-6" style={{ background: 'var(--ms-gradient-subtle)' }}>
         <Tabs
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as MediaStudioTab)}
           className="flex-1 flex flex-col"
         >
           {/* Tab Navigation - Enterprise Standard */}
-          <div className="bg-card border rounded-xl p-1.5 shadow-sm mb-6">
-            <TabsList className="grid w-full grid-cols-4 bg-transparent gap-2 h-auto">
+          <div className="bg-card border rounded-lg p-1 shadow-sm mb-4">
+            <TabsList className="grid w-full grid-cols-4 bg-transparent gap-1 h-auto">
               {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
 
@@ -207,8 +207,8 @@ export function MediaStudioDashboard() {
                     key={tab.id}
                     value={tab.id}
                     className={`
-                      relative flex items-center justify-center gap-2.5 h-10 px-5 rounded-lg 
-                      text-[13px] font-medium transition-all duration-200
+                      relative flex items-center justify-center gap-2 h-8 px-4 rounded-md 
+                      text-[12px] font-medium transition-all duration-200
                       data-[state=inactive]:hover:bg-muted/60
                       group
                     `}
@@ -223,7 +223,7 @@ export function MediaStudioDashboard() {
                     } : undefined}
                   >
                     <tab.icon
-                      className={`w-[18px] h-[18px] transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`}
+                      className={`w-4 h-4 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`}
                       style={!isActive ? {
                         color: tab.color === 'teal'
                           ? 'var(--ms-primary)'

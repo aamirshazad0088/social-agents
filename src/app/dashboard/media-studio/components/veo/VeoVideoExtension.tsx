@@ -12,10 +12,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Loader2, 
-  RefreshCw, 
-  Info, 
+import {
+  Loader2,
+  RefreshCw,
+  Info,
   Video,
   Clock,
   AlertTriangle,
@@ -74,12 +74,12 @@ export function VeoVideoExtension({
   extendableVideos,
 }: VeoVideoExtensionProps) {
   const { workspaceId } = useAuth();
-  
+
   // State
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState<VeoModel>('veo-3.1-generate-preview');
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
-  
+
   // Prompt improvement state
   const [showImprovementModal, setShowImprovementModal] = useState(false);
   const [improvementInstructions, setImprovementInstructions] = useState('');
@@ -94,7 +94,7 @@ export function VeoVideoExtension({
     if (errorMessage.includes('429') || errorMessage.includes('rate') || errorMessage.includes('quota')) return 'Rate limit exceeded. Try a different model.';
     return 'Failed to improve prompt. Please try again.';
   };
-  
+
   // Database videos state
   const [storedVideos, setStoredVideos] = useState<StoredVeoVideo[]>([]);
   const [isLoadingVideos, setIsLoadingVideos] = useState(false);
@@ -103,7 +103,7 @@ export function VeoVideoExtension({
   // Fetch Veo videos from database
   const fetchStoredVideos = useCallback(async () => {
     if (!workspaceId) return;
-    
+
     setIsLoadingVideos(true);
     try {
       // Fetch videos with veo sources that have veo_video_id for extension
@@ -111,7 +111,7 @@ export function VeoVideoExtension({
         `/api/media-studio/library?workspace_id=${workspaceId}&type=video&limit=50`
       );
       const data = await response.json();
-      
+
       if (data.items) {
         // Filter to only Veo videos that can be extended
         const veoVideos = data.items.filter((item: any) => {
@@ -219,7 +219,7 @@ export function VeoVideoExtension({
       // Update prompt with improved version
       setPrompt(data.improvedPrompt);
       setImprovementInstructions('');
-      
+
     } catch (error) {
       console.error('Prompt improvement error:', error);
       setImprovementError(getUserFriendlyError(error));
@@ -303,11 +303,11 @@ export function VeoVideoExtension({
   return (
     <div className="space-y-4">
       {/* Info Banner */}
-      <div className="flex items-start gap-2 text-xs bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 p-3 rounded-lg">
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+      <div className="flex items-start gap-2 text-xs bg-card border border-border text-foreground p-3 rounded-lg">
+        <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
         <div>
           <p className="font-medium">Video Extension</p>
-          <p className="mt-1">
+          <p className="mt-1 text-muted-foreground">
             Each extension adds {VEO_EXTENSION_SECONDS} seconds. Maximum {VEO_MAX_EXTENSIONS} extensions per video.
             Resolution is fixed to 720p for extensions.
           </p>
@@ -329,7 +329,7 @@ export function VeoVideoExtension({
             Refresh
           </Button>
         </div>
-        
+
         {isLoadingVideos ? (
           <div className="border border-dashed border-border rounded-lg p-6 text-center">
             <Loader2 className="w-8 h-8 mx-auto text-muted-foreground mb-2 animate-spin" />
@@ -376,7 +376,7 @@ export function VeoVideoExtension({
                 })}
               </SelectContent>
             </Select>
-            
+
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <FolderOpen className="w-3 h-3" />
               {storedVideos.length} videos from library, {extendableVideos.length} recent

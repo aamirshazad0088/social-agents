@@ -39,47 +39,47 @@ export function VideoGeneratorWithVeo({
     <div className="space-y-4">
       {/* Provider Selection Tabs - Clean Design */}
       <Tabs value={provider} onValueChange={(v) => setProvider(v as VideoProvider)}>
-        <TabsList className="inline-flex h-auto p-1 bg-muted rounded-xl gap-1">
-          <TabsTrigger 
-            value="openai" 
+        <TabsList className="inline-flex h-auto p-0.5 bg-muted rounded-lg gap-0.5">
+          <TabsTrigger
+            value="openai"
             className={`
-              flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200
+              flex items-center gap-1.5 px-3 py-1 rounded-md transition-all duration-200
               data-[state=active]:bg-white dark:data-[state=active]:bg-white data-[state=active]:shadow-sm
               data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-900
               data-[state=inactive]:hover:bg-white/50 dark:data-[state=inactive]:hover:bg-white/20
               data-[state=inactive]:text-foreground
             `}
           >
-            <div 
-              className="w-5 h-5 rounded-md flex items-center justify-center"
+            <div
+              className="w-4 h-4 rounded flex items-center justify-center"
               style={{ background: 'var(--ms-gradient-primary)' }}
             >
-              <Bot className="w-3 h-3 text-white" />
+              <Bot className="w-2.5 h-2.5 text-white" />
             </div>
-            <span className="font-medium text-sm">OpenAI Sora</span>
+            <span className="font-medium text-xs">OpenAI Sora</span>
           </TabsTrigger>
-          <TabsTrigger 
-            value="google" 
+          <TabsTrigger
+            value="google"
             className={`
-              flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200
+              flex items-center gap-1.5 px-3 py-1 rounded-md transition-all duration-200
               data-[state=active]:bg-white dark:data-[state=active]:bg-white data-[state=active]:shadow-sm
               data-[state=active]:text-gray-900 dark:data-[state=active]:text-gray-900
               data-[state=inactive]:hover:bg-white/50 dark:data-[state=inactive]:hover:bg-white/20
               data-[state=inactive]:text-foreground
             `}
           >
-            <div 
-              className="w-5 h-5 rounded-md flex items-center justify-center"
+            <div
+              className="w-4 h-4 rounded flex items-center justify-center"
               style={{ background: 'linear-gradient(135deg, #4285f4 0%, #34a853 50%, #fbbc05 100%)' }}
             >
-              <Sparkles className="w-3 h-3 text-white" />
+              <Sparkles className="w-2.5 h-2.5 text-white" />
             </div>
-            <span className="font-medium text-sm">Google Veo</span>
-            <Badge 
-              className="text-[10px] px-1.5 py-0.5 flex items-center gap-0.5 border-0"
+            <span className="font-medium text-xs">Google Veo</span>
+            <Badge
+              className="text-[9px] px-1 py-0 flex items-center gap-0.5 border-0 h-4"
               style={{ background: 'var(--ms-accent)', color: 'var(--ms-accent-foreground)' }}
             >
-              <Volume2 className="w-2.5 h-2.5" />
+              <Volume2 className="w-2 h-2" />
               Audio
             </Badge>
           </TabsTrigger>
