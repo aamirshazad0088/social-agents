@@ -138,11 +138,16 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
 
   // Load data when connected and user is available
   useEffect(() => {
-    if (isConnected && workspaceId && user?.id) {
-      fetchDesigns();
+    if (workspaceId) {
       fetchLibraryItems();
     }
-  }, [isConnected, workspaceId, user?.id]);
+  }, [workspaceId]);
+
+  useEffect(() => {
+    if (isConnected && user?.id) {
+      fetchDesigns();
+    }
+  }, [isConnected, user?.id]);
 
   // Notify parent about counts for header badge display
   useEffect(() => {
@@ -761,65 +766,8 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
     }
   };
 
-  // Not connected state
-  if (isCheckingConnection) {
-    return (
-      <Card className="border-2 border-dashed">
-        <CardContent className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    );
-  }
+  // Connected state logic moved inline
 
-  if (!isConnected) {
-    return (
-      <Card className="border-2 border-dashed border-purple-200 dark:border-purple-900 bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20">
-        <CardContent className="flex flex-col items-center justify-center py-20 px-8 text-center">
-          <div className="relative mb-6">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur-xl opacity-30" />
-            <div className="relative bg-gradient-to-r from-purple-500 to-pink-500 p-4 rounded-2xl">
-              <Palette className="w-12 h-12 text-white" />
-            </div>
-          </div>
-
-          <h3 className="text-2xl font-bold mb-2">Connect Canva</h3>
-          <p className="text-muted-foreground mb-6 max-w-md">
-            Edit your media library assets with Canva's powerful design tools.
-            Add text, filters, graphics, and more - then save back to your library.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 w-full max-w-2xl">
-            <div className="flex items-center gap-3 p-4 bg-background rounded-lg border">
-              <FolderOpen className="w-5 h-5 text-purple-500" />
-              <span className="text-sm">Select from library</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 bg-background rounded-lg border">
-              <ArrowRight className="w-5 h-5 text-pink-500" />
-              <span className="text-sm">Edit in Canva</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 bg-background rounded-lg border">
-              <Download className="w-5 h-5 text-green-500" />
-              <span className="text-sm">Save back</span>
-            </div>
-          </div>
-
-          <Button
-            size="lg"
-            onClick={() => window.location.href = '/settings?tab=accounts'}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-          >
-            <Link2 className="w-4 h-4 mr-2" />
-            Connect in Settings
-          </Button>
-
-          <p className="text-xs text-muted-foreground mt-4">
-            Go to Settings → Accounts to connect your Canva account
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   // Connected state
   return (
@@ -975,7 +923,54 @@ export function CanvaEditor({ onMediaSaved, activeTab: controlledActiveTab, onTa
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingDesigns ? (
+              {isCheckingConnection ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : !isConnected ? (
+                <div className="flex flex-col items-center justify-center py-12 px-8 text-center">
+                  <div className="relative mb-6">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl blur-xl opacity-30" />
+                    <div className="relative bg-gradient-to-r from-purple-500 to-pink-500 p-4 rounded-2xl">
+                      <Palette className="w-12 h-12 text-white" />
+                    </div>
+                  </div>
+
+                  <h3 className="text-2xl font-bold mb-2">Connect Canva</h3>
+                  <p className="text-muted-foreground mb-6 max-w-md">
+                    Edit your media library assets with Canva's powerful design tools.
+                    Add text, filters, graphics, and more - then save back to your library.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 w-full max-w-2xl">
+                    <div className="flex items-center gap-3 p-4 bg-background rounded-lg border">
+                      <FolderOpen className="w-5 h-5 text-purple-500" />
+                      <span className="text-sm">Select from library</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-4 bg-background rounded-lg border">
+                      <ArrowRight className="w-5 h-5 text-pink-500" />
+                      <span className="text-sm">Edit in Canva</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-4 bg-background rounded-lg border">
+                      <Download className="w-5 h-5 text-green-500" />
+                      <span className="text-sm">Save back</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={() => window.location.href = '/settings?tab=accounts'}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                  >
+                    <Link2 className="w-4 h-4 mr-2" />
+                    Connect in Settings
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Go to Settings → Accounts to connect your Canva account
+                  </p>
+                </div>
+              ) : isLoadingDesigns ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin" />
                 </div>

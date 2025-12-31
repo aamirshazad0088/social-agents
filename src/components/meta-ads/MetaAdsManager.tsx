@@ -232,9 +232,8 @@ export default function MetaAdsManager() {
     );
   }
 
-  if (!isConnected) {
-    return <MetaAdsConnect onConnect={handleConnect} />;
-  }
+  // Connection status handled via banner instead of blocking early return
+
 
   return (
     <div className="flex flex-col h-full">
@@ -351,6 +350,26 @@ export default function MetaAdsManager() {
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         <div className="p-6">
+          {/* Connection Status Banner */}
+          {!isConnected && (
+            <div className="mb-6 flex items-center justify-between gap-4 p-4 rounded-lg border border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-900/20">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-sky-600 dark:text-sky-400 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-foreground">Meta Ads Not Connected</p>
+                  <p className="text-sm text-muted-foreground">Connect your Meta Business account to manage campaigns and ads.</p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => window.location.href = '/settings?tab=accounts'}
+                className="bg-sky-600 hover:bg-sky-700 text-white flex-shrink-0"
+              >
+                <Facebook className="w-4 h-4 mr-2" />
+                Connect Now
+              </Button>
+            </div>
+          )}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="bg-muted p-1 h-auto">
               <TabsTrigger value="overview" className="gap-1.5 text-xs">
