@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     
     def get_oauth_callback_url(self, platform: str) -> str:
         """Get the OAuth callback URL for a platform."""
-        return f"{self.BACKEND_URL}/api/v1/auth/{platform}/callback"
+        return f"{self.BACKEND_URL}/api/v1/auth/oauth/{platform}/callback"
 
     
     @property
