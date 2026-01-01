@@ -50,6 +50,13 @@ services:
           name: content-creator-frontend
           property: host
       
+      # Backend URL for OAuth callbacks (must be the public backend URL)
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: content-creator-backend
+          property: host
+      
       # ==========================================================================
       # Supabase Configuration (set in Render Dashboard)
       # ==========================================================================
