@@ -53,12 +53,8 @@ COPY --chown=appuser:appgroup python_backend/src ./src
 # Switch to non-root user
 USER appuser
 
-# Expose port
-EXPOSE 8000
-
-# Health check (requires python to be available, which it is)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+# Expose port (Render uses 10000 for web services)
+EXPOSE 10000
 
 # Run the application using python -m uvicorn
-CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "10000"]

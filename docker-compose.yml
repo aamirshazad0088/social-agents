@@ -16,15 +16,29 @@ services:
     env_file:
       - .env
     environment:
-      # Server config
+      # ==========================================================================
+      # Server Configuration
+      # ==========================================================================
       - HOST=0.0.0.0
       - PORT=8000
       - DEBUG=${DEBUG:-false}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
       
       # Frontend URL (for CORS)
       - APP_URL=${APP_URL:-http://localhost:3000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
       
+      # ==========================================================================
+      # Supabase Configuration
+      # ==========================================================================
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      
+      # ==========================================================================
       # AI Provider API Keys
+      # ==========================================================================
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -33,27 +47,67 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       
-      # Supabase
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      # ==========================================================================
+      # Rate Limiting
+      # ==========================================================================
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-1000}
+      - RATE_LIMIT_AUTH_ATTEMPTS=${RATE_LIMIT_AUTH_ATTEMPTS:-5}
       
-      # Database (LangGraph checkpointer)
-      - DATABASE_URL=${DATABASE_URL}
-      
+      # ==========================================================================
       # Social Platform OAuth
+      # ==========================================================================
+      # Facebook / Meta
       - FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}
       - FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}
+      # Instagram
       - INSTAGRAM_CLIENT_ID=${INSTAGRAM_CLIENT_ID}
       - INSTAGRAM_CLIENT_SECRET=${INSTAGRAM_CLIENT_SECRET}
-      - LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID}
-      - LINKEDIN_CLIENT_SECRET=${LINKEDIN_CLIENT_SECRET}
+      # Twitter/X (OAuth 2.0)
       - TWITTER_CLIENT_ID=${TWITTER_CLIENT_ID}
       - TWITTER_CLIENT_SECRET=${TWITTER_CLIENT_SECRET}
+      # Twitter/X (OAuth 1.0a)
+      - TWITTER_API_KEY=${TWITTER_API_KEY}
+      - TWITTER_API_SECRET=${TWITTER_API_SECRET}
+      # LinkedIn
+      - LINKEDIN_CLIENT_ID=${LINKEDIN_CLIENT_ID}
+      - LINKEDIN_CLIENT_SECRET=${LINKEDIN_CLIENT_SECRET}
+      # TikTok
       - TIKTOK_CLIENT_ID=${TIKTOK_CLIENT_ID}
       - TIKTOK_CLIENT_SECRET=${TIKTOK_CLIENT_SECRET}
+      - TIKTOK_CLIENT_KEY=${TIKTOK_CLIENT_KEY}
+      # YouTube/Google
       - YOUTUBE_CLIENT_ID=${YOUTUBE_CLIENT_ID}
       - YOUTUBE_CLIENT_SECRET=${YOUTUBE_CLIENT_SECRET}
+      # Canva
+      - CANVA_CLIENT_ID=${CANVA_CLIENT_ID}
+      - CANVA_CLIENT_SECRET=${CANVA_CLIENT_SECRET}
+      
+      # ==========================================================================
+      # Media Storage - Cloudinary
+      # ==========================================================================
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      
+      # ==========================================================================
+      # LangSmith Tracing
+      # ==========================================================================
+      - LANGSMITH_TRACING=${LANGSMITH_TRACING:-true}
+      - LANGSMITH_ENDPOINT=${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT}
+      
+      # ==========================================================================
+      # Email Service - Resend
+      # ==========================================================================
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Content OS}
+      
+      # ==========================================================================
+      # Cron/Scheduled Jobs
+      # ==========================================================================
+      - CRON_SECRET=${CRON_SECRET}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

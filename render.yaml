@@ -23,15 +23,18 @@ services:
     dockerContext: .
     region: oregon
     plan: starter
-    healthCheckPath: /health
     envVars:
-      # Server Config
+      # ==========================================================================
+      # Server Configuration
+      # ==========================================================================
       - key: HOST
         value: 0.0.0.0
       - key: PORT
-        value: 8000
+        value: 10000
       - key: DEBUG
         value: false
+      - key: ENVIRONMENT
+        value: production
       
       # Frontend URL for CORS (auto-linked, backend transforms to full HTTPS URL)
       - key: APP_URL
@@ -40,7 +43,28 @@ services:
           name: content-creator-frontend
           property: host
       
+      # CORS Origins (comma-separated, auto-linked frontend URL)
+      - key: CORS_ORIGINS
+        fromService:
+          type: web
+          name: content-creator-frontend
+          property: host
+      
+      # ==========================================================================
+      # Supabase Configuration (set in Render Dashboard)
+      # ==========================================================================
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      
+      # ==========================================================================
       # AI Provider API Keys (set in Render Dashboard)
+      # ==========================================================================
       - key: GOOGLE_API_KEY
         sync: false
       - key: OPENAI_API_KEY
@@ -49,45 +73,107 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
       - key: ELEVENLABS_API_KEY
         sync: false
       
-      # Supabase (set in Render Dashboard)
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_KEY
-        sync: false
-      - key: SUPABASE_SERVICE_KEY
-        sync: false
+      # ==========================================================================
+      # Rate Limiting
+      # ==========================================================================
+      - key: RATE_LIMIT_REQUESTS
+        value: 1000
+      - key: RATE_LIMIT_AUTH_ATTEMPTS
+        value: 5
       
-      # Database URL (set in Render Dashboard)
-      - key: DATABASE_URL
-        sync: false
-      
+      # ==========================================================================
       # Social Platform OAuth (set in Render Dashboard)
+      # ==========================================================================
+      # Facebook / Meta
       - key: FACEBOOK_CLIENT_ID
         sync: false
       - key: FACEBOOK_CLIENT_SECRET
         sync: false
+      
+      # Instagram (uses Facebook App)
       - key: INSTAGRAM_CLIENT_ID
         sync: false
       - key: INSTAGRAM_CLIENT_SECRET
         sync: false
-      - key: LINKEDIN_CLIENT_ID
-        sync: false
-      - key: LINKEDIN_CLIENT_SECRET
-        sync: false
+      
+      # Twitter/X (OAuth 2.0)
       - key: TWITTER_CLIENT_ID
         sync: false
       - key: TWITTER_CLIENT_SECRET
         sync: false
+      # Twitter/X (OAuth 1.0a)
+      - key: TWITTER_API_KEY
+        sync: false
+      - key: TWITTER_API_SECRET
+        sync: false
+      
+      # LinkedIn
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      
+      # TikTok
       - key: TIKTOK_CLIENT_ID
         sync: false
       - key: TIKTOK_CLIENT_SECRET
         sync: false
+      - key: TIKTOK_CLIENT_KEY
+        sync: false
+      
+      # YouTube/Google
       - key: YOUTUBE_CLIENT_ID
         sync: false
       - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      
+      # Canva
+      - key: CANVA_CLIENT_ID
+        sync: false
+      - key: CANVA_CLIENT_SECRET
+        sync: false
+      
+      # ==========================================================================
+      # Media Storage - Cloudinary (set in Render Dashboard)
+      # ==========================================================================
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      
+      # ==========================================================================
+      # LangSmith Tracing (set in Render Dashboard)
+      # ==========================================================================
+      - key: LANGSMITH_TRACING
+        value: true
+      - key: LANGSMITH_ENDPOINT
+        value: https://api.smith.langchain.com
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_PROJECT
+        sync: false
+      
+      # ==========================================================================
+      # Email Service - Resend (set in Render Dashboard)
+      # ==========================================================================
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: Content OS
+      
+      # ==========================================================================
+      # Cron/Scheduled Jobs Authentication
+      # ==========================================================================
+      - key: CRON_SECRET
         sync: false
 
   # ==========================================================================
@@ -100,7 +186,6 @@ services:
     dockerContext: .
     region: oregon
     plan: starter
-    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
