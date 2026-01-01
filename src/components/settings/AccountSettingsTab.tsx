@@ -548,7 +548,7 @@ const AccountSettingsTab: React.FC = () => {
       // Other platforms use OAuth 2.0
       const oauthEndpoint = platform === 'twitter'
         ? '/api/twitter/auth'  // OAuth 1.0a
-        : `/api/auth/oauth/${platform}`  // OAuth 2.0
+        : `/api/auth/oauth/${platform}/initiate`  // OAuth 2.0
 
       // POST to initiate OAuth
       const response = await fetch(oauthEndpoint, {
