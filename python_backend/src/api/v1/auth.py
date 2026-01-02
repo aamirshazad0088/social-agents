@@ -348,6 +348,8 @@ async def _save_social_account(
 async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: str):
     """Handle Facebook OAuth callback with token expiration tracking"""
     try:
+        import httpx
+        
         # Exchange code for token
         token_result = await social_service.facebook_exchange_code_for_token(code, callback_url)
         
@@ -357,7 +359,7 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
         access_token = token_result["access_token"]
         expires_in = token_result.get("expires_in")  # Short-lived token expiry
         
-        # Get long-lived token (60 days)
+        # Get long-lived token (60 days) - this is the USER token for ads
         long_lived_result = await social_service.facebook_get_long_lived_token(access_token)
         if long_lived_result.get("success"):
             access_token = long_lived_result["access_token"]
@@ -380,14 +382,94 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
         # Save first page (user can switch later)
         selected_page = pages_result["pages"][0]
         
+        # ========== FETCH BUSINESS AND AD ACCOUNTS ==========
+        ad_account_id = None
+        ad_account_name = None
+        business_id = None
+        business_name = None
+        
+        try:
+            GRAPH_API_VERSION = "v24.0"
+            GRAPH_BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # Fetch businesses using USER token (NOT page token)
+                businesses_url = f"{GRAPH_BASE_URL}/me/businesses"
+                params = {"access_token": access_token, "fields": "id,name"}
+                
+                resp = await client.get(businesses_url, params=params)
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    businesses = data.get("data", [])
+                    
+                    logger.info(f"Found {len(businesses)} businesses for workspace {workspace_id}")
+                    
+                    # Get ad accounts from each business
+                    for business in businesses:
+                        ad_accounts_url = f"{GRAPH_BASE_URL}/{business['id']}/owned_ad_accounts"
+                        ad_params = {
+                            "access_token": access_token,
+                            "fields": "id,account_id,name,account_status,currency,timezone_name"
+                        }
+                        
+                        ad_resp = await client.get(ad_accounts_url, params=ad_params)
+                        
+                        if ad_resp.status_code == 200:
+                            ad_data = ad_resp.json()
+                            ad_accounts = ad_data.get("data", [])
+                            
+                            if ad_accounts:
+                                first_account = ad_accounts[0]
+                                ad_account_id = first_account.get("account_id") or first_account.get("id", "").replace("act_", "")
+                                ad_account_name = first_account.get("name")
+                                business_id = business["id"]
+                                business_name = business.get("name")
+                                logger.info(f"Found ad account: {ad_account_name} from business: {business_name}")
+                                break  # Found one, use it
+                        else:
+                            logger.warning(f"Failed to get ad accounts for business {business['id']}: {ad_resp.status_code}")
+                else:
+                    logger.warning(f"Failed to get businesses: {resp.status_code} - {resp.text[:200]}")
+                    
+                # Fallback: Try getting ad accounts directly from user
+                if not ad_account_id:
+                    logger.info("Trying direct ad accounts as fallback")
+                    ad_accounts_url = f"{GRAPH_BASE_URL}/me/adaccounts"
+                    ad_params = {
+                        "access_token": access_token,
+                        "fields": "id,account_id,name,account_status,currency,timezone_name"
+                    }
+                    
+                    ad_resp = await client.get(ad_accounts_url, params=ad_params)
+                    
+                    if ad_resp.status_code == 200:
+                        ad_data = ad_resp.json()
+                        ad_accounts = ad_data.get("data", [])
+                        
+                        if ad_accounts:
+                            first_account = ad_accounts[0]
+                            ad_account_id = first_account.get("account_id") or first_account.get("id", "").replace("act_", "")
+                            ad_account_name = first_account.get("name")
+                            logger.info(f"Found direct ad account: {ad_account_name}")
+                    
+        except Exception as biz_error:
+            logger.warning(f"Error fetching business/ad accounts: {biz_error}")
+        # ========== END FETCH BUSINESS AND AD ACCOUNTS ==========
+        
         credentials = {
-            "accessToken": selected_page["access_token"],
-            "userAccessToken": access_token,
+            "accessToken": selected_page["access_token"],  # Page token for posting
+            "userAccessToken": access_token,  # User token for ads/business API
             "pageId": selected_page["id"],
             "pageName": selected_page["name"],
             "category": selected_page.get("category"),
             "isConnected": True,
-            "connectedAt": datetime.now(timezone.utc).isoformat()
+            "connectedAt": datetime.now(timezone.utc).isoformat(),
+            # Ad account info
+            "adAccountId": ad_account_id,
+            "adAccountName": ad_account_name,
+            "businessId": business_id,
+            "businessName": business_name,
         }
         
         await _save_social_account(
@@ -401,7 +483,7 @@ async def _handle_facebook_callback(code: str, workspace_id: str, callback_url: 
             page_name=selected_page["name"]
         )
         
-        logger.info(f"Facebook connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}")
+        logger.info(f"Facebook connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}, ad_account: {ad_account_id}")
         return RedirectResponse(url=get_success_redirect("facebook"))
         
     except Exception as e:
