@@ -1,0 +1,43 @@
+'use server';
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase/server';
+
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
+
+/**
+ * GET /api/v1/meta-ads/insights
+ * Get ad insights/analytics
+ */
+export async function GET(request: NextRequest) {
+    try {
+        const supabase = await createServerClient();
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
+
+        // Forward query params
+        const url = new URL(request.url);
+        const queryString = url.searchParams.toString();
+
+        const backendResponse = await fetch(
+            `${PYTHON_BACKEND_URL}/api/v1/meta-ads/insights${queryString ? `?${queryString}` : ''}`,
+            {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        const data = await backendResponse.json();
+        return NextResponse.json(data, { status: backendResponse.status });
+
+    } catch (error) {
+        console.error('Error fetching insights:', error);
+        return NextResponse.json({ error: 'Failed to fetch insights' }, { status: 500 });
+    }
+}
