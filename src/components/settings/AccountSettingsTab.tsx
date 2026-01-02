@@ -101,6 +101,10 @@ const AccountSettingsTab: React.FC = () => {
       if (!response.ok) throw new Error('Failed to load status')
       const data = await response.json()
 
+      // DEBUG: Log raw API response
+      console.log('[AccountSettingsTab] Raw API response:', JSON.stringify(data, null, 2))
+      console.log('[AccountSettingsTab] Facebook data:', data.facebook)
+
       // Map the connection status response
       const mappedStatus: Record<Platform, any> = {
         twitter: { isConnected: data.twitter?.connected ?? false, ...data.twitter },
@@ -110,6 +114,10 @@ const AccountSettingsTab: React.FC = () => {
         tiktok: { isConnected: data.tiktok?.connected ?? false, ...data.tiktok },
         youtube: { isConnected: data.youtube?.connected ?? false, ...data.youtube },
       }
+
+      // DEBUG: Log mapped status
+      console.log('[AccountSettingsTab] Mapped status:', mappedStatus)
+      console.log('[AccountSettingsTab] Facebook isConnected:', mappedStatus.facebook.isConnected)
 
       setStatusInfo(mappedStatus)
       setConnectedAccounts(
