@@ -531,7 +531,7 @@ export type Platform = 'twitter' | 'linkedin' | 'facebook' | 'instagram' | 'tikt
 
 /** Platform connection status */
 export interface PlatformConnectionStatus {
-    connected: boolean;
+    isConnected: boolean;
     accountId?: string;
     accountName?: string;
     connectedAt?: string;
@@ -543,7 +543,7 @@ export type ConnectionStatusMap = Record<Platform, PlatformConnectionStatus>;
 
 /** Platform credential details */
 export interface PlatformCredential {
-    connected: boolean;
+    isConnected: boolean;
     platform: Platform;
     accountId?: string;
     accountName?: string;
