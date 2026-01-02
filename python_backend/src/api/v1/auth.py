@@ -309,7 +309,6 @@ async def _save_social_account(
         "account_id": account_id,
         "account_name": account_name,
         "credentials_encrypted": credentials,
-        "is_active": True,
         "is_connected": True,
         "connected_at": now.isoformat(),
         "last_refreshed_at": now.isoformat(),
