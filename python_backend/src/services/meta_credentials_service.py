@@ -866,38 +866,145 @@ class MetaCredentialsService:
         workspace_id: str,
         user_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Get all available business portfolios with their ad accounts using SDK"""
+        """Get all available business portfolios with their ad accounts using Graph API directly"""
         credentials = await MetaCredentialsService.get_meta_credentials(workspace_id, user_id)
         
         if not credentials:
+            logger.warning(f"No credentials found for workspace {workspace_id}")
             return []
         
         access_token = credentials.get("user_access_token") or credentials.get("access_token")
         if not access_token:
+            logger.warning(f"No access token found in credentials for workspace {workspace_id}")
             return []
         
         try:
-            sdk_client = create_meta_sdk_client(access_token)
+            import httpx
             
-            businesses = await sdk_client.get_businesses()
+            # Use Graph API directly for reliability
+            GRAPH_API_VERSION = "v21.0"
+            GRAPH_BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
             
-            result = []
-            for business in businesses:
-                ad_accounts = await sdk_client.get_business_ad_accounts(business["id"])
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # Get user's businesses
+                businesses_url = f"{GRAPH_BASE_URL}/me/businesses"
+                params = {
+                    "access_token": access_token,
+                    "fields": "id,name,primary_page,created_time"
+                }
                 
-                result.append({
-                    "id": business["id"],
-                    "name": business.get("name"),
-                    "adAccounts": ad_accounts
-                })
-            
-            return result
-            
-        except MetaSDKError as e:
-            logger.error(f"SDK error fetching businesses: {e.message}")
-            return []
+                logger.info(f"Fetching businesses from Graph API for workspace {workspace_id}")
+                resp = await client.get(businesses_url, params=params)
+                
+                if resp.status_code != 200:
+                    error_data = resp.json() if resp.content else {}
+                    error_msg = error_data.get("error", {}).get("message", "Unknown error")
+                    logger.error(f"Graph API error fetching businesses: {resp.status_code} - {error_msg}")
+                    
+                    # If no businesses, try getting ad accounts directly from the user
+                    if "does not have permission" in error_msg or resp.status_code == 403:
+                        logger.info("No business access, trying direct ad accounts")
+                        return await MetaCredentialsService._get_ad_accounts_direct(access_token)
+                    return []
+                
+                data = resp.json()
+                businesses = data.get("data", [])
+                
+                if not businesses:
+                    logger.info(f"No businesses found, trying direct ad accounts for workspace {workspace_id}")
+                    return await MetaCredentialsService._get_ad_accounts_direct(access_token)
+                
+                result = []
+                for business in businesses:
+                    business_id = business["id"]
+                    
+                    # Get ad accounts for this business
+                    ad_accounts_url = f"{GRAPH_BASE_URL}/{business_id}/owned_ad_accounts"
+                    ad_params = {
+                        "access_token": access_token,
+                        "fields": "id,account_id,name,account_status,currency,timezone_name"
+                    }
+                    
+                    ad_resp = await client.get(ad_accounts_url, params=ad_params)
+                    
+                    ad_accounts = []
+                    if ad_resp.status_code == 200:
+                        ad_data = ad_resp.json()
+                        ad_accounts = [
+                            {
+                                "id": acc.get("id"),
+                                "account_id": acc.get("account_id"),
+                                "name": acc.get("name"),
+                                "account_status": acc.get("account_status"),
+                                "currency": acc.get("currency"),
+                                "timezone_name": acc.get("timezone_name")
+                            }
+                            for acc in ad_data.get("data", [])
+                        ]
+                    else:
+                        logger.warning(f"Failed to get ad accounts for business {business_id}")
+                    
+                    result.append({
+                        "id": business_id,
+                        "name": business.get("name"),
+                        "primaryPage": business.get("primary_page"),
+                        "adAccounts": ad_accounts
+                    })
+                
+                logger.info(f"Found {len(result)} businesses with ad accounts for workspace {workspace_id}")
+                return result
+                
         except Exception as e:
-            logger.error(f"Error fetching businesses: {e}")
+            logger.error(f"Error fetching businesses via Graph API: {e}", exc_info=True)
+            return []
+    
+    @staticmethod
+    async def _get_ad_accounts_direct(access_token: str) -> List[Dict[str, Any]]:
+        """Fallback: Get ad accounts directly from user when no business access"""
+        try:
+            import httpx
+            
+            GRAPH_API_VERSION = "v21.0"
+            GRAPH_BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                url = f"{GRAPH_BASE_URL}/me/adaccounts"
+                params = {
+                    "access_token": access_token,
+                    "fields": "id,account_id,name,account_status,currency,timezone_name"
+                }
+                
+                resp = await client.get(url, params=params)
+                
+                if resp.status_code != 200:
+                    logger.error(f"Failed to get direct ad accounts: {resp.status_code}")
+                    return []
+                
+                data = resp.json()
+                ad_accounts = [
+                    {
+                        "id": acc.get("id"),
+                        "account_id": acc.get("account_id"),
+                        "name": acc.get("name"),
+                        "account_status": acc.get("account_status"),
+                        "currency": acc.get("currency"),
+                        "timezone_name": acc.get("timezone_name")
+                    }
+                    for acc in data.get("data", [])
+                ]
+                
+                if ad_accounts:
+                    # Return as a "personal" pseudo-business
+                    return [{
+                        "id": "personal",
+                        "name": "Personal Ad Accounts",
+                        "adAccounts": ad_accounts
+                    }]
+                
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error fetching direct ad accounts: {e}")
             return []
     
     @staticmethod
