@@ -90,17 +90,16 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
             const response = await fetch('/api/credentials/status')
             if (!response.ok) throw new Error('Failed to load status')
             const data = await response.json()
-            const mappedStatus = mapCredentialsStatus(data)
 
             // Check if the platform we're looking for is now connected
-            const platformConnected = mappedStatus[successPlatform as Platform]?.isConnected
+            const platformConnected = data[successPlatform as Platform]?.isConnected
 
             if (platformConnected) {
               // Found credentials! Update state and we're done
-              setStatusInfo(mappedStatus)
+              setStatusInfo(data)
               onUpdateAccounts(
                 Object.fromEntries(
-                  Object.entries(mappedStatus).map(([p, info]: [string, any]) => [
+                  Object.entries(data).map(([p, info]: [string, any]) => [
                     p,
                     info.isConnected,
                   ])
@@ -110,10 +109,10 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
               break // Exit retry loop
             } else if (attempt === maxRetries - 1) {
               // Last attempt failed - show what we got
-              setStatusInfo(mappedStatus)
+              setStatusInfo(data)
               onUpdateAccounts(
                 Object.fromEntries(
-                  Object.entries(mappedStatus).map(([p, info]: [string, any]) => [
+                  Object.entries(data).map(([p, info]: [string, any]) => [
                     p,
                     info.isConnected,
                   ])
@@ -163,12 +162,11 @@ const ConnectedAccountsView: React.FC<ConnectedAccountsViewProps> = ({
       const response = await fetch('/api/credentials/status')
       if (!response.ok) throw new Error('Failed to load status')
       const data = await response.json()
-      const mappedStatus = mapCredentialsStatus(data)
 
-      setStatusInfo(mappedStatus)
+      setStatusInfo(data)
       onUpdateAccounts(
         Object.fromEntries(
-          Object.entries(mappedStatus).map(([p, info]: [string, any]) => [
+          Object.entries(data).map(([p, info]: [string, any]) => [
             p,
             info.isConnected,
           ])

@@ -76,12 +76,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
             // Map connection status to account summary
             const accountsSummary: Record<Platform, boolean> = {
-                twitter: accountsStatus.twitter?.connected ?? false,
-                linkedin: accountsStatus.linkedin?.connected ?? false,
-                facebook: accountsStatus.facebook?.connected ?? false,
-                instagram: accountsStatus.instagram?.connected ?? false,
-                tiktok: accountsStatus.tiktok?.connected ?? false,
-                youtube: accountsStatus.youtube?.connected ?? false,
+                twitter: accountsStatus.twitter?.isConnected ?? false,
+                linkedin: accountsStatus.linkedin?.isConnected ?? false,
+                facebook: accountsStatus.facebook?.isConnected ?? false,
+                instagram: accountsStatus.instagram?.isConnected ?? false,
+                tiktok: accountsStatus.tiktok?.isConnected ?? false,
+                youtube: accountsStatus.youtube?.isConnected ?? false,
             };
 
             setPosts(Array.isArray(postsData) ? (postsData as unknown as Post[]) : []);

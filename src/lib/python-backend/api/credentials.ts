@@ -86,7 +86,7 @@ export async function isPlatformConnected(
     platform: Platform
 ): Promise<boolean> {
     const credential = await getPlatformCredential(platform);
-    return credential.connected;
+    return credential.isConnected;
 }
 
 /**
@@ -102,7 +102,7 @@ export async function getConnectedPlatforms(): Promise<Platform[]> {
     const platforms: Platform[] = [];
 
     for (const [platform, info] of Object.entries(status)) {
-        if (info.connected) {
+        if (info.isConnected) {
             platforms.push(platform as Platform);
         }
     }

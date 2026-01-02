@@ -316,22 +316,14 @@ const AccountSettingsTab: React.FC = () => {
               const response = await fetch('/api/credentials/status')
               if (!response.ok) throw new Error('Failed to load status')
               const status = await response.json()
-              const mappedStatus: Record<Platform, any> = {
-                twitter: { isConnected: status.twitter?.connected ?? false, ...status.twitter },
-                linkedin: { isConnected: status.linkedin?.connected ?? false, ...status.linkedin },
-                facebook: { isConnected: status.facebook?.connected ?? false, ...status.facebook },
-                instagram: { isConnected: status.instagram?.connected ?? false, ...status.instagram },
-                tiktok: { isConnected: status.tiktok?.connected ?? false, ...status.tiktok },
-                youtube: { isConnected: status.youtube?.connected ?? false, ...status.youtube },
-              }
-              const platformConnected = mappedStatus[platform]?.isConnected
+              const platformConnected = status[platform]?.isConnected
 
               if (platformConnected) {
                 // Platform is connected! Clear any errors and update state
-                setStatusInfo(mappedStatus)
+                setStatusInfo(status)
                 setConnectedAccounts(
                   Object.fromEntries(
-                    Object.entries(mappedStatus).map(([p, info]: [string, any]) => [
+                    Object.entries(status).map(([p, info]: [string, any]) => [
                       p,
                       info.isConnected,
                     ])
@@ -447,10 +439,10 @@ const AccountSettingsTab: React.FC = () => {
               break // Exit retry loop
             } else if (attempt === maxRetries - 1) {
               // Last attempt failed - show what we got
-              setStatusInfo(mappedStatus)
+              setStatusInfo(data)
               setConnectedAccounts(
                 Object.fromEntries(
-                  Object.entries(mappedStatus).map(([p, info]: [string, any]) => [
+                  Object.entries(data).map(([p, info]: [string, any]) => [
                     p,
                     info.isConnected,
                   ])
