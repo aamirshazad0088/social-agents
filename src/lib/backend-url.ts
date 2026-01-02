@@ -13,7 +13,8 @@
  * "https://content-creator-backend-67ah.onrender.com"
  */
 export function getPythonBackendUrl(): string {
-    let url = process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
+    // Use NEXT_PUBLIC_PYTHON_BACKEND_URL (same as next.config.mjs) or PYTHON_BACKEND_URL fallback
+    let url = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || process.env.PYTHON_BACKEND_URL || 'http://localhost:8000';
 
     // If it already has a protocol, return as-is (with trailing slash removed)
     if (url.startsWith('http://') || url.startsWith('https://')) {
