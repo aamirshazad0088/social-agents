@@ -235,13 +235,7 @@ const AccountSettingsTab: React.FC = () => {
         return
       }
 
-      // Also check ref for current mount
-      if (effectRan.current) {
-        return
-      }
-
       // Mark as ran immediately, before any async operations
-      effectRan.current = true
       sessionStorage.setItem(lastRunKey, now.toString())
     }
 

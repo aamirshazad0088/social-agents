@@ -4,6 +4,14 @@ import json
 conn = psycopg2.connect('postgresql://postgres.vbllagoyotlrxsdmnyxu:comsats0099@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres')
 cur = conn.cursor()
 
+# Check user role
+cur.execute("""
+    SELECT id, role, workspace_id, is_active FROM users 
+    WHERE id = 'a362acaa-1f76-4bd9-9852-71e52a371d9f'
+""")
+user = cur.fetchone()
+print(f"USER: id={user[0]}, role='{user[1]}', workspace_id={user[2]}, is_active={user[3]}")
+
 # Simulate what the credentials endpoint does
 cur.execute("""
     SELECT platform, account_id, account_name, page_id, page_name, is_connected, expires_at 
@@ -33,7 +41,7 @@ for platform in VALID_PLATFORMS:
     
     if cred and cred.get("is_connected"):
         status[platform] = {
-            "connected": True,  # simplified - not checking expiry
+            "connected": True,
             "accountId": cred.get("account_id"),
             "accountName": cred.get("account_name"),
             "pageId": cred.get("page_id"),
@@ -42,7 +50,7 @@ for platform in VALID_PLATFORMS:
     else:
         status[platform] = {"connected": False}
 
-print("API RESPONSE WOULD BE:")
+print("\nAPI RESPONSE:")
 print(json.dumps(status, indent=2))
 
 conn.close()
