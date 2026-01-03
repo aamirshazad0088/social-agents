@@ -37,7 +37,7 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 # API Version (matches Graph API version in docs)
-META_API_VERSION = "v25.0"
+META_API_VERSION = "v24.0"
 
 
 class MetaSDKError(Exception):
@@ -1316,7 +1316,6 @@ class MetaSDKClient:
             'name',
             'description',
             'subtype',
-            'approximate_count',
             'time_created',
             'time_updated'
         ])
@@ -1327,7 +1326,6 @@ class MetaSDKClient:
                 'name': aud.get('name'),
                 'description': aud.get('description'),
                 'subtype': aud.get('subtype'),
-                'approximate_count': aud.get('approximate_count'),
                 'time_created': aud.get('time_created'),
                 'time_updated': aud.get('time_updated')
             }
