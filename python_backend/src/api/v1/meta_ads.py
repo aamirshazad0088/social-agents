@@ -12,6 +12,7 @@ Provides endpoints for:
 - Audience listing
 - Business portfolio switching
 """
+import asyncio
 import logging
 import uuid
 from typing import Optional, Dict, List
@@ -383,12 +384,36 @@ async def list_campaigns(request: Request):
         credentials = await get_verified_credentials(workspace_id, user_id)
         
         service = get_meta_ads_service()
-        result = await service.fetch_campaigns(
-            credentials["account_id"],
-            credentials["access_token"]
+        account_id = credentials["account_id"]
+        access_token = credentials["access_token"]
+        
+        # Fetch campaigns, ad sets, and ads in parallel
+        campaigns_result, adsets_result, ads_result = await asyncio.gather(
+            service.fetch_campaigns(account_id, access_token),
+            service.fetch_adsets(account_id, access_token),
+            service.fetch_ads(account_id, access_token),
+            return_exceptions=True
         )
         
-        return JSONResponse(content=result)
+        # Extract data, handling any errors gracefully
+        campaigns = []
+        adsets = []
+        ads = []
+        
+        if isinstance(campaigns_result, dict) and campaigns_result.get("data"):
+            campaigns = campaigns_result["data"]
+        
+        if isinstance(adsets_result, dict) and adsets_result.get("data"):
+            adsets = adsets_result["data"]
+        
+        if isinstance(ads_result, dict) and ads_result.get("data"):
+            ads = ads_result["data"]
+        
+        return JSONResponse(content={
+            "campaigns": campaigns,
+            "adSets": adsets,
+            "ads": ads
+        })
         
     except HTTPException:
         raise
@@ -1005,7 +1030,12 @@ async def list_audiences(request: Request):
             credentials["access_token"]
         )
         
-        return JSONResponse(content=result)
+        # Transform to frontend expected format
+        audiences = []
+        if isinstance(result, dict) and result.get("data"):
+            audiences = result["data"]
+        
+        return JSONResponse(content={"audiences": audiences})
         
     except HTTPException:
         raise
@@ -1027,21 +1057,23 @@ async def create_custom_audience(request: Request):
         
         body = await request.json()
         
-        service = get_meta_ads_service()
-        result = await service.create_custom_audience(
-            credentials["account_id"],
-            credentials["access_token"],
+        client = create_meta_sdk_client(credentials["access_token"])
+        result = await client.create_custom_audience(
+            account_id=credentials["account_id"],
             name=body.get("name"),
             subtype=body.get("subtype", "CUSTOM"),
-            description=body.get("description"),
-            customer_file_source="USER_PROVIDED_ONLY",
+            rule=body.get("rule"),
             retention_days=body.get("retention_days", 30)
         )
         
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("error"))
+        # Check if SDK returned an error
+        if isinstance(result, dict) and result.get("success") is False:
+            error_msg = result.get("error", "Failed to create custom audience")
+            logger.error(f"Meta API error creating custom audience: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
         
-        return JSONResponse(content={"success": True, "audience": result.get("audience")})
+        return JSONResponse(content={"success": True, "audience": result})
+        
         
     except HTTPException:
         raise
@@ -2886,6 +2918,76 @@ async def get_ad_insights(
         logger.error(f"Error fetching ad insights: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# =============================================================================
+# ANALYTICS ENDPOINTS
+# =============================================================================
+
+@router.get("/analytics")
+async def get_analytics(
+    request: Request,
+    date_preset: str = "last_7d",
+    level: str = "account"
+):
+    """
+    GET /api/v1/meta-ads/analytics
+    
+    Get account-level analytics insights
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        insights = await client.get_account_insights(
+            ad_account_id=credentials["account_id"],
+            date_preset=date_preset
+        )
+        
+        return JSONResponse(content={"insights": insights or []})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/analytics/breakdown")
+async def get_analytics_breakdown(
+    request: Request,
+    breakdown: str = "age",
+    date_preset: str = "last_7d",
+    level: str = "account"
+):
+    """
+    GET /api/v1/meta-ads/analytics/breakdown
+    
+    Get analytics with demographic/placement breakdowns
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        # Parse breakdown types (can be comma-separated like "age,gender")
+        breakdown_list = [b.strip() for b in breakdown.split(",") if b.strip()]
+        
+        insights = await client.get_account_insights(
+            ad_account_id=credentials["account_id"],
+            date_preset=date_preset,
+            breakdowns=breakdown_list
+        )
+        
+        return JSONResponse(content={"breakdowns": insights or []})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching analytics breakdown: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # =============================================================================
 # INCLUDE SDK FEATURES ROUTER

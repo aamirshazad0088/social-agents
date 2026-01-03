@@ -715,24 +715,10 @@ class MetaCredentialsService:
     @staticmethod
     async def _update_ig_user_id(workspace_id: str, ig_user_id: str) -> bool:
         """Update Instagram User ID in database"""
-        try:
-            client = get_supabase_admin_client()
-            
-            result = client.table("social_accounts").select("id").eq(
-                "workspace_id", workspace_id
-            ).in_("platform", ["instagram", "facebook"]).limit(1).execute()
-            
-            if result.data:
-                client.table("social_accounts").update({
-                    "ig_user_id": ig_user_id,
-                    "updated_at": datetime.now(timezone.utc).isoformat()
-                }).eq("id", result.data[0]["id"]).execute()
-                return True
-            
-            return False
-        except Exception as e:
-            logger.error(f"Error updating IG user ID: {e}")
-            return False
+        # NOTE: ig_user_id column doesn't exist in social_accounts table
+        # This function is disabled until the column is added via migration
+        logger.warning("_update_ig_user_id called but ig_user_id column doesn't exist - skipping")
+        return False
     
     # =========================================================================
     # CAPABILITY CHECKS
@@ -841,7 +827,7 @@ class MetaCredentialsService:
             
             result = client.table("social_accounts").select(
                 "platform, is_connected, username, page_id, page_name, "
-                "account_id, account_name, ig_user_id, credentials_encrypted, expires_at"
+                "account_id, account_name, credentials_encrypted, expires_at"
             ).eq("workspace_id", workspace_id).in_(
                 "platform", ["facebook", "instagram", "meta_ads"]
             ).execute()
@@ -879,7 +865,6 @@ class MetaCredentialsService:
                     status["instagram"] = {
                         "isConnected": has_credentials and not is_expired,
                         "username": account.get("username"),
-                        "igUserId": account.get("ig_user_id"),
                         **token_status
                     }
                 elif account["platform"] == "meta_ads":
@@ -1207,7 +1192,7 @@ class MetaCredentialsService:
                 record["page_id"] = page_info.get("page_id")
                 record["page_name"] = page_info.get("page_name")
                 record["username"] = page_info.get("username")
-                record["ig_user_id"] = page_info.get("ig_user_id")
+                # NOTE: ig_user_id column doesn't exist in social_accounts table
                 record["account_id"] = page_info.get("account_id")
                 record["account_name"] = page_info.get("account_name")
                 record["business_id"] = page_info.get("business_id")

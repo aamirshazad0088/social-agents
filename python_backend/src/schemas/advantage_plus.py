@@ -77,7 +77,8 @@ class BillingEvent(str, Enum):
 
 class OptimizationGoal(str, Enum):
     """Optimization goals for ad sets"""
-    OFFSITE_CONVERSIONS = "OFFSITE_CONVERSIONS"
+    LINK_CLICKS = "LINK_CLICKS"  # Default - doesn't require pixel
+    OFFSITE_CONVERSIONS = "OFFSITE_CONVERSIONS"  # Requires promoted_object with pixel_id
     VALUE = "VALUE"  # For value optimization, requires PURCHASE event
 
 
@@ -272,11 +273,11 @@ class CreateAdvantagePlusAdSetRequest(BaseModel):
     # Targeting (Advantage+ Audience)
     targeting: AdvantagePlusTargeting = Field(default_factory=AdvantagePlusTargeting)
     
-    # Promoted Object (Conversion Tracking)
-    promoted_object: PromotedObject
+    # Promoted Object (Conversion Tracking) - required only for OFFSITE_CONVERSIONS
+    promoted_object: Optional[PromotedObject] = None
     
-    # Optimization
-    optimization_goal: OptimizationGoal = OptimizationGoal.OFFSITE_CONVERSIONS
+    # Optimization - LINK_CLICKS doesn't require pixel, OFFSITE_CONVERSIONS requires promoted_object
+    optimization_goal: OptimizationGoal = OptimizationGoal.LINK_CLICKS
     billing_event: BillingEvent = BillingEvent.IMPRESSIONS  # Required for Advantage+
     
     # Bid Controls (for COST_CAP or BID_CAP strategies)
@@ -308,11 +309,12 @@ class CreateAdvantagePlusAdSetRequest(BaseModel):
                     "geo_locations": {"countries": ["US", "CA"]},
                     "targeting_automation": {"advantage_audience": 1}
                 },
-                "promoted_object": {
-                    "pixel_id": "123456789012345",
-                    "custom_event_type": "PURCHASE"
-                },
-                "optimization_goal": "OFFSITE_CONVERSIONS",
+                # promoted_object only needed for OFFSITE_CONVERSIONS:
+                # "promoted_object": {
+                #     "pixel_id": "123456789012345",
+                #     "custom_event_type": "PURCHASE"
+                # },
+                "optimization_goal": "LINK_CLICKS",
                 "billing_event": "IMPRESSIONS"
             }
         }

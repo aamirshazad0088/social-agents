@@ -22,8 +22,8 @@ from .meta_sdk_client import create_meta_sdk_client, MetaSDKError
 
 logger = logging.getLogger(__name__)
 
-# Meta API Configuration - v25.0+ ONLY
-META_API_VERSION = "v25.0"
+# Meta API Configuration - v24.0
+META_API_VERSION = "v24.0"
 
 # Objective mapping from legacy to OUTCOME-based (API v25.0++)
 OBJECTIVE_MAPPING: Dict[str, str] = {
@@ -1222,7 +1222,9 @@ class MetaAdsService:
                 "name": f"{name} - Ad Set",
                 "status": status,
                 "billing_event": "IMPRESSIONS",  # Required for Advantage+
-                "optimization_goal": "OFFSITE_CONVERSIONS",
+                # Use LINK_CLICKS by default (doesn't require pixel)
+                # OFFSITE_CONVERSIONS requires promoted_object with pixel_id
+                "optimization_goal": "LINK_CLICKS" if not promoted_object else "OFFSITE_CONVERSIONS",
                 # Advantage+ Audience: targeting_automation.advantage_audience = 1
                 "targeting": {
                     "geo_locations": geo_locations or {"countries": ["US"]},
@@ -1230,7 +1232,7 @@ class MetaAdsService:
                 },
             }
             
-            # Promoted object for conversion tracking
+            # Promoted object for conversion tracking (required for OFFSITE_CONVERSIONS)
             if promoted_object:
                 adset_params["promoted_object"] = promoted_object
             

@@ -702,8 +702,7 @@ class MetaSDKClient:
             'bid_strategy',
             'special_ad_categories',
             'created_time',
-            'updated_time',
-            'advantage_state_info'  # v25.0+ Advantage+ state
+            'updated_time'
         ])
         
         return [
@@ -718,8 +717,7 @@ class MetaSDKClient:
                 'bid_strategy': camp.get('bid_strategy'),
                 'special_ad_categories': camp.get('special_ad_categories'),
                 'created_time': camp.get('created_time'),
-                'updated_time': camp.get('updated_time'),
-                'advantage_state_info': camp.get('advantage_state_info')  # v25.0+
+                'updated_time': camp.get('updated_time')
             }
             for camp in campaigns
         ]
@@ -752,8 +750,16 @@ class MetaSDKClient:
             'updated_time'
         ])
         
-        return [
-            {
+        result = []
+        for adset in adsets:
+            # Convert targeting to dict if it's an SDK object
+            targeting = adset.get('targeting')
+            if targeting is not None and hasattr(targeting, 'export_all_data'):
+                targeting = targeting.export_all_data()
+            elif targeting is not None and not isinstance(targeting, dict):
+                targeting = dict(targeting) if hasattr(targeting, '__iter__') else {}
+            
+            result.append({
                 'id': adset['id'],
                 'name': adset.get('name'),
                 'campaign_id': adset.get('campaign_id'),
@@ -763,12 +769,12 @@ class MetaSDKClient:
                 'billing_event': adset.get('billing_event'),
                 'daily_budget': adset.get('daily_budget'),
                 'lifetime_budget': adset.get('lifetime_budget'),
-                'targeting': adset.get('targeting'),
+                'targeting': targeting,
                 'created_time': adset.get('created_time'),
                 'updated_time': adset.get('updated_time')
-            }
-            for adset in adsets
-        ]
+            })
+        
+        return result
     
     async def get_adsets(self, ad_account_id: str) -> List[Dict[str, Any]]:
         """Get all Ad Sets for an Ad Account"""
@@ -3425,7 +3431,11 @@ class MetaSDKClient:
         """Create a custom audience."""
         import httpx
         
-        url = f"https://graph.facebook.com/{META_API_VERSION}/act_{account_id}/customaudiences"
+        # Ensure account_id has act_ prefix (but don't duplicate it)
+        if not account_id.startswith('act_'):
+            account_id = f'act_{account_id}'
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{account_id}/customaudiences"
         
         payload = {
             "access_token": self._access_token,
