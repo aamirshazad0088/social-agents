@@ -408,3 +408,77 @@ export const PLATFORM_PRESETS = {
     video: { size: '1280x720' as const, seconds: 15 as const },
   },
 } as const;
+
+// ============================================================================
+// Runway Gen4 Alpha Video Generation Types
+// ============================================================================
+
+export type RunwayModel = 'gen4_turbo' | 'gen4_aleph' | 'veo3.1' | 'gen4_image';
+export type RunwayRatio = '1280:720' | '1920:1080' | '720:1280' | '1080:1920';
+export type RunwayDuration = 5 | 8 | 10;
+export type RunwayGenerationMode = 'text' | 'image' | 'video' | 'upscale';
+export type RunwayTaskStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+
+export interface RunwayVideoGenerationConfig {
+  prompt: string;
+  model: RunwayModel;
+  ratio: RunwayRatio;
+  duration: RunwayDuration;
+  audio?: boolean;
+
+  // For image-to-video
+  promptImage?: string;
+
+  // For video-to-video
+  videoUri?: string;
+  referenceImageUri?: string;
+
+  // Seed for reproducibility
+  seed?: number;
+
+  // Generation mode tracking
+  generation_mode?: RunwayGenerationMode;
+}
+
+export interface GeneratedRunwayVideo {
+  id: string;
+  url?: string;
+  prompt: string;
+  config: RunwayVideoGenerationConfig;
+  status: RunwayTaskStatus;
+  progress?: number;
+  createdAt: number;
+  thumbnailUrl?: string;
+  duration?: number;
+  taskId?: string;
+  error?: string;
+}
+
+export const RUNWAY_MODEL_OPTIONS = [
+  { value: 'gen4_turbo', label: 'Gen-4 Turbo', description: 'Fast image-to-video generation', type: 'image_to_video', estimatedTime: '1-2 min' },
+  { value: 'gen4_aleph', label: 'Gen-4 Aleph', description: 'Video style transfer', type: 'video_to_video', estimatedTime: '2-3 min' },
+  { value: 'veo3.1', label: 'Veo 3.1', description: 'Text-to-video with audio', type: 'text_to_video', estimatedTime: '2-4 min' },
+] as const;
+
+export const RUNWAY_RATIO_OPTIONS = [
+  { value: '1280:720', label: 'HD 16:9 (1280×720)', aspect: '16:9' },
+  { value: '1920:1080', label: 'Full HD 16:9 (1920×1080)', aspect: '16:9' },
+  { value: '720:1280', label: 'HD 9:16 Portrait (720×1280)', aspect: '9:16' },
+  { value: '1080:1920', label: 'Full HD 9:16 Portrait (1080×1920)', aspect: '9:16' },
+] as const;
+
+export const RUNWAY_DURATION_OPTIONS = [
+  { value: 5, label: '5 seconds', description: 'Quick clip' },
+  { value: 8, label: '8 seconds', description: 'Standard' },
+  { value: 10, label: '10 seconds', description: 'Extended' },
+] as const;
+
+export const RUNWAY_PLATFORM_PRESETS = [
+  { id: 'youtube_short', name: 'YouTube Short', icon: '📹', ratio: '1080:1920' as const, duration: 10 as const, model: 'gen4_turbo' as const },
+  { id: 'tiktok', name: 'TikTok', icon: '🎵', ratio: '1080:1920' as const, duration: 10 as const, model: 'gen4_turbo' as const },
+  { id: 'instagram_reel', name: 'Insta Reel', icon: '📱', ratio: '1080:1920' as const, duration: 10 as const, model: 'gen4_turbo' as const },
+  { id: 'twitter', name: 'Twitter/X', icon: '🐦', ratio: '1280:720' as const, duration: 10 as const, model: 'veo3.1' as const },
+  { id: 'linkedin', name: 'LinkedIn', icon: '💼', ratio: '1280:720' as const, duration: 10 as const, model: 'veo3.1' as const },
+  { id: 'landscape_hd', name: 'HD Video', icon: '🎬', ratio: '1920:1080' as const, duration: 10 as const, model: 'gen4_turbo' as const },
+] as const;
+

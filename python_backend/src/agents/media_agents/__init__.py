@@ -36,6 +36,25 @@ from .video_agent import (
     VideoStatusResponse,
 )
 
+# Runway Agent (Gen4 Alpha)
+from .runway_agent import (
+    text_to_video as runway_text_to_video,
+    image_to_video as runway_image_to_video,
+    video_to_video as runway_video_to_video,
+    upscale_video as runway_upscale_video,
+    get_task_status as runway_get_task_status,
+    RunwayTextToVideoRequest,
+    RunwayImageToVideoRequest,
+    RunwayVideoToVideoRequest,
+    RunwayUpscaleRequest,
+    RunwayTaskStatusRequest,
+    RunwayGenerationResponse,
+    RunwayTaskStatusResponse,
+    RUNWAY_MODELS,
+    RUNWAY_RATIOS,
+    RUNWAY_DURATIONS,
+)
+
 __all__ = [
     # Image Agent
     "generate_image",
@@ -62,4 +81,21 @@ __all__ = [
     "VideoGenerationRequest",
     "VideoGenerationResponse",
     "VideoStatusResponse",
+    # Runway Agent
+    "runway_text_to_video",
+    "runway_image_to_video",
+    "runway_video_to_video",
+    "runway_upscale_video",
+    "runway_get_task_status",
+    "RunwayTextToVideoRequest",
+    "RunwayImageToVideoRequest",
+    "RunwayVideoToVideoRequest",
+    "RunwayUpscaleRequest",
+    "RunwayTaskStatusRequest",
+    "RunwayGenerationResponse",
+    "RunwayTaskStatusResponse",
+    "RUNWAY_MODELS",
+    "RUNWAY_RATIOS",
+    "RUNWAY_DURATIONS",
 ]
+

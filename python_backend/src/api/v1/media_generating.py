@@ -86,6 +86,25 @@ from ...agents.media_agents.sora_agent import (
     SoraFetchResponse,
     SORA_MODELS,
 )
+from ...agents.media_agents.runway_agent import (
+    text_to_video as runway_text_to_video,
+    image_to_video as runway_image_to_video,
+    video_to_video as runway_video_to_video,
+    upscale_video as runway_upscale_video,
+    get_task_status as runway_get_task_status,
+    delete_task as runway_delete_task,
+    RunwayTextToVideoRequest,
+    RunwayImageToVideoRequest,
+    RunwayVideoToVideoRequest,
+    RunwayUpscaleRequest,
+    RunwayTaskStatusRequest,
+    RunwayGenerationResponse,
+    RunwayTaskStatusResponse,
+    RUNWAY_MODELS,
+    RUNWAY_RATIOS,
+    RUNWAY_DURATIONS,
+    RUNWAY_GENERATION_MODES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -815,6 +834,139 @@ async def api_sora_delete(video_id: str):
 
 
 # ============================================================================
+# RUNWAY ENDPOINTS - Runway Gen4 Alpha Video Generation
+# ============================================================================
+
+@router.post("/runway/text-to-video", response_model=RunwayGenerationResponse)
+async def api_runway_text_to_video(request: RunwayTextToVideoRequest):
+    """
+    Generate video from text prompt using Runway Gen4
+    
+    Returns task ID for polling status
+    """
+    try:
+        logger.info(f"Runway text-to-video: {request.prompt[:50]}...")
+        result = await runway_text_to_video(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Runway text-to-video error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/runway/image-to-video", response_model=RunwayGenerationResponse)
+async def api_runway_image_to_video(request: RunwayImageToVideoRequest):
+    """
+    Generate video with image as first frame using Runway Gen4
+    
+    Uses gen4_turbo model
+    """
+    try:
+        logger.info(f"Runway image-to-video: {request.prompt[:50]}...")
+        result = await runway_image_to_video(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Runway image-to-video error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/runway/video-to-video", response_model=RunwayGenerationResponse)
+async def api_runway_video_to_video(request: RunwayVideoToVideoRequest):
+    """
+    Transform video with style transfer using Runway Gen4
+    
+    Uses gen4_aleph model
+    """
+    try:
+        logger.info(f"Runway video-to-video: {request.prompt[:50]}...")
+        result = await runway_video_to_video(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Runway video-to-video error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/runway/upscale", response_model=RunwayGenerationResponse)
+async def api_runway_upscale(request: RunwayUpscaleRequest):
+    """
+    Upscale video resolution using Runway
+    """
+    try:
+        logger.info(f"Runway upscale video")
+        result = await runway_upscale_video(request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.error)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Runway upscale error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/runway/status", response_model=RunwayTaskStatusResponse)
+async def api_runway_status(request: RunwayTaskStatusRequest):
+    """
+    Get Runway video generation task status
+    
+    Poll every 5 seconds until status is SUCCEEDED or FAILED
+    """
+    try:
+        result = await runway_get_task_status(request)
+        return result
+        
+    except Exception as e:
+        logger.error(f"Runway status error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/runway/{task_id}")
+async def api_runway_delete(task_id: str):
+    """Cancel or delete a Runway task"""
+    try:
+        result = await runway_delete_task(task_id)
+        return result
+    except Exception as e:
+        logger.error(f"Runway delete error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/runway/models")
+async def get_runway_models():
+    """Get available Runway models and options"""
+    return {
+        "success": True,
+        "models": RUNWAY_MODELS,
+        "ratios": RUNWAY_RATIOS,
+        "durations": RUNWAY_DURATIONS,
+        "modes": RUNWAY_GENERATION_MODES
+    }
+
+
+# ============================================================================
 # INFO ENDPOINT
 # ============================================================================
 
@@ -824,7 +976,7 @@ async def media_info():
     return {
         "success": True,
         "message": "Media Generation API is operational",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "services": {
             "image": {
                 "models": ["gpt-image-1.5"],
@@ -849,7 +1001,13 @@ async def media_info():
                 "models": ["sora-2", "sora-2-pro"],
                 "features": ["text-to-video", "image-to-video", "video-remix", "thumbnails", "spritesheets"],
                 "endpoints": ["/sora/generate", "/sora/image-to-video", "/sora/remix", "/sora/status", "/sora/fetch"]
+            },
+            "video-runway": {
+                "models": ["gen4_turbo", "gen4_aleph", "veo3.1"],
+                "features": ["text-to-video", "image-to-video", "video-to-video", "video-upscale"],
+                "endpoints": ["/runway/text-to-video", "/runway/image-to-video", "/runway/video-to-video", "/runway/upscale", "/runway/status", "/runway/models"]
             }
         }
     }
+
 

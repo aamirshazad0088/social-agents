@@ -17,12 +17,13 @@ import { VideoGeneratorWithVeo } from './VideoGeneratorWithVeo';
 import { ImageEditor } from './ImageEditor';
 import { AudioGenerator } from './audio-generator';
 import { useAuth } from '@/contexts/AuthContext';
-import type { MediaStudioTab, GeneratedImage, GeneratedVideo, GeneratedVeoVideo } from '../types/mediaStudio.types';
+import type { MediaStudioTab, GeneratedImage, GeneratedVideo, GeneratedVeoVideo, GeneratedRunwayVideo } from '../types/mediaStudio.types';
 
 interface MediaStudioState {
   recentImages: GeneratedImage[];
   recentVideos: GeneratedVideo[];
   recentVeoVideos: GeneratedVeoVideo[];
+  recentRunwayVideos: GeneratedRunwayVideo[];
   isGenerating: boolean;
 }
 
@@ -33,6 +34,7 @@ export function MediaStudioDashboard() {
     recentImages: [],
     recentVideos: [],
     recentVeoVideos: [],
+    recentRunwayVideos: [],
     isGenerating: false,
   });
 
@@ -45,10 +47,17 @@ export function MediaStudioDashboard() {
     }));
   }, []);
 
-  // Handle video generation started (Sora)
-  const handleVideoStarted = useCallback((video: GeneratedVideo | GeneratedVeoVideo) => {
-    // Check if it's a Veo video
-    if ('hasAudio' in video) {
+  // Handle video generation started (Sora, Veo, or Runway)
+  const handleVideoStarted = useCallback((video: GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo) => {
+    // Check if it's a Runway video
+    if ('taskId' in video && 'config' in video && (video as GeneratedRunwayVideo).config?.generation_mode) {
+      setState(prev => ({
+        ...prev,
+        recentRunwayVideos: [video as GeneratedRunwayVideo, ...prev.recentRunwayVideos].slice(0, 50),
+        isGenerating: true,
+      }));
+      // Check if it's a Veo video
+    } else if ('hasAudio' in video) {
       setState(prev => ({
         ...prev,
         recentVeoVideos: [video as GeneratedVeoVideo, ...prev.recentVeoVideos].slice(0, 50),
@@ -63,13 +72,23 @@ export function MediaStudioDashboard() {
     }
   }, []);
 
-  // Handle video status update (Sora & Veo)
-  const handleVideoUpdate = useCallback((videoId: string, updates: Partial<GeneratedVideo | GeneratedVeoVideo>) => {
+  // Handle video status update (Sora, Veo, & Runway)
+  const handleVideoUpdate = useCallback((videoId: string, updates: Partial<GeneratedVideo | GeneratedVeoVideo | GeneratedRunwayVideo>) => {
     setState(prev => {
+      // Check if it's in Runway videos
+      const isRunwayVideo = prev.recentRunwayVideos.some(v => v.id === videoId || v.taskId === videoId);
       // Check if it's in Veo videos
       const isVeoVideo = prev.recentVeoVideos.some(v => v.id === videoId);
 
-      if (isVeoVideo) {
+      if (isRunwayVideo) {
+        return {
+          ...prev,
+          recentRunwayVideos: prev.recentRunwayVideos.map(v =>
+            (v.id === videoId || v.taskId === videoId) ? { ...v, ...updates } as GeneratedRunwayVideo : v
+          ),
+          isGenerating: (updates as any).status === 'PENDING' || (updates as any).status === 'RUNNING',
+        };
+      } else if (isVeoVideo) {
         return {
           ...prev,
           recentVeoVideos: prev.recentVeoVideos.map(v =>
@@ -214,6 +233,7 @@ export function MediaStudioDashboard() {
               onVideoUpdate={handleVideoUpdate}
               recentVideos={state.recentVideos}
               recentVeoVideos={state.recentVeoVideos}
+              recentRunwayVideos={state.recentRunwayVideos}
               recentImages={state.recentImages}
             />
           </TabsContent>
