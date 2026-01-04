@@ -4213,14 +4213,33 @@ class MetaSDKClient:
         for study in studies:
             # Determine status based on times
             import time
+            from datetime import datetime
             current_time = int(time.time())
             start_time = study.get('start_time')
             end_time = study.get('end_time')
             
+            # Parse timestamps (Meta returns ISO strings like '2026-01-05T11:22:00+0000')
+            def parse_timestamp(ts):
+                if not ts:
+                    return 0
+                if isinstance(ts, int):
+                    return ts
+                if isinstance(ts, str):
+                    # Check if it's already a Unix timestamp string
+                    if ts.isdigit():
+                        return int(ts)
+                    # Parse ISO format
+                    try:
+                        dt = datetime.fromisoformat(ts.replace('+0000', '+00:00'))
+                        return int(dt.timestamp())
+                    except:
+                        return 0
+                return 0
+            
             status = 'DRAFT'
             if start_time and end_time:
-                start_ts = int(start_time) if isinstance(start_time, (int, str)) else 0
-                end_ts = int(end_time) if isinstance(end_time, (int, str)) else 0
+                start_ts = parse_timestamp(start_time)
+                end_ts = parse_timestamp(end_time)
                 if current_time < start_ts:
                     status = 'SCHEDULED'
                 elif current_time >= start_ts and current_time <= end_ts:
@@ -4249,19 +4268,61 @@ class MetaSDKClient:
                     'id', 'name', 'treatment_percentage', 
                     'adaccounts', 'adsets', 'campaigns'
                 ])
-                study_data['cells'] = [
-                    {
+                for i, c in enumerate(cells):
+                    # Extract IDs from nested data objects
+                    adsets_data = c.get('adsets', {})
+                    campaigns_data = c.get('campaigns', {})
+                    adaccounts_data = c.get('adaccounts', {})
+                    
+                    # Handle both formats: {data: [...]} or direct list
+                    adsets_list = adsets_data.get('data', []) if isinstance(adsets_data, dict) else (adsets_data if adsets_data else [])
+                    campaigns_list = campaigns_data.get('data', []) if isinstance(campaigns_data, dict) else (campaigns_data if campaigns_data else [])
+                    adaccounts_list = adaccounts_data.get('data', []) if isinstance(adaccounts_data, dict) else (adaccounts_data if adaccounts_data else [])
+                    
+                    # Helper to extract ID from various object types (SDK objects, dicts, strings)
+                    def extract_id(item):
+                        if item is None:
+                            return None
+                        if isinstance(item, str):
+                            return item
+                        if isinstance(item, dict):
+                            return item.get('id')
+                        # Handle SDK objects (Campaign, AdSet, etc.)
+                        if hasattr(item, 'get'):
+                            return item.get('id')
+                        if hasattr(item, 'id'):
+                            return item.id
+                        return str(item)
+                    
+                    study_data['cells'].append({
                         'id': c['id'], 
                         'name': c.get('name', f'Cell {i+1}'),
                         'treatment_percentage': c.get('treatment_percentage', 0),
-                        'adsets': c.get('adsets', []),
-                        'campaigns': c.get('campaigns', []),
-                        'adaccounts': c.get('adaccounts', [])
-                    }
-                    for i, c in enumerate(cells)
-                ]
+                        'adsets': [extract_id(item) for item in adsets_list if extract_id(item)],
+                        'campaigns': [extract_id(item) for item in campaigns_list if extract_id(item)],
+                        'adaccounts': [extract_id(item) for item in adaccounts_list if extract_id(item)],
+                        'adsets_count': len(adsets_list),
+                        'campaigns_count': len(campaigns_list),
+                    })
             except Exception as e:
                 logger.warning(f"Failed to fetch cells for study {study['id']}: {e}")
+            
+            # Fetch objectives if available (may not exist on all studies)
+            study_data['objectives'] = []
+            try:
+                if hasattr(study, 'get_objectives'):
+                    objectives = study.get_objectives(fields=['id', 'name', 'type', 'is_primary'])
+                    study_data['objectives'] = [
+                        {
+                            'id': obj.get('id'),
+                            'name': obj.get('name'),
+                            'type': obj.get('type'),
+                            'is_primary': obj.get('is_primary', False)
+                        }
+                        for obj in objectives
+                    ]
+            except Exception as e:
+                logger.debug(f"No objectives for study {study['id']}: {e}")
             
             result.append(study_data)
         
@@ -4277,31 +4338,117 @@ class MetaSDKClient:
         self._ensure_initialized()
         
         from facebook_business.adobjects.adstudy import AdStudy
+        import time
+        from datetime import datetime
+        
+        # Parse timestamps (Meta returns ISO strings like '2026-01-05T11:22:00+0000')
+        def parse_timestamp(ts):
+            if not ts:
+                return 0
+            if isinstance(ts, int):
+                return ts
+            if isinstance(ts, str):
+                if ts.isdigit():
+                    return int(ts)
+                try:
+                    dt = datetime.fromisoformat(ts.replace('+0000', '+00:00'))
+                    return int(dt.timestamp())
+                except:
+                    return 0
+            return 0
         
         study = AdStudy(fbid=study_id)
         study_data = study.api_get(fields=[
             'id', 'name', 'type', 'description', 'start_time', 'end_time',
-            'observation_end_time', 'created_time', 'updated_time'
+            'observation_end_time', 'created_time', 'updated_time', 'cooldown_start_time',
+            'canceled_time', 'business'
         ])
         
-        # Fetch cells via edge
+        # Calculate status
+        current_time = int(time.time())
+        start_time = study_data.get('start_time')
+        end_time = study_data.get('end_time')
+        
+        status = 'DRAFT'
+        if study_data.get('canceled_time'):
+            status = 'CANCELED'
+        elif start_time and end_time:
+            start_ts = parse_timestamp(start_time)
+            end_ts = parse_timestamp(end_time)
+            if current_time < start_ts:
+                status = 'SCHEDULED'
+            elif current_time >= start_ts and current_time <= end_ts:
+                status = 'ACTIVE'
+            elif current_time > end_ts:
+                status = 'COMPLETED'
+        
+        # Fetch cells via edge with full details
         cells = []
         try:
-            cells_data = study.get_cells(fields=['id', 'name', 'treatment_percentage'])
-            cells = [{'id': c['id'], 'name': c.get('name'), 'treatment_percentage': c.get('treatment_percentage')} for c in cells_data]
+            cells_data = study.get_cells(fields=[
+                'id', 'name', 'treatment_percentage', 
+                'adaccounts', 'adsets', 'campaigns'
+            ])
+            for i, c in enumerate(cells_data):
+                adsets_data = c.get('adsets', {})
+                campaigns_data = c.get('campaigns', {})
+                adsets_list = adsets_data.get('data', []) if isinstance(adsets_data, dict) else (adsets_data if adsets_data else [])
+                campaigns_list = campaigns_data.get('data', []) if isinstance(campaigns_data, dict) else (campaigns_data if campaigns_data else [])
+                
+                # Helper to extract ID from various object types
+                def extract_id(item):
+                    if item is None:
+                        return None
+                    if isinstance(item, str):
+                        return item
+                    if isinstance(item, dict):
+                        return item.get('id')
+                    if hasattr(item, 'get'):
+                        return item.get('id')
+                    if hasattr(item, 'id'):
+                        return item.id
+                    return str(item)
+                
+                cells.append({
+                    'id': c['id'],
+                    'name': c.get('name', f'Cell {i+1}'),
+                    'treatment_percentage': c.get('treatment_percentage', 0),
+                    'adsets': [extract_id(item) for item in adsets_list if extract_id(item)],
+                    'campaigns': [extract_id(item) for item in campaigns_list if extract_id(item)],
+                    'adsets_count': len(adsets_list),
+                    'campaigns_count': len(campaigns_list),
+                })
+        except Exception as e:
+            logger.warning(f"Failed to fetch cells for study {study_id}: {e}")
+        
+        # Fetch objectives
+        objectives = []
+        try:
+            if hasattr(study, 'get_objectives'):
+                obj_data = study.get_objectives(fields=['id', 'name', 'type', 'is_primary'])
+                objectives = [
+                    {'id': obj.get('id'), 'name': obj.get('name'), 'type': obj.get('type'), 'is_primary': obj.get('is_primary')}
+                    for obj in obj_data
+                ]
         except:
             pass
         
         return {
             'id': study_data.get('id'),
             'name': study_data.get('name'),
-            'type': study_data.get('type'),
+            'type': study_data.get('type', 'SPLIT_TEST'),
             'description': study_data.get('description'),
+            'status': status,
             'start_time': study_data.get('start_time'),
             'end_time': study_data.get('end_time'),
             'observation_end_time': study_data.get('observation_end_time'),
+            'cooldown_start_time': study_data.get('cooldown_start_time'),
             'created_time': study_data.get('created_time'),
-            'cells': cells
+            'updated_time': study_data.get('updated_time'),
+            'canceled_time': study_data.get('canceled_time'),
+            'cells': cells,
+            'objectives': objectives,
+            'cells_count': len(cells)
         }
     
     async def get_ad_study_details(self, study_id: str) -> Dict[str, Any]:

@@ -52,7 +52,7 @@ interface ABTest {
     test_type?: string;
     test_variable?: string;
     description?: string;
-    status: string; // DRAFT, SCHEDULED, ACTIVE, COMPLETED
+    status: string; // DRAFT, SCHEDULED, ACTIVE, COMPLETED, CANCELED
     cells: Array<{
         id?: string;
         name: string;
@@ -60,6 +60,8 @@ interface ABTest {
         campaigns?: string[];
         adsets?: string[];
         adaccounts?: string[];
+        campaigns_count?: number;
+        adsets_count?: number;
         results?: {
             spend: number;
             impressions: number;
@@ -69,12 +71,20 @@ interface ABTest {
             cost_per_result: number;
         };
     }>;
+    objectives?: Array<{
+        id: string;
+        name: string;
+        type: string;
+        is_primary?: boolean;
+    }>;
     start_time?: string;
     end_time?: string;
     observation_end_time?: string;
     cooldown_start_time?: string;
     created_time?: string;
     updated_time?: string;
+    canceled_time?: string;
+    cells_count?: number;
     confidence_level?: number;
     winning_cell?: string;
 }
@@ -267,6 +277,13 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
                         Scheduled
                     </span>
                 );
+            case 'CANCELED':
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                        <AlertCircle className="w-3 h-3" />
+                        Canceled
+                    </span>
+                );
             case 'DRAFT':
                 return (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
@@ -405,117 +422,178 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
                     <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                 </div>
             ) : tests.length === 0 ? (
-                <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-center justify-center py-12">
-                        <FlaskConical className="w-12 h-12 text-muted-foreground mb-4" />
-                        <h3 className="font-semibold text-lg mb-2">No A/B Tests Yet</h3>
-                        <p className="text-muted-foreground text-center max-w-md mb-4">
-                            Create your first A/B test to compare different ad strategies and find what works best.
+                <Card className="border-0 shadow-xl overflow-hidden bg-gradient-to-br from-slate-50 via-purple-50/30 to-pink-50/30 dark:from-slate-900 dark:via-purple-900/10 dark:to-pink-900/10">
+                    <CardContent className="flex flex-col items-center justify-center py-16">
+                        <div className="relative mb-6">
+                            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full blur-2xl opacity-20 animate-pulse" />
+                            <div className="relative p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-200/50 dark:border-purple-500/20">
+                                <FlaskConical className="w-12 h-12 text-purple-500" />
+                            </div>
+                        </div>
+                        <h3 className="font-bold text-xl mb-2 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                            No A/B Tests Yet
+                        </h3>
+                        <p className="text-muted-foreground text-center max-w-md mb-6 leading-relaxed">
+                            Create your first A/B test to compare different ad strategies, audiences, or creatives and discover what works best for your campaigns.
                         </p>
-                        <Button onClick={() => setShowCreateModal(true)} className="gap-2">
-                            <Plus className="w-4 h-4" />
+                        <Button
+                            onClick={() => setShowCreateModal(true)}
+                            className="gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                        >
+                            <Plus className="w-5 h-5" />
                             Create Your First Test
                         </Button>
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {tests.map((test) => (
-                        <Card key={test.id} className="hover:shadow-md transition-shadow">
-                            <CardHeader className="pb-2">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <FlaskConical className="w-4 h-4" />
-                                        <CardTitle className="text-base">{test.name}</CardTitle>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {tests.map((test, testIdx) => (
+                        <Card key={test.id} className="group overflow-hidden border shadow-sm hover:shadow-md transition-all duration-200 bg-white dark:bg-slate-900">
+                            {/* Simple Status Border */}
+                            <div className={`h-1 w-full ${test.status === 'ACTIVE' ? 'bg-green-500' :
+                                test.status === 'COMPLETED' ? 'bg-blue-500' :
+                                    test.status === 'SCHEDULED' ? 'bg-purple-500' :
+                                        test.status === 'CANCELED' ? 'bg-red-500' :
+                                            'bg-slate-300'
+                                }`} />
+
+                            <CardHeader className="pb-3">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <div className="p-1.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                                <FlaskConical className="w-4 h-4" />
+                                            </div>
+                                            <CardTitle className="text-lg font-medium truncate">{test.name}</CardTitle>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span>
+                                                {test.type === 'LIFT' ? 'Lift Study' : 'Split Test'}
+                                            </span>
+                                            <span>•</span>
+                                            <span>{test.cells?.length || 0} groups</span>
+                                        </div>
                                     </div>
                                     {getStatusBadge(test.status)}
                                 </div>
-                                <CardDescription className="text-xs space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium">{test.type === 'LIFT' ? 'Lift Study' : 'Split Test'}</span>
-                                        {test.description && <span>• {test.description.substring(0, 50)}{test.description.length > 50 ? '...' : ''}</span>}
+
+                                {/* Date Range */}
+                                {(test.start_time || test.end_time) && (
+                                    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Clock className="w-3 h-3" />
+                                        <span>
+                                            {test.start_time && new Date(test.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                            {test.start_time && test.end_time && ' → '}
+                                            {test.end_time && new Date(test.end_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </span>
                                     </div>
-                                    {(test.start_time || test.end_time) && (
-                                        <div className="text-muted-foreground">
-                                            {test.start_time && new Date(parseInt(test.start_time) * 1000).toLocaleDateString()}
-                                            {test.start_time && test.end_time && ' - '}
-                                            {test.end_time && new Date(parseInt(test.end_time) * 1000).toLocaleDateString()}
+                                )}
+                            </CardHeader>
+
+                            <CardContent className="pt-0">
+                                {/* Visual Cell Comparison */}
+                                <div className="space-y-3">
+                                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                                        Traffic Split
+                                    </div>
+
+                                    {/* Horizontal Bar Comparison - Simple Colors */}
+                                    <div className="relative h-6 rounded-md overflow-hidden bg-slate-100 dark:bg-slate-800 flex">
+                                        {test.cells?.map((cell, idx) => {
+                                            const bgColors = [
+                                                'bg-slate-300 dark:bg-slate-600',
+                                                'bg-slate-400 dark:bg-slate-500',
+                                                'bg-slate-500 dark:bg-slate-400'
+                                            ];
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    className={`${bgColors[idx % bgColors.length]} flex items-center justify-center text-white text-[10px] font-medium transition-all duration-500 border-r border-white/20 last:border-0`}
+                                                    style={{ width: `${cell.treatment_percentage}%` }}
+                                                >
+                                                    {cell.treatment_percentage >= 20 && `${cell.treatment_percentage}%`}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Cell Labels */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {test.cells?.map((cell, idx) => {
+                                            return (
+                                                <div key={idx} className="flex items-center gap-1.5 text-xs bg-slate-50 dark:bg-slate-800/50 rounded-md px-2 py-1 border border-slate-100 dark:border-slate-800">
+                                                    <span className="font-medium">{cell.name}</span>
+                                                    {test.winning_cell === cell.name && (
+                                                        <Trophy className="w-3 h-3 text-yellow-500" />
+                                                    )}
+                                                    {(cell.campaigns_count || cell.adsets_count) ? (
+                                                        <span className="text-muted-foreground ml-1">
+                                                            ({cell.campaigns_count || 0}c, {cell.adsets_count || 0}a)
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Objectives if available */}
+                                    {test.objectives && test.objectives.length > 0 && (
+                                        <div className="flex items-center gap-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-800">
+                                            <span className="text-muted-foreground">Objective:</span>
+                                            <span className="font-medium">{test.objectives[0]?.name || 'Conversions'}</span>
                                         </div>
                                     )}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3">
-                                    {/* Cells comparison */}
-                                    {test.cells?.map((cell, idx) => (
-                                        <div key={idx} className="space-y-1">
-                                            <div className="flex items-center justify-between text-sm">
-                                                <span className="font-medium flex items-center gap-1">
-                                                    {test.winning_cell === cell.name && (
-                                                        <Trophy className="w-4 h-4 text-yellow-500" />
-                                                    )}
-                                                    {cell.name}
-                                                </span>
-                                                <span className="text-muted-foreground">{cell.treatment_percentage}%</span>
-                                            </div>
-                                            <Progress value={cell.treatment_percentage} className="h-2" />
-                                        </div>
-                                    ))}
-
-                                    {/* Test status */}
-                                    <div className="flex items-center justify-between text-sm pt-2 border-t">
-                                        <span className="text-muted-foreground">Created</span>
-                                        <span className="font-medium">{test.created_time ? new Date(test.created_time).toLocaleDateString() : 'N/A'}</span>
-                                    </div>
                                 </div>
                             </CardContent>
-                            <CardFooter className="pt-0 flex gap-1">
+                            <CardFooter className="pt-3 pb-3 flex gap-2 border-t bg-slate-50/50 dark:bg-slate-900/50">
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="flex-1 gap-1"
+                                    className="flex-1 h-8 text-xs hover:bg-white hover:shadow-sm"
                                     onClick={() => handleViewResults(test)}
                                 >
-                                    <BarChart3 className="w-3 h-3" />
+                                    <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
                                     Results
                                 </Button>
                                 <Button
                                     variant="ghost"
                                     size="sm"
+                                    className="h-8 w-8 p-0"
                                     onClick={() => handleToggleStatus(test)}
-                                    disabled={actionLoading === test.id}
+                                    disabled={actionLoading === test.id || test.status === 'COMPLETED' || test.status === 'CANCELED'}
                                 >
                                     {actionLoading === test.id ? (
-                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                     ) : test.status === 'ACTIVE' ? (
-                                        <Pause className="w-3 h-3" />
+                                        <Pause className="w-3.5 h-3.5" />
                                     ) : (
-                                        <Play className="w-3 h-3" />
+                                        <Play className="w-3.5 h-3.5" />
                                     )}
                                 </Button>
                                 <Button
                                     variant="ghost"
                                     size="sm"
+                                    className="h-8 w-8 p-0"
                                     onClick={() => handleDuplicate(test)}
                                     disabled={actionLoading === `dup-${test.id}`}
                                 >
                                     {actionLoading === `dup-${test.id}` ? (
-                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                     ) : (
-                                        <Copy className="w-3 h-3" />
+                                        <Copy className="w-3.5 h-3.5" />
                                     )}
                                 </Button>
                                 <Button
                                     variant="ghost"
                                     size="sm"
+                                    className="h-8 w-8 p-0 hover:text-red-500"
                                     onClick={() => handleCancel(test)}
-                                    disabled={actionLoading === `del-${test.id}`}
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    disabled={actionLoading === `del-${test.id}` || test.status === 'CANCELED'}
                                 >
                                     {actionLoading === `del-${test.id}` ? (
-                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                     ) : (
-                                        <Trash2 className="w-3 h-3" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                     )}
                                 </Button>
                             </CardFooter>
@@ -834,9 +912,9 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
                                 <>
                                     {/* Winner Banner */}
                                     {winner && (
-                                        <div className="p-4 rounded-lg bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-200 dark:border-yellow-800">
+                                        <div className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800">
                                             <div className="flex items-center gap-3">
-                                                <Trophy className="w-8 h-8 text-yellow-500" />
+                                                <Trophy className="w-6 h-6 text-yellow-500" />
                                                 <div>
                                                     <p className="text-sm text-yellow-700 dark:text-yellow-400 font-medium">Winner Detected</p>
                                                     <p className="text-lg font-bold text-yellow-800 dark:text-yellow-300">{winner}</p>
@@ -847,82 +925,137 @@ export default function ABTestManager({ onRefresh }: ABTestManagerProps) {
 
                                     {/* Performance Comparison */}
                                     <div className="space-y-4">
-                                        <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Cell Performance</h4>
+                                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Cell Performance</h4>
 
-                                        {insights.length === 0 ? (
-                                            <p className="text-muted-foreground text-sm">No performance data available yet. Data will appear once the test has been running.</p>
+                                        {selectedTest.cells?.length === 0 ? (
+                                            <p className="text-muted-foreground text-sm">No cells configured for this test.</p>
                                         ) : (
                                             <div className="grid gap-4">
-                                                {insights.map((cell, idx) => (
-                                                    <div key={idx} className="p-4 rounded-lg border bg-card">
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <span className="font-semibold flex items-center gap-2">
-                                                                {winner === cell.name && <Trophy className="w-4 h-4 text-yellow-500" />}
-                                                                {cell.name}
-                                                            </span>
-                                                            <span className="text-sm text-muted-foreground">{cell.treatment_percentage}% traffic</span>
+                                                {/* Merge insights with test cells for proper display */}
+                                                {selectedTest.cells?.map((cell, idx) => {
+                                                    // Try to find matching insight data
+                                                    const insightData = insights.find(i =>
+                                                        i.cell_id === cell.id ||
+                                                        i.name === cell.name ||
+                                                        i.id === cell.id
+                                                    ) || insights[idx] || {};
+
+                                                    return (
+                                                        <div key={cell.id || idx} className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+                                                            {/* Simple header */}
+                                                            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-900 border-b flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-2 h-2 rounded-full bg-slate-400" />
+                                                                    <span className="font-semibold">{cell.name || `Cell ${idx + 1}`}</span>
+                                                                    {winner === cell.name && <Trophy className="w-4 h-4 text-yellow-500" />}
+                                                                </div>
+                                                                <span className="text-xs font-medium px-2 py-1 bg-white dark:bg-slate-800 rounded border">
+                                                                    {cell.treatment_percentage || 0}% traffic
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="p-4">
+                                                                {/* Metrics Grid */}
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                                    <div className="p-3 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                                                        <p className="text-xs text-muted-foreground mb-1">Spend</p>
+                                                                        <p className="text-lg font-semibold">${insightData.spend?.toFixed(2) || '0.00'}</p>
+                                                                    </div>
+                                                                    <div className="p-3 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                                                        <p className="text-xs text-muted-foreground mb-1">Impressions</p>
+                                                                        <p className="text-lg font-semibold">{insightData.impressions?.toLocaleString() || '0'}</p>
+                                                                    </div>
+                                                                    <div className="p-3 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                                                        <p className="text-xs text-muted-foreground mb-1">CTR</p>
+                                                                        <p className="text-lg font-semibold flex items-center gap-1">
+                                                                            {insightData.ctr?.toFixed(2) || '0.00'}%
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="p-3 rounded bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                                                        <p className="text-xs text-muted-foreground mb-1">Cost/Result</p>
+                                                                        <p className="text-lg font-semibold">${insightData.cost_per_result?.toFixed(2) || '0.00'}</p>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Simple CTR Bar */}
+                                                                <div className="mt-4 flex items-center gap-3 text-xs">
+                                                                    <span className="text-muted-foreground w-8">CTR</span>
+                                                                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className="h-full bg-slate-600 dark:bg-slate-400 rounded-full"
+                                                                            style={{ width: `${Math.min((insightData.ctr || 0) * 10, 100)}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <span className="font-medium w-10 text-right">{insightData.ctr?.toFixed(2) || '0'}%</span>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                                            <div>
-                                                                <p className="text-muted-foreground">Spend</p>
-                                                                <p className="font-semibold">${cell.spend?.toFixed(2) || '0.00'}</p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-muted-foreground">Impressions</p>
-                                                                <p className="font-semibold">{cell.impressions?.toLocaleString() || '0'}</p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-muted-foreground">CTR</p>
-                                                                <p className="font-semibold flex items-center gap-1">
-                                                                    {cell.ctr?.toFixed(2) || '0.00'}%
-                                                                    {idx === 0 && insights.length > 1 && (
-                                                                        cell.ctr > (insights[1]?.ctr || 0)
-                                                                            ? <TrendingUp className="w-3 h-3 text-green-500" />
-                                                                            : <TrendingDown className="w-3 h-3 text-red-500" />
-                                                                    )}
-                                                                </p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-muted-foreground">Cost/Result</p>
-                                                                <p className="font-semibold">${cell.cost_per_result?.toFixed(2) || '0.00'}</p>
-                                                            </div>
-                                                        </div>
-                                                        {/* Simple bar visualization */}
-                                                        <div className="mt-3 pt-3 border-t">
-                                                            <div className="flex gap-2 items-center">
-                                                                <span className="text-xs text-muted-foreground w-16">CTR</span>
-                                                                <Progress value={Math.min((cell.ctr || 0) * 10, 100)} className="flex-1 h-2" />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Test Info */}
-                                    <div className="pt-4 border-t">
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                    {/* Test Info - Simplified */}
+                                    <div className="pt-6 border-t">
+                                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide mb-4">Test Details</h4>
+
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                                             <div>
-                                                <p className="text-muted-foreground">Status</p>
-                                                <p className="font-medium">{selectedTest.status}</p>
+                                                <p className="text-xs text-muted-foreground mb-1">Status</p>
+                                                {getStatusBadge(selectedTest.status)}
                                             </div>
                                             <div>
-                                                <p className="text-muted-foreground">Created</p>
-                                                <p className="font-medium">{selectedTest.created_time ? new Date(selectedTest.created_time).toLocaleDateString() : 'N/A'}</p>
+                                                <p className="text-xs text-muted-foreground mb-1">Type</p>
+                                                <p className="font-medium">{selectedTest.type === 'LIFT' ? 'Lift Study' : 'Split Test'}</p>
                                             </div>
-                                            {selectedTest.start_time && (
+                                            <div>
+                                                <p className="text-xs text-muted-foreground mb-1">Total Groups</p>
+                                                <p className="font-medium">{selectedTest.cells_count || selectedTest.cells?.length || 0}</p>
+                                            </div>
+                                            {selectedTest.objectives && selectedTest.objectives[0] && (
                                                 <div>
-                                                    <p className="text-muted-foreground">Start Date</p>
-                                                    <p className="font-medium">{new Date(selectedTest.start_time).toLocaleDateString()}</p>
+                                                    <p className="text-xs text-muted-foreground mb-1">Objective</p>
+                                                    <p className="font-medium">{selectedTest.objectives[0].name}</p>
                                                 </div>
                                             )}
-                                            {selectedTest.end_time && (
+                                        </div>
+
+                                        <div className="mt-6 pt-4 border-t border-dashed">
+                                            <div className="flex flex-wrap gap-8 text-sm">
                                                 <div>
-                                                    <p className="text-muted-foreground">End Date</p>
-                                                    <p className="font-medium">{new Date(selectedTest.end_time).toLocaleDateString()}</p>
+                                                    <p className="text-xs text-muted-foreground mb-1">Start Date</p>
+                                                    <p className="font-medium">
+                                                        {selectedTest.start_time
+                                                            ? new Date(selectedTest.start_time).toLocaleDateString('en-US', {
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                                year: 'numeric'
+                                                            })
+                                                            : 'Not set'}
+                                                    </p>
                                                 </div>
-                                            )}
+                                                <div>
+                                                    <p className="text-xs text-muted-foreground mb-1">End Date</p>
+                                                    <p className="font-medium">
+                                                        {selectedTest.end_time
+                                                            ? new Date(selectedTest.end_time).toLocaleDateString('en-US', {
+                                                                month: 'short',
+                                                                day: 'numeric',
+                                                                year: 'numeric'
+                                                            })
+                                                            : 'Not set'}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-muted-foreground mb-1">Created</p>
+                                                    <p className="font-medium">
+                                                        {selectedTest.created_time
+                                                            ? new Date(selectedTest.created_time).toLocaleDateString()
+                                                            : 'N/A'}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </>
