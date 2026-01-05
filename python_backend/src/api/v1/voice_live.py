@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/voice", tags=["voice"])
 
 # Application name constant
-APP_NAME = "voice-agent"
+APP_NAME = "voice_agent"
 
 # ========================================
 # Phase 1: Application Initialization (once at startup)

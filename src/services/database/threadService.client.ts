@@ -240,8 +240,10 @@ export class ThreadService {
    */
   static async getThreadMessages(langThreadId: string): Promise<ChatMessage[]> {
     try {
-      const response = await fetch(`/api/ai/content/strategist/history?threadId=${langThreadId}`)
-      
+      // Call Python backend for history (LangGraph stores checkpoints there)
+      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000'
+      const response = await fetch(`${backendUrl}/api/v1/content/strategist/history?threadId=${langThreadId}`)
+
       if (!response.ok) {
         if (response.status === 404) {
           // Thread not found in checkpoints, return empty array
@@ -249,7 +251,7 @@ export class ThreadService {
         }
         throw new Error('Failed to fetch thread messages')
       }
-      
+
       const { messages } = await response.json()
       return messages || []
     } catch (error) {

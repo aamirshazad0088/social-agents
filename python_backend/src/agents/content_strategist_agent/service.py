@@ -38,8 +38,15 @@ async def init_checkpointer():
     """
     Initialize the AsyncPostgresSaver checkpointer.
     Call this at application startup (in FastAPI lifespan).
+    
+    Uses prepare_threshold=0 for Supabase pooler (PgBouncer/Supavisor) compatibility.
     """
     global _checkpointer, _checkpointer_context
+    
+    # Skip if already initialized (prevents hot-reload conflicts)
+    if _checkpointer is not None:
+        logger.info("Checkpointer already initialized, skipping")
+        return _checkpointer
     
     db_uri = settings.DATABASE_URL
     if not db_uri:
@@ -48,13 +55,26 @@ async def init_checkpointer():
         return _checkpointer
     
     try:
-        # Create the async context manager
-        _checkpointer_context = AsyncPostgresSaver.from_conn_string(db_uri)
-        # Enter the context
-        _checkpointer = await _checkpointer_context.__aenter__()
+        # Import psycopg for async connection
+        from psycopg import AsyncConnection
+        from psycopg.rows import dict_row
+        
+        # Create async connection with prepare_threshold=0 to disable prepared statements
+        # This is required for Supabase pooler (PgBouncer/Supavisor) which doesn't support prepared statements
+        conn = await AsyncConnection.connect(
+            db_uri,
+            autocommit=True,
+            prepare_threshold=0,  # Disable prepared statements for pooler compatibility
+            row_factory=dict_row,
+        )
+        
+        # Create checkpointer from the connection
+        _checkpointer = AsyncPostgresSaver(conn=conn)
+        _checkpointer_context = conn  # Store connection for cleanup
+        
         # Run setup to create tables if needed
         await _checkpointer.setup()
-        logger.info("AsyncPostgresSaver checkpointer initialized successfully")
+        logger.info("AsyncPostgresSaver checkpointer initialized successfully (with pooler compatibility)")
         return _checkpointer
     except Exception as e:
         logger.error(f"Failed to initialize AsyncPostgresSaver: {e}")
@@ -72,7 +92,8 @@ async def close_checkpointer():
     
     if _checkpointer_context is not None:
         try:
-            await _checkpointer_context.__aexit__(None, None, None)
+            # Close the connection pool
+            await _checkpointer_context.close()
             logger.info("AsyncPostgresSaver checkpointer closed")
         except Exception as e:
             logger.error(f"Error closing checkpointer: {e}")
@@ -91,12 +112,96 @@ def get_checkpointer():
     return _checkpointer
 
 
+async def get_thread_history(thread_id: str) -> dict:
+    """
+    Fetch conversation history from LangGraph checkpoints.
+    
+    LangGraph automatically stores all messages in the checkpoint.
+    We retrieve them using the checkpointer's aget method.
+    
+    Args:
+        thread_id: The LangGraph thread ID
+        
+    Returns:
+        dict with messages array and metadata
+    """
+    checkpointer = get_checkpointer()
+    logger.info(f"Fetching history for thread: {thread_id}, checkpointer type: {type(checkpointer).__name__}")
+    
+    try:
+        # Fetch the checkpoint for this thread
+        checkpoint = await checkpointer.aget({"configurable": {"thread_id": thread_id}})
+        
+        logger.info(f"Checkpoint result: {checkpoint is not None}, keys: {list(checkpoint.keys()) if checkpoint else 'None'}")
+        
+        if not checkpoint:
+            return {"messages": [], "threadId": thread_id, "messageCount": 0}
+        
+        # Extract messages from checkpoint channel_values
+        messages_raw = checkpoint.get("channel_values", {}).get("messages", [])
+        
+        # Transform to UI format, filtering out tool/system messages
+        ui_messages = []
+        for msg in messages_raw:
+            # Get message type
+            msg_type = getattr(msg, 'type', None) or msg.get('type', '') if isinstance(msg, dict) else None
+            
+            # Skip tool messages and system messages
+            if msg_type in ('tool', 'function', 'system'):
+                continue
+            
+            # Skip tool call results
+            if hasattr(msg, 'tool_call_id') or (isinstance(msg, dict) and msg.get('tool_call_id')):
+                continue
+            
+            # Determine role
+            role = 'user'
+            if msg_type in ('ai', 'assistant', 'AIMessage'):
+                role = 'assistant'
+            elif hasattr(msg, '_type') and 'ai' in str(msg._type).lower():
+                role = 'assistant'
+            
+            # Extract content
+            content = ''
+            if hasattr(msg, 'content'):
+                content = msg.content
+            elif isinstance(msg, dict) and 'content' in msg:
+                content = msg['content']
+            
+            # Handle list content (multimodal)
+            if isinstance(content, list):
+                text_parts = []
+                for part in content:
+                    if isinstance(part, dict) and part.get('type') == 'text':
+                        text_parts.append(part.get('text', ''))
+                    elif isinstance(part, str):
+                        text_parts.append(part)
+                content = '\n'.join(text_parts)
+            
+            if content:
+                ui_messages.append({
+                    "role": role,
+                    "content": content
+                })
+        
+        return {
+            "success": True,
+            "messages": ui_messages,
+            "threadId": thread_id,
+            "messageCount": len(ui_messages)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching thread history: {e}")
+        return {"success": False, "messages": [], "threadId": thread_id, "error": str(e)}
+
+
 async def get_agent():
     """Get or create the content strategist agent with Playwright browser tools"""
     global _agent
     if _agent is None:
         model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=0.7,
         )

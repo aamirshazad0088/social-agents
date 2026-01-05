@@ -3,6 +3,7 @@ from .service import (
     content_strategist_chat,
     init_checkpointer,
     close_checkpointer,
+    get_thread_history,
 )
 from .schemas import (
     ChatStrategistRequest,
@@ -16,6 +17,7 @@ __all__ = [
     "content_strategist_chat",
     "init_checkpointer",
     "close_checkpointer",
+    "get_thread_history",
     "ChatStrategistRequest",
     "ChatStrategistResponse",
     "ContentBlock",

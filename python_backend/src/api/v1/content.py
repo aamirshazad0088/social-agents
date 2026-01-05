@@ -5,17 +5,37 @@ import logging
 import json
 from typing import AsyncGenerator
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ...agents.content_strategist_agent import (
     content_strategist_chat,
     ChatStrategistRequest,
+    get_thread_history,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/content", tags=["content"])
+
+
+@router.get("/strategist/history")
+async def get_history(threadId: str = Query(..., description="LangGraph thread ID")):
+    """
+    GET /api/v1/content/strategist/history
+    
+    Fetch conversation history from LangGraph checkpoints.
+    The history is automatically stored by LangGraph when using the checkpointer.
+    """
+    if not threadId:
+        raise HTTPException(status_code=400, detail="threadId query parameter is required")
+    
+    result = await get_thread_history(threadId)
+    
+    if not result.get("success", True) and "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    return result
 
 
 @router.post("/strategist/chat")
