@@ -3,7 +3,7 @@
 import os
 from google.adk.agents import Agent
 from google.adk.tools import google_search
-from src.voice_agent.tools import write_content
+from src.voice_agent.tools import write_content_tool
 
 # System instruction for the content strategist persona
 SYSTEM_INSTRUCTION = """You are Eric Martinez, a seasoned content strategist with over 10 years of 
@@ -39,6 +39,6 @@ agent = Agent(
         "VOICE_AGENT_MODEL", 
         "gemini-2.5-flash-native-audio-preview-12-2025"
     ),
-    tools=[google_search, write_content],
+    tools=[google_search, write_content_tool],
     instruction=SYSTEM_INSTRUCTION,
 )

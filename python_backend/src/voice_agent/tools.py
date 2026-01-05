@@ -3,7 +3,7 @@
 from google.adk.tools import FunctionTool
 
 
-def write_content_func(content: str) -> dict:
+def write_content(content: str) -> dict:
     """Deliver formatted written content to the user.
     
     Use this tool when:
@@ -23,5 +23,5 @@ def write_content_func(content: str) -> dict:
     return {"success": True, "content": content}
 
 
-# Create FunctionTool from the function
-write_content = FunctionTool(func=write_content_func)
+# Create FunctionTool from the function - tool name will be "write_content"
+write_content_tool = FunctionTool(func=write_content)

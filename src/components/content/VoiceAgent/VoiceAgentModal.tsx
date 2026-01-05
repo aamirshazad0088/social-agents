@@ -283,31 +283,76 @@ export function VoiceAgentModal({
             }
           }
 
-          // Handle tool results (e.g., write_content tool)
-          if (adkEvent.actions?.artifactDelta?.parts) {
-            for (const part of adkEvent.actions.artifactDelta.parts) {
-              if (part.text) {
-                console.log('[Voice Live] Tool generated content:', part.text);
+          // Handle function call results (write_content tool)
+          // ADK Events can have tool calls in multiple places depending on version
+
+          // Log full event structure for debugging tool calls
+          const eventKeys = Object.keys(adkEvent);
+          if (eventKeys.some(k => k.toLowerCase().includes('function') || k.toLowerCase().includes('tool'))) {
+            console.log('[Voice Live] Event with potential tool data:', JSON.stringify(adkEvent, null, 2));
+          }
+
+          // Method 1: Check event.content.parts for functionResponse
+          if (adkEvent.content?.parts) {
+            for (const part of adkEvent.content.parts) {
+              // Handle functionResponse in part
+              if (part.functionResponse) {
+                const funcResp = part.functionResponse;
+                console.log('[Voice Live] FunctionResponse in parts:', funcResp.name, funcResp.response);
+
+                if (funcResp.name === 'write_content' && funcResp.response?.content) {
+                  setHasGeneratedContent(true);
+                  onContentGenerated({
+                    type: 'written_content',
+                    platform: 'text',
+                    content: funcResp.response.content,
+                  });
+                }
+              }
+
+              // Handle function_response (Python snake_case serialization)
+              if (part.function_response) {
+                const funcResp = part.function_response;
+                console.log('[Voice Live] function_response in parts:', funcResp.name, funcResp.response);
+
+                if (funcResp.name === 'write_content' && funcResp.response?.content) {
+                  setHasGeneratedContent(true);
+                  onContentGenerated({
+                    type: 'written_content',
+                    platform: 'text',
+                    content: funcResp.response.content,
+                  });
+                }
+              }
+            }
+          }
+
+          // Method 2: Check top-level functionResponses array (if present)
+          if (adkEvent.functionResponses) {
+            for (const response of adkEvent.functionResponses) {
+              console.log('[Voice Live] Top-level functionResponse:', response.name, response.response);
+
+              if (response.name === 'write_content' && response.response?.content) {
                 setHasGeneratedContent(true);
                 onContentGenerated({
                   type: 'written_content',
                   platform: 'text',
-                  content: part.text,
+                  content: response.response.content,
                 });
               }
             }
           }
 
-          // Handle function call results directly
-          if (adkEvent.functionResponse) {
-            const response = adkEvent.functionResponse;
-            if (response.name === 'write_content' && response.response?.content) {
-              console.log('[Voice Live] write_content result:', response.response.content);
+          // Method 3: Check actions.stateDelta for tool results (some ADK versions)
+          if (adkEvent.actions?.stateDelta) {
+            const delta = adkEvent.actions.stateDelta;
+            if (delta.write_content_result) {
+              console.log('[Voice Live] Tool result in stateDelta:', delta.write_content_result);
               setHasGeneratedContent(true);
               onContentGenerated({
                 type: 'written_content',
                 platform: 'text',
-                content: response.response.content,
+                content: delta.write_content_result,
               });
             }
           }

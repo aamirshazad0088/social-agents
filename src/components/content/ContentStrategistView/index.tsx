@@ -8,6 +8,9 @@ import { CenteredInputLayout } from '../CenteredInputLayout';
 // Types
 import { ContentStrategistViewProps, Message } from './types';
 
+// Global store for state persistence
+import { useContentStrategistStore } from '@/stores/contentStrategistStore';
+
 // Hooks
 import { useChatHistory } from './hooks/useChatHistory';
 import { useThreadManagement } from './hooks/useThreadManagement';
@@ -35,16 +38,24 @@ import { Mic, MicOff } from 'lucide-react';
 
 const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCreated }) => {
     const { workspaceId, user, loading: authLoading } = useAuth();
-    const [messages, setMessages] = useState<Message[]>([]);
+
+    // Use Zustand store for persisted state (survives page navigation)
+    const messages = useContentStrategistStore(state => state.messages);
+    const setMessages = useContentStrategistStore(state => state.setMessages);
+    const hasUserSentMessage = useContentStrategistStore(state => state.hasUserSentMessage);
+    const setHasUserSentMessage = useContentStrategistStore(state => state.setHasUserSentMessage);
+    const error = useContentStrategistStore(state => state.error);
+    const setError = useContentStrategistStore(state => state.setError);
+    const isVoiceActive = useContentStrategistStore(state => state.isVoiceActive);
+    const setIsVoiceActive = useContentStrategistStore(state => state.setIsVoiceActive);
+
+    // Local state (doesn't need to persist)
     const [userInput, setUserInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
-    const [hasUserSentMessage, setHasUserSentMessage] = useState(false);
     const [selectedModelId, setSelectedModelId] = useState(DEFAULT_AI_MODEL_ID);
-    const [isVoiceActive, setIsVoiceActive] = useState(false);
     const voiceButtonRef = useRef<VoiceButtonRef>(null);
 
     // Use refs to prevent unnecessary re-runs of effects when auth context updates
@@ -331,16 +342,28 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
 
     // Handle voice-generated content
     const handleVoiceContentGenerated = useCallback((content: any) => {
-        // Format content for display - handle both string and object responses
-        const contentText = typeof content === 'string'
-            ? content
-            : JSON.stringify(content, null, 2);
+        // Extract the actual content text from the generated content object
+        // The object has structure: { type: 'written_content', platform: 'text', content: '...' }
+        let contentText: string;
 
-        // Add a system message with the generated content
+        if (typeof content === 'string') {
+            contentText = content;
+        } else if (content?.content) {
+            // Extract the content field from the object (this is where the actual markdown is)
+            contentText = content.content;
+        } else if (content?.text) {
+            // Alternative field name
+            contentText = content.text;
+        } else {
+            // Fallback - stringify only if we can't find the content
+            contentText = JSON.stringify(content, null, 2);
+        }
+
+        // Add a model message with the generated content (will be rendered as markdown)
         setMessages(prev => [...prev, {
             role: 'model',
-            content: `I created content for you via voice! Here are the results:\n\n${contentText}`,
-            generatedContent: content
+            content: contentText,
+            isVoiceGenerated: true
         }]);
         setHasUserSentMessage(true);
     }, []);
