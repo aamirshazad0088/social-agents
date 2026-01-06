@@ -131,27 +131,30 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
         return (
             <div className="flex flex-col h-full">
                 {/* Header - Library Style */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-amber-900 via-orange-900 to-amber-900 dark:from-amber-950 dark:via-orange-950 dark:to-amber-950">
+                <div className="relative overflow-hidden bg-gradient-to-br from-teal-500/15 via-cyan-500/10 to-emerald-500/15 dark:from-teal-900 dark:via-cyan-900 dark:to-teal-900">
                     {/* Animated background elements */}
                     <div className="absolute inset-0 overflow-hidden">
-                        <div className="absolute -top-24 -right-24 w-96 h-96 bg-orange-500/30 rounded-full blur-3xl animate-pulse" />
-                        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-amber-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+                        <div className="absolute -top-24 -right-24 w-96 h-96 bg-teal-500/30 rounded-full blur-3xl animate-pulse" />
+                        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s', animationDuration: '3s' }} />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-teal-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
+                        <div className="absolute top-10 right-1/4 w-32 h-32 bg-cyan-400/25 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }} />
+                        <div className="absolute bottom-10 left-1/3 w-40 h-40 bg-teal-400/25 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s', animationDuration: '3.5s' }} />
                     </div>
                     <div className="relative px-6 py-5">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="relative">
-                                    <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 rounded-xl blur-lg opacity-75" />
-                                    <div className="relative bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 p-3 rounded-xl shadow-xl">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 rounded-xl blur-lg opacity-75" />
+                                    <div className="relative bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 p-3 rounded-xl shadow-xl">
                                         <BookCheck className="w-6 h-6 text-white" />
                                     </div>
                                 </div>
                                 <div>
-                                    <h1 className="text-lg font-bold text-white flex items-center gap-3">
+                                    <h1 className="text-lg font-bold text-teal-900 dark:text-white flex items-center gap-3">
                                         Publishing Studio
-                                        <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-[11px] px-2 py-0.5 h-6 shadow-lg">0 items</Badge>
+                                        <Badge className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white border-0 text-[11px] px-2 py-0.5 h-6 shadow-lg">0 items</Badge>
                                     </h1>
-                                    <p className="text-white/80 text-[13px] mt-0.5">Publish and schedule your content</p>
+                                    <p className="text-teal-700 dark:text-white/80 text-[13px] mt-0.5">Publish and schedule your content</p>
                                 </div>
                             </div>
                         </div>
@@ -171,28 +174,31 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
     return (
         <div className="flex flex-col h-full">
             {/* Header & Filters - Library Style */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-amber-900 via-orange-900 to-amber-900 dark:from-amber-950 dark:via-orange-950 dark:to-amber-950">
+            <div className="relative overflow-hidden bg-gradient-to-br from-teal-500/15 via-cyan-500/10 to-emerald-500/15 dark:from-teal-900 dark:via-cyan-900 dark:to-teal-900">
                 {/* Animated background elements */}
                 <div className="absolute inset-0 overflow-hidden">
-                    <div className="absolute -top-24 -right-24 w-96 h-96 bg-orange-500/30 rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-amber-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+                    <div className="absolute -top-24 -right-24 w-96 h-96 bg-teal-500/30 rounded-full blur-3xl animate-pulse" />
+                    <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s', animationDuration: '3s' }} />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-teal-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
+                    <div className="absolute top-10 right-1/4 w-32 h-32 bg-cyan-400/25 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }} />
+                    <div className="absolute bottom-10 left-1/3 w-40 h-40 bg-teal-400/25 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s', animationDuration: '3.5s' }} />
                 </div>
                 <div className="relative px-6 py-5">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                         {/* Left - Title */}
                         <div className="flex items-center gap-4">
                             <div className="relative">
-                                <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 rounded-xl blur-lg opacity-75" />
-                                <div className="relative bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 p-3 rounded-xl shadow-xl">
+                                <div className="absolute inset-0 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 rounded-xl blur-lg opacity-75" />
+                                <div className="relative bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 p-3 rounded-xl shadow-xl">
                                     <BookCheck className="w-6 h-6 text-white" />
                                 </div>
                             </div>
                             <div>
-                                <h1 className="text-lg font-bold text-white flex items-center gap-3">
+                                <h1 className="text-lg font-bold text-teal-900 dark:text-white flex items-center gap-3">
                                     Publishing Studio
-                                    <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-[11px] px-2 py-0.5 h-6 shadow-lg">{postsForPublishing.length} items</Badge>
+                                    <Badge className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white border-0 text-[11px] px-2 py-0.5 h-6 shadow-lg">{postsForPublishing.length} items</Badge>
                                 </h1>
-                                <p className="text-white/80 text-[13px] mt-0.5">Publish and schedule your content</p>
+                                <p className="text-teal-700 dark:text-white/80 text-[13px] mt-0.5">Publish and schedule your content</p>
                             </div>
                         </div>
 
@@ -201,25 +207,25 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
                             {/* Filter Tabs */}
                             <div className="flex gap-1.5 p-1.5 bg-white/10 rounded-xl">
                                 <button
-                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${statusFilter === 'all' ? 'bg-white text-amber-900 shadow-sm font-medium' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${statusFilter === 'all' ? 'bg-white text-teal-700 shadow-sm font-medium' : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'}`}
                                     onClick={() => setStatusFilter('all')}
                                 >
                                     All
                                 </button>
                                 <button
-                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${statusFilter === 'ready_to_publish' ? 'bg-white text-amber-900 shadow-sm font-medium' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${statusFilter === 'ready_to_publish' ? 'bg-white text-teal-700 shadow-sm font-medium' : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'}`}
                                     onClick={() => setStatusFilter('ready_to_publish')}
                                 >
                                     Ready
                                 </button>
                                 <button
-                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${statusFilter === 'scheduled' ? 'bg-white text-amber-900 shadow-sm font-medium' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${statusFilter === 'scheduled' ? 'bg-white text-teal-700 shadow-sm font-medium' : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'}`}
                                     onClick={() => setStatusFilter('scheduled')}
                                 >
                                     Scheduled
                                 </button>
                                 <button
-                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${statusFilter === 'published' ? 'bg-white text-amber-900 shadow-sm font-medium' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${statusFilter === 'published' ? 'bg-white text-teal-700 shadow-sm font-medium' : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'}`}
                                     onClick={() => setStatusFilter('published')}
                                 >
                                     Published
@@ -229,19 +235,19 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
                             {/* Type Filters */}
                             <div className="flex gap-1.5 p-1.5 bg-white/10 rounded-xl">
                                 <button
-                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors flex items-center gap-1.5 ${typeFilter === 'image' ? 'bg-white text-amber-900 shadow-sm font-medium' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors flex items-center gap-1.5 ${typeFilter === 'image' ? 'bg-white text-teal-700 shadow-sm font-medium' : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'}`}
                                     onClick={() => setTypeFilter('image')}
                                 >
                                     <ImageIcon className="w-3.5 h-3.5" /> Images
                                 </button>
                                 <button
-                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors flex items-center gap-1.5 ${typeFilter === 'video' ? 'bg-white text-amber-900 shadow-sm font-medium' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors flex items-center gap-1.5 ${typeFilter === 'video' ? 'bg-white text-teal-700 shadow-sm font-medium' : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'}`}
                                     onClick={() => setTypeFilter('video')}
                                 >
                                     <Video className="w-3.5 h-3.5" /> Videos
                                 </button>
                                 <button
-                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors flex items-center gap-1.5 ${typeFilter === 'carousel' ? 'bg-white text-amber-900 shadow-sm font-medium' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors flex items-center gap-1.5 ${typeFilter === 'carousel' ? 'bg-white text-teal-700 shadow-sm font-medium' : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'}`}
                                     onClick={() => setTypeFilter('carousel')}
                                 >
                                     <Layers className="w-3.5 h-3.5" /> Carousel
@@ -255,7 +261,7 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
                                     return (
                                         <button
                                             key={platform.id}
-                                            className={`p-2 rounded-lg transition-colors ${platformFilter === platform.id ? 'bg-white text-amber-900 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                                            className={`p-2 rounded-lg transition-colors ${platformFilter === platform.id ? 'bg-white text-teal-700 shadow-sm' : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'}`}
                                             onClick={() => setPlatformFilter(platform.id as Platform)}
                                         >
                                             <Icon className="w-4 h-4" />
@@ -268,7 +274,7 @@ const PublishedView: React.FC<PublishedViewProps> = ({ posts = [], onUpdatePost,
                             {hasActiveFilters && (
                                 <button
                                     onClick={clearFilters}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
                                 >
                                     <X className="w-3.5 h-3.5" /> Clear
                                 </button>

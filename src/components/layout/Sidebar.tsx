@@ -16,8 +16,6 @@ import {
     Video,
     Palette,
     Send,
-    Users,
-    Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,10 +40,7 @@ const sidebarItems = [
     { icon: Megaphone, label: 'Meta Ads', href: '/dashboard/meta-ads' },
 ];
 
-const bottomItems = [
-    { icon: Users, label: 'Team', href: '/settings?tab=members' },
-    { icon: Star, label: 'Favorites', href: '/dashboard/favorites' },
-];
+
 
 export function Sidebar() {
     const pathname = usePathname();
@@ -53,11 +48,11 @@ export function Sidebar() {
 
     return (
         <TooltipProvider delayDuration={0}>
-            <div className="flex h-full w-[72px] flex-col items-center bg-gradient-to-b from-emerald-950 via-teal-950 to-slate-950 border-r border-emerald-900/30 pt-1 pb-2">
+            <div className="flex h-full w-[72px] flex-col items-center bg-sky-100 border-r border-sky-200 pt-1 pb-2 shadow-sm">
                 {/* Logo - Enterprise Style */}
                 <div className="mb-0">
                     <Link href="/dashboard" className="group">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-emerald-500/10 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-emerald-500/25 group-hover:scale-105 ring-1 ring-emerald-500/20">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl overflow-hidden shadow-md shadow-teal-500/10 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-teal-500/20 group-hover:scale-105 ring-1 ring-teal-500/20">
                             <img
                                 src="/frappe-framework-logo.svg"
                                 alt="Logo"
@@ -67,19 +62,16 @@ export function Sidebar() {
                     </Link>
                 </div>
 
-                {/* Notifications - Below Logo */}
+                {/* Dark/Light Mode Toggle - Below Logo */}
                 <div className="mb-0">
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 text-emerald-400/50 hover:text-emerald-100 hover:bg-emerald-500/10 -translate-x-0.5">
-                                <NotificationBell
-                                    side="right"
-                                    className="p-0 text-inherit hover:text-inherit hover:bg-transparent"
-                                />
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                                <ModeToggle />
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent side="right" sideOffset={8} className="bg-emerald-950 border-emerald-800 text-emerald-50 shadow-xl px-3 py-2">
-                            <p className="font-medium text-[13px]">Notifications</p>
+                        <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
+                            <p className="font-medium text-[13px]">Toggle Theme</p>
                         </TooltipContent>
                     </Tooltip>
                 </div>
@@ -96,18 +88,18 @@ export function Sidebar() {
                                         className={cn(
                                             "relative flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200",
                                             isActive
-                                                ? "bg-gradient-to-br from-emerald-500/20 via-teal-500/15 to-cyan-500/20 text-emerald-100 shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-400/30"
-                                                : "text-emerald-300/60 hover:text-emerald-100 hover:bg-emerald-500/10"
+                                                ? "bg-gradient-to-br from-teal-500/15 via-cyan-500/10 to-emerald-500/15 text-teal-700 shadow-md shadow-teal-500/15 ring-1 ring-teal-400/40"
+                                                : "text-teal-600 hover:text-teal-700 hover:bg-teal-50"
                                         )}
                                     >
                                         {/* Active indicator bar */}
                                         {isActive && (
-                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-gradient-to-b from-emerald-400 to-teal-500 rounded-r-full" />
+                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-gradient-to-b from-teal-500 to-cyan-500 rounded-r-full" />
                                         )}
                                         <item.icon className="relative h-[22px] w-[22px] transition-all duration-200" />
                                     </Link>
                                 </TooltipTrigger>
-                                <TooltipContent side="right" sideOffset={8} className="bg-emerald-950 border-emerald-800 text-emerald-50 shadow-xl px-3 py-2">
+                                <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
                                     <p className="font-medium text-[13px]">{item.label}</p>
                                 </TooltipContent>
                             </Tooltip>
@@ -116,41 +108,20 @@ export function Sidebar() {
                 </nav>
 
                 {/* Bottom Section - Enterprise Standard */}
-                <div className="flex flex-col items-center gap-1.5 pt-4 border-t border-emerald-900/30 mt-2">
-                    {/* Bottom Navigation Items */}
-                    {bottomItems.map((item, index) => {
-                        const isActive = pathname === item.href;
-                        return (
-                            <Tooltip key={index}>
-                                <TooltipTrigger asChild>
-                                    <Link
-                                        href={item.href}
-                                        className={cn(
-                                            "flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
-                                            isActive
-                                                ? "bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-400/30"
-                                                : "text-emerald-400/50 hover:text-emerald-100 hover:bg-emerald-500/10"
-                                        )}
-                                    >
-                                        <item.icon className="h-5 w-5" />
-                                    </Link>
-                                </TooltipTrigger>
-                                <TooltipContent side="right" sideOffset={8} className="bg-emerald-950 border-emerald-800 text-emerald-50 shadow-xl px-3 py-2">
-                                    <p className="font-medium text-[13px]">{item.label}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        );
-                    })}
+                <div className="flex flex-col items-center gap-1.5 pt-4 border-t border-slate-200/80 mt-2">
 
-                    {/* Dark/Light Mode Toggle */}
+                    {/* Notifications */}
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 text-emerald-400/50 hover:text-emerald-100 hover:bg-emerald-500/10">
-                                <ModeToggle />
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                                <NotificationBell
+                                    side="right"
+                                    className="p-0 text-inherit hover:text-inherit hover:bg-transparent [&_svg]:h-5 [&_svg]:w-5"
+                                />
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent side="right" sideOffset={8} className="bg-emerald-950 border-emerald-800 text-emerald-50 shadow-xl px-3 py-2">
-                            <p className="font-medium text-[13px]">Toggle Theme</p>
+                        <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
+                            <p className="font-medium text-[13px]">Notifications</p>
                         </TooltipContent>
                     </Tooltip>
 
@@ -162,14 +133,14 @@ export function Sidebar() {
                                 className={cn(
                                     "flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
                                     pathname?.startsWith('/settings')
-                                        ? "bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-400/30"
-                                        : "text-emerald-400/50 hover:text-emerald-100 hover:bg-emerald-500/10"
+                                        ? "bg-teal-50 text-teal-700 ring-1 ring-teal-400/40"
+                                        : "text-teal-600 hover:text-teal-700 hover:bg-teal-50"
                                 )}
                             >
                                 <Settings className="h-5 w-5" />
                             </Link>
                         </TooltipTrigger>
-                        <TooltipContent side="right" sideOffset={8} className="bg-emerald-950 border-emerald-800 text-emerald-50 shadow-xl px-3 py-2">
+                        <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
                             <p className="font-medium text-[13px]">Settings</p>
                         </TooltipContent>
                     </Tooltip>
@@ -179,15 +150,15 @@ export function Sidebar() {
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Link href="/settings?tab=profile" className="mt-3">
-                                <Avatar className="h-10 w-10 ring-2 ring-emerald-800 ring-offset-2 ring-offset-emerald-950 transition-all hover:ring-emerald-500/50 hover:scale-105">
+                                <Avatar className="h-10 w-10 ring-2 ring-slate-200 ring-offset-2 ring-offset-white transition-all hover:ring-teal-400/50 hover:scale-105">
                                     <AvatarImage src={user?.user_metadata?.avatar_url} />
-                                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-sm font-semibold">
+                                    <AvatarFallback className="bg-gradient-to-br from-teal-500 to-cyan-600 text-white text-sm font-semibold">
                                         {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
                                     </AvatarFallback>
                                 </Avatar>
                             </Link>
                         </TooltipTrigger>
-                        <TooltipContent side="right" sideOffset={8} className="bg-emerald-950 border-emerald-800 text-emerald-50 shadow-xl px-3 py-2">
+                        <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">
                             <p className="font-medium text-[13px]">{user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Profile'}</p>
                         </TooltipContent>
                     </Tooltip>

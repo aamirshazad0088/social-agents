@@ -349,301 +349,356 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ posts }) => {
     };
 
     return (
-        <div className="space-y-6 p-6">
-            {/* Production-ready: Handle empty state */}
-            {stats.totalPosts === 0 ? (
-                <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
-                    <BarChart3 className="h-16 w-16 text-muted-foreground/50" />
-                    <div className="text-center space-y-2">
-                        <h3 className="text-xl font-semibold">No Analytics Data Yet</h3>
-                        <p className="text-muted-foreground max-w-md">
-                            Start creating and publishing content to see your performance metrics and insights here.
-                        </p>
+        <div className="flex flex-col h-full">
+            {/* Header - Matching Library Page Design */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-teal-500/15 via-cyan-500/10 to-emerald-500/15 dark:from-teal-900 dark:via-cyan-900 dark:to-teal-900">
+                {/* Animated background elements */}
+                <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute -top-24 -right-24 w-96 h-96 bg-teal-500/30 rounded-full blur-3xl animate-pulse" />
+                    <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-500/30 rounded-full blur-3xl animate-pulse"
+                        style={{ animationDelay: '1s', animationDuration: '3s' }} />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-teal-600/20 rounded-full blur-3xl animate-pulse"
+                        style={{ animationDelay: '1.5s', animationDuration: '4s' }} />
+                    <div className="absolute top-10 right-1/4 w-32 h-32 bg-cyan-400/25 rounded-full blur-2xl animate-pulse"
+                        style={{ animationDelay: '0.5s', animationDuration: '2.5s' }} />
+                    <div className="absolute bottom-10 left-1/3 w-40 h-40 bg-teal-400/25 rounded-full blur-2xl animate-pulse"
+                        style={{ animationDelay: '2s', animationDuration: '3.5s' }} />
+                </div>
+
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
+
+                <div className="relative px-6 py-5">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        {/* Left: Logo and Title */}
+                        <div className="flex items-center gap-4">
+                            <div className="relative group">
+                                <div className="absolute inset-0 bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 rounded-xl blur-lg opacity-75 animate-pulse group-hover:opacity-100 transition-opacity" />
+                                <div className="absolute inset-0 bg-gradient-to-r from-teal-400 via-cyan-400 to-teal-400 rounded-xl blur-xl opacity-50 animate-pulse"
+                                    style={{ animationDelay: '0.5s' }} />
+                                <div className="relative bg-gradient-to-r from-teal-500 via-cyan-500 to-teal-500 p-3 rounded-xl shadow-xl transform transition-transform group-hover:scale-105">
+                                    <BarChart3 className="w-6 h-6 text-white" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <h1 className="text-lg font-bold text-teal-900 dark:text-white flex items-center gap-3">
+                                    Social Media Analytics
+                                    <span className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white border-0 text-[11px] px-2 py-0.5 h-6 shadow-lg rounded-full inline-flex items-center">
+                                        <Zap className="w-3 h-3 mr-1 animate-pulse" />
+                                        Insights
+                                    </span>
+                                </h1>
+                                <p className="text-teal-700 dark:text-white/80 text-[13px] mt-0.5">
+                                    In-depth performance insights for Facebook, Instagram, TikTok & YouTube
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Right: Time Range Tabs */}
+                        <div className="flex gap-1.5 p-1.5 bg-white/10 rounded-xl">
+                            {(['7d', '30d', 'all'] as const).map((range) => {
+                                const isActive = timeRange === range;
+                                const label = range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : 'All Time';
+                                return (
+                                    <button
+                                        key={range}
+                                        onClick={() => setTimeRange(range)}
+                                        className={`px-4 py-2 rounded-lg text-[13px] transition-all duration-200 ${isActive
+                                            ? 'bg-white text-teal-700 shadow-sm font-medium'
+                                            : 'text-teal-700 dark:text-white/70 hover:text-teal-900 dark:hover:text-white hover:bg-white/10'
+                                            }`}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
-            ) : (
-                <>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                            <h2 className="text-3xl font-bold tracking-tight">Social Media Analytics</h2>
-                            <p className="text-muted-foreground mt-1">In-depth performance insights for Facebook, Instagram, TikTok & YouTube</p>
+            </div>
 
-                            <p className="text-muted-foreground mt-1">In-depth performance insights for Facebook, Instagram, TikTok & YouTube</p>
+            {/* Main Content */}
+            <div className="flex-1 p-6 bg-gradient-to-b from-muted/30 to-background overflow-auto space-y-6">
+                {/* Production-ready: Handle empty state */}
+                {stats.totalPosts === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+                        <BarChart3 className="h-16 w-16 text-muted-foreground/50" />
+                        <div className="text-center space-y-2">
+                            <h3 className="text-xl font-semibold">No Analytics Data Yet</h3>
+                            <p className="text-muted-foreground max-w-md">
+                                Start creating and publishing content to see your performance metrics and insights here.
+                            </p>
                         </div>
-                        <Tabs value={timeRange} onValueChange={(value) => setTimeRange(value as '7d' | '30d' | 'all')}>
-                            <TabsList>
-                                <TabsTrigger value="7d">7 Days</TabsTrigger>
-                                <TabsTrigger value="30d">30 Days</TabsTrigger>
-                                <TabsTrigger value="all">All Time</TabsTrigger>
-                            </TabsList>
-                        </Tabs>
                     </div>
+                ) : (
+                    <>
 
-                    {/* Charts Grid */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                        {/* Platform Distribution */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Platform Distribution</CardTitle>
-                                <CardDescription>Content distribution across platforms</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {stats.platformData.length > 0 ? (
-                                    <ChartContainer config={chartConfig} className="h-[300px]">
-                                        <PieChart>
-                                            <ChartTooltip content={<ChartTooltipContent />} />
-                                            <Pie
-                                                data={stats.platformData}
-                                                dataKey="value"
-                                                nameKey="name"
-                                                cx="50%"
-                                                cy="50%"
-                                                outerRadius={100}
-                                                label={(entry) => `${entry.name}: ${entry.value}`}
-                                                labelLine={false}
-                                            >
-                                                {stats.platformData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                                ))}
-                                            </Pie>
-                                            <ChartLegend content={<ChartLegendContent />} />
-                                        </PieChart>
-                                    </ChartContainer>
-                                ) : (
-                                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                                        No data available
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                        {/* Charts Grid */}
+                        <div className="grid gap-6 md:grid-cols-2">
+                            {/* Platform Distribution */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Platform Distribution</CardTitle>
+                                    <CardDescription>Content distribution across platforms</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {stats.platformData.length > 0 ? (
+                                        <ChartContainer config={chartConfig} className="h-[300px]">
+                                            <PieChart>
+                                                <ChartTooltip content={<ChartTooltipContent />} />
+                                                <Pie
+                                                    data={stats.platformData}
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    outerRadius={100}
+                                                    label={(entry) => `${entry.name}: ${entry.value}`}
+                                                    labelLine={false}
+                                                >
+                                                    {stats.platformData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                                                    ))}
+                                                </Pie>
+                                                <ChartLegend content={<ChartLegendContent />} />
+                                            </PieChart>
+                                        </ChartContainer>
+                                    ) : (
+                                        <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                                            No data available
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
 
-                        {/* Post Status Overview */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Post Status Overview</CardTitle>
-                                <CardDescription>Current status of all posts</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {stats.statusData.length > 0 ? (
-                                    <ChartContainer config={chartConfig} className="h-[300px]">
-                                        <BarChart data={stats.statusData} layout="horizontal" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                            <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
-                                            <YAxis
-                                                type="category"
-                                                dataKey="name"
-                                                stroke="hsl(var(--muted-foreground))"
-                                                width={120}
-                                                tick={{ fontSize: 12 }}
-                                            />
-                                            <ChartTooltip content={<ChartTooltipContent />} />
-                                            <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                                                {stats.statusData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ChartContainer>
-                                ) : (
-                                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                                        No data available
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
+                            {/* Post Status Overview */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Post Status Overview</CardTitle>
+                                    <CardDescription>Current status of all posts</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {stats.statusData.length > 0 ? (
+                                        <ChartContainer config={chartConfig} className="h-[300px]">
+                                            <BarChart data={stats.statusData} layout="horizontal" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                                <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
+                                                <YAxis
+                                                    type="category"
+                                                    dataKey="name"
+                                                    stroke="hsl(var(--muted-foreground))"
+                                                    width={120}
+                                                    tick={{ fontSize: 12 }}
+                                                />
+                                                <ChartTooltip content={<ChartTooltipContent />} />
+                                                <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                                                    {stats.statusData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                                                    ))}
+                                                </Bar>
+                                            </BarChart>
+                                        </ChartContainer>
+                                    ) : (
+                                        <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                                            No data available
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
 
-                    {/* Engagement Rate Trend & Audience Growth */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Engagement Rate Trend</CardTitle>
-                                <CardDescription>Engagement percentage over time</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {stats.engagementRateData.length > 0 ? (
+                        {/* Engagement Rate Trend & Audience Growth */}
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Engagement Rate Trend</CardTitle>
+                                    <CardDescription>Engagement percentage over time</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {stats.engagementRateData.length > 0 ? (
+                                        <ChartContainer config={chartConfig} className="h-[300px]">
+                                            <LineChart data={stats.engagementRateData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    stroke="hsl(var(--muted-foreground))"
+                                                    tick={{ fontSize: 12 }}
+                                                />
+                                                <YAxis stroke="hsl(var(--muted-foreground))" />
+                                                <ChartTooltip content={<ChartTooltipContent />} />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="rate"
+                                                    stroke="hsl(142, 76%, 36%)"
+                                                    strokeWidth={3}
+                                                    dot={{ fill: 'hsl(142, 76%, 36%)', r: 4 }}
+                                                />
+                                            </LineChart>
+                                        </ChartContainer>
+                                    ) : (
+                                        <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                                            No engagement rate data
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Audience Growth</CardTitle>
+                                    <CardDescription>Follower growth across platforms</CardDescription>
+                                </CardHeader>
+                                <CardContent>
                                     <ChartContainer config={chartConfig} className="h-[300px]">
-                                        <LineChart data={stats.engagementRateData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                        <LineChart data={stats.audienceGrowthData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                                             <XAxis
-                                                dataKey="date"
+                                                dataKey="month"
                                                 stroke="hsl(var(--muted-foreground))"
                                                 tick={{ fontSize: 12 }}
                                             />
                                             <YAxis stroke="hsl(var(--muted-foreground))" />
                                             <ChartTooltip content={<ChartTooltipContent />} />
-                                            <Line
-                                                type="monotone"
-                                                dataKey="rate"
-                                                stroke="hsl(142, 76%, 36%)"
-                                                strokeWidth={3}
-                                                dot={{ fill: 'hsl(142, 76%, 36%)', r: 4 }}
-                                            />
+                                            <ChartLegend content={<ChartLegendContent />} />
+                                            <Line type="monotone" dataKey="facebook" stroke="hsl(221, 44%, 41%)" strokeWidth={2} />
+                                            <Line type="monotone" dataKey="instagram" stroke="hsl(329, 70%, 58%)" strokeWidth={2} />
+                                            <Line type="monotone" dataKey="tiktok" stroke="hsl(0, 0%, 0%)" strokeWidth={2} />
+                                            <Line type="monotone" dataKey="youtube" stroke="hsl(0, 100%, 50%)" strokeWidth={2} />
                                         </LineChart>
                                     </ChartContainer>
-                                ) : (
-                                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                                        No engagement rate data
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        </div>
 
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Audience Growth</CardTitle>
-                                <CardDescription>Follower growth across platforms</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <ChartContainer config={chartConfig} className="h-[300px]">
-                                    <LineChart data={stats.audienceGrowthData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                        <XAxis
-                                            dataKey="month"
-                                            stroke="hsl(var(--muted-foreground))"
-                                            tick={{ fontSize: 12 }}
-                                        />
-                                        <YAxis stroke="hsl(var(--muted-foreground))" />
-                                        <ChartTooltip content={<ChartTooltipContent />} />
-                                        <ChartLegend content={<ChartLegendContent />} />
-                                        <Line type="monotone" dataKey="facebook" stroke="hsl(221, 44%, 41%)" strokeWidth={2} />
-                                        <Line type="monotone" dataKey="instagram" stroke="hsl(329, 70%, 58%)" strokeWidth={2} />
-                                        <Line type="monotone" dataKey="tiktok" stroke="hsl(0, 0%, 0%)" strokeWidth={2} />
-                                        <Line type="monotone" dataKey="youtube" stroke="hsl(0, 100%, 50%)" strokeWidth={2} />
-                                    </LineChart>
-                                </ChartContainer>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Content Type Performance & Best Posting Times */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Content Type Performance</CardTitle>
-                                <CardDescription>Engagement by content format</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <ChartContainer config={chartConfig} className="h-[300px]">
-                                    <BarChart data={stats.contentTypeData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                        <XAxis
-                                            dataKey="type"
-                                            stroke="hsl(var(--muted-foreground))"
-                                            tick={{ fontSize: 11 }}
-                                        />
-                                        <YAxis stroke="hsl(var(--muted-foreground))" />
-                                        <ChartTooltip content={<ChartTooltipContent />} />
-                                        <ChartLegend content={<ChartLegendContent />} />
-                                        <Bar dataKey="engagement" fill="hsl(142, 76%, 36%)" radius={[8, 8, 0, 0]} />
-                                        <Bar dataKey="reach" fill="hsl(45, 93%, 47%)" radius={[8, 8, 0, 0]} />
-                                    </BarChart>
-                                </ChartContainer>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Best Posting Times</CardTitle>
-                                <CardDescription>Optimal hours for maximum engagement</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {stats.postingTimeData.length > 0 ? (
+                        {/* Content Type Performance & Best Posting Times */}
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Content Type Performance</CardTitle>
+                                    <CardDescription>Engagement by content format</CardDescription>
+                                </CardHeader>
+                                <CardContent>
                                     <ChartContainer config={chartConfig} className="h-[300px]">
-                                        <BarChart data={stats.postingTimeData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                        <BarChart data={stats.contentTypeData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                                             <XAxis
-                                                dataKey="hour"
+                                                dataKey="type"
                                                 stroke="hsl(var(--muted-foreground))"
-                                                tick={{ fontSize: 10 }}
-                                            />
-                                            <YAxis stroke="hsl(var(--muted-foreground))" />
-                                            <ChartTooltip content={<ChartTooltipContent />} />
-                                            <Bar dataKey="avgEngagement" radius={[8, 8, 0, 0]}>
-                                                {stats.postingTimeData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ChartContainer>
-                                ) : (
-                                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                                        No posting time data
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Content Timeline & Platform Comparison */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Content Timeline</CardTitle>
-                                <CardDescription>Posts, engagement & reach over time</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {stats.timelineData.length > 0 ? (
-                                    <ChartContainer config={chartConfig} className="h-[300px]">
-                                        <ComposedChart data={stats.timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                            <XAxis
-                                                dataKey="date"
-                                                stroke="hsl(var(--muted-foreground))"
-                                                tick={{ fontSize: 12 }}
+                                                tick={{ fontSize: 11 }}
                                             />
                                             <YAxis stroke="hsl(var(--muted-foreground))" />
                                             <ChartTooltip content={<ChartTooltipContent />} />
                                             <ChartLegend content={<ChartLegendContent />} />
-                                            <Bar dataKey="posts" fill="hsl(217, 91%, 60%)" radius={[8, 8, 0, 0]} />
-                                            <Line type="monotone" dataKey="engagement" stroke="hsl(142, 76%, 36%)" strokeWidth={2} />
-                                            <Line type="monotone" dataKey="reach" stroke="hsl(45, 93%, 47%)" strokeWidth={2} />
-                                        </ComposedChart>
+                                            <Bar dataKey="engagement" fill="hsl(142, 76%, 36%)" radius={[8, 8, 0, 0]} />
+                                            <Bar dataKey="reach" fill="hsl(45, 93%, 47%)" radius={[8, 8, 0, 0]} />
+                                        </BarChart>
                                     </ChartContainer>
-                                ) : (
-                                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                                        No timeline data
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
 
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Platform Comparison</CardTitle>
-                                <CardDescription>Multi-dimensional performance analysis</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {stats.platformComparison.length > 0 ? (
-                                    <ChartContainer config={chartConfig} className="h-[300px]">
-                                        <RadarChart data={stats.platformComparison}>
-                                            <PolarGrid stroke="hsl(var(--muted))" />
-                                            <PolarAngleAxis
-                                                dataKey="platform"
-                                                stroke="hsl(var(--muted-foreground))"
-                                                tick={{ fontSize: 12 }}
-                                            />
-                                            <PolarRadiusAxis stroke="hsl(var(--muted-foreground))" />
-                                            <Radar
-                                                name="Engagement"
-                                                dataKey="engagement"
-                                                stroke="hsl(142, 76%, 36%)"
-                                                fill="hsl(142, 76%, 36%)"
-                                                fillOpacity={0.6}
-                                            />
-                                            <ChartTooltip content={<ChartTooltipContent />} />
-                                        </RadarChart>
-                                    </ChartContainer>
-                                ) : (
-                                    <div className="flex h-[300px] items-center justify-center text-muted-foreground">
-                                        No comparison data
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                </>
-            )}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Best Posting Times</CardTitle>
+                                    <CardDescription>Optimal hours for maximum engagement</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {stats.postingTimeData.length > 0 ? (
+                                        <ChartContainer config={chartConfig} className="h-[300px]">
+                                            <BarChart data={stats.postingTimeData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                                <XAxis
+                                                    dataKey="hour"
+                                                    stroke="hsl(var(--muted-foreground))"
+                                                    tick={{ fontSize: 10 }}
+                                                />
+                                                <YAxis stroke="hsl(var(--muted-foreground))" />
+                                                <ChartTooltip content={<ChartTooltipContent />} />
+                                                <Bar dataKey="avgEngagement" radius={[8, 8, 0, 0]}>
+                                                    {stats.postingTimeData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                                                    ))}
+                                                </Bar>
+                                            </BarChart>
+                                        </ChartContainer>
+                                    ) : (
+                                        <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                                            No posting time data
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Content Timeline & Platform Comparison */}
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Content Timeline</CardTitle>
+                                    <CardDescription>Posts, engagement & reach over time</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {stats.timelineData.length > 0 ? (
+                                        <ChartContainer config={chartConfig} className="h-[300px]">
+                                            <ComposedChart data={stats.timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    stroke="hsl(var(--muted-foreground))"
+                                                    tick={{ fontSize: 12 }}
+                                                />
+                                                <YAxis stroke="hsl(var(--muted-foreground))" />
+                                                <ChartTooltip content={<ChartTooltipContent />} />
+                                                <ChartLegend content={<ChartLegendContent />} />
+                                                <Bar dataKey="posts" fill="hsl(217, 91%, 60%)" radius={[8, 8, 0, 0]} />
+                                                <Line type="monotone" dataKey="engagement" stroke="hsl(142, 76%, 36%)" strokeWidth={2} />
+                                                <Line type="monotone" dataKey="reach" stroke="hsl(45, 93%, 47%)" strokeWidth={2} />
+                                            </ComposedChart>
+                                        </ChartContainer>
+                                    ) : (
+                                        <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                                            No timeline data
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Platform Comparison</CardTitle>
+                                    <CardDescription>Multi-dimensional performance analysis</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {stats.platformComparison.length > 0 ? (
+                                        <ChartContainer config={chartConfig} className="h-[300px]">
+                                            <RadarChart data={stats.platformComparison}>
+                                                <PolarGrid stroke="hsl(var(--muted))" />
+                                                <PolarAngleAxis
+                                                    dataKey="platform"
+                                                    stroke="hsl(var(--muted-foreground))"
+                                                    tick={{ fontSize: 12 }}
+                                                />
+                                                <PolarRadiusAxis stroke="hsl(var(--muted-foreground))" />
+                                                <Radar
+                                                    name="Engagement"
+                                                    dataKey="engagement"
+                                                    stroke="hsl(142, 76%, 36%)"
+                                                    fill="hsl(142, 76%, 36%)"
+                                                    fillOpacity={0.6}
+                                                />
+                                                <ChartTooltip content={<ChartTooltipContent />} />
+                                            </RadarChart>
+                                        </ChartContainer>
+                                    ) : (
+                                        <div className="flex h-[300px] items-center justify-center text-muted-foreground">
+                                            No comparison data
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </>
+                )}
+            </div>
         </div>
     );
 };

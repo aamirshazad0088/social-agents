@@ -38,7 +38,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className, side = '
         >
           <Bell className="w-4 h-4" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-gradient-to-br from-red-500 to-red-600 rounded-full shadow-md shadow-red-500/30">
+            <span className="absolute -top-1 right-3 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-gradient-to-br from-red-500 to-red-600 rounded-full shadow-md shadow-red-500/30">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
