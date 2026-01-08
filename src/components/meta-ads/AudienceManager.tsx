@@ -304,6 +304,12 @@ function AudienceCard({
   isLookalike?: boolean;
 }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const subtypeLabels: Record<string, string> = {
     CUSTOM: 'Customer List',
@@ -314,9 +320,32 @@ function AudienceCard({
     LOOKALIKE: 'Lookalike',
   };
 
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete "${audience.name}"? This action cannot be undone.`)) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/v1/meta-ads/audiences/${audience.id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        onRefresh();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.detail || 'Failed to delete audience'}`);
+      }
+    } catch (err) {
+      alert('Failed to delete audience');
+    } finally {
+      setIsDeleting(false);
+      setShowDropdown(false);
+    }
+  };
+
   return (
     <>
-      <Card className="border hover:shadow-md transition-all group">
+      <Card className="border hover:shadow-md transition-all group relative">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2.5">
@@ -335,9 +364,72 @@ function AudienceCard({
                 </p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
+            {/* Dropdown Menu */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setShowDropdown(!showDropdown)}
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+              {showDropdown && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
+                  <div className="absolute right-0 top-8 z-50 w-44 bg-popover border rounded-lg shadow-lg py-1">
+                    <button
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                      onClick={() => { setShowDetailsModal(true); setShowDropdown(false); }}
+                    >
+                      <Eye className="w-4 h-4" />
+                      View Details
+                    </button>
+                    <button
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                      onClick={() => { setShowEditModal(true); setShowDropdown(false); }}
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </button>
+                    {audience.subtype === 'CUSTOM' && (
+                      <>
+                        <button
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                          onClick={() => { setShowUploadModal(true); setShowDropdown(false); }}
+                        >
+                          <Upload className="w-4 h-4" />
+                          Upload Users
+                        </button>
+                        <button
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                          onClick={() => { setShowRemoveModal(true); setShowDropdown(false); }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Remove Users
+                        </button>
+                      </>
+                    )}
+                    <button
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                      onClick={() => { setShowShareModal(true); setShowDropdown(false); }}
+                    >
+                      <Link className="w-4 h-4" />
+                      Share
+                    </button>
+                    <div className="border-t my-1" />
+                    <button
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 text-red-600"
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Flagged audience warning - per Meta docs (operation_status 471) */}
@@ -379,7 +471,6 @@ function AudienceCard({
           )}
 
           <div className="flex items-center gap-1.5">
-            {/* Upload button for CUSTOM audiences */}
             {audience.subtype === 'CUSTOM' && (
               <Button
                 variant="default"
@@ -391,15 +482,30 @@ function AudienceCard({
                 Upload Data
               </Button>
             )}
-            <Button variant="outline" size="sm" className={cn("h-7 text-xs gap-1", audience.subtype !== 'CUSTOM' && "flex-1")}>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn("h-7 text-xs gap-1", audience.subtype !== 'CUSTOM' && "flex-1")}
+              onClick={() => setShowDetailsModal(true)}
+            >
               <Eye className="w-3 h-3" />
               View
             </Button>
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setShowEditModal(true)}
+            >
               <Edit className="w-3 h-3" />
             </Button>
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0">
-              <Copy className="w-3 h-3" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setShowShareModal(true)}
+            >
+              <Link className="w-3 h-3" />
             </Button>
           </div>
         </CardContent>
@@ -411,6 +517,42 @@ function AudienceCard({
           audienceId={audience.id}
           audienceName={audience.name}
           onClose={() => setShowUploadModal(false)}
+          onRefresh={onRefresh}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <EditAudienceModal
+          audience={audience}
+          onClose={() => setShowEditModal(false)}
+          onRefresh={onRefresh}
+        />
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && (
+        <AudienceDetailsModal
+          audienceId={audience.id}
+          onClose={() => setShowDetailsModal(false)}
+        />
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <ShareAudienceModal
+          audienceId={audience.id}
+          audienceName={audience.name}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
+
+      {/* Remove Users Modal */}
+      {showRemoveModal && (
+        <RemoveUsersModal
+          audienceId={audience.id}
+          audienceName={audience.name}
+          onClose={() => setShowRemoveModal(false)}
           onRefresh={onRefresh}
         />
       )}
@@ -1454,6 +1596,463 @@ function CustomerUploadModal({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Edit Audience Modal
+function EditAudienceModal({
+  audience,
+  onClose,
+  onRefresh,
+}: {
+  audience: CustomAudience;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const [name, setName] = useState(audience.name);
+  const [description, setDescription] = useState(audience.description || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      alert('Name is required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/v1/meta-ads/audiences/${audience.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description })
+      });
+
+      if (response.ok) {
+        onRefresh();
+        onClose();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.detail || 'Failed to update audience'}`);
+      }
+    } catch (err) {
+      alert('Failed to update audience');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-background rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">Edit Audience</h2>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <Label>Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="mt-1"
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Audience Details Modal
+function AudienceDetailsModal({
+  audienceId,
+  onClose,
+}: {
+  audienceId: string;
+  onClose: () => void;
+}) {
+  const [audience, setAudience] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    const fetchDetails = async () => {
+      try {
+        const response = await fetch(`/api/v1/meta-ads/audiences/${audienceId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setAudience(data.audience);
+        } else {
+          setError('Failed to load audience details');
+        }
+      } catch (err) {
+        setError('Failed to load audience details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDetails();
+  }, [audienceId]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-background rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">Audience Details</h2>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
+        ) : error ? (
+          <p className="text-red-500 text-center py-8">{error}</p>
+        ) : audience ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-muted-foreground text-xs">Name</Label>
+                <p className="font-medium">{audience.name}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">Type</Label>
+                <p className="font-medium">{audience.subtype}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">Estimated Size</Label>
+                <p className="font-medium">{formatNumber(audience.approximate_count || 0)}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">Retention Days</Label>
+                <p className="font-medium">{audience.retention_days || 'N/A'}</p>
+              </div>
+              {audience.time_created && (
+                <div>
+                  <Label className="text-muted-foreground text-xs">Created</Label>
+                  <p className="font-medium">{new Date(audience.time_created * 1000).toLocaleDateString()}</p>
+                </div>
+              )}
+              {audience.time_updated && (
+                <div>
+                  <Label className="text-muted-foreground text-xs">Last Updated</Label>
+                  <p className="font-medium">{new Date(audience.time_updated * 1000).toLocaleDateString()}</p>
+                </div>
+              )}
+            </div>
+            {audience.description && (
+              <div>
+                <Label className="text-muted-foreground text-xs">Description</Label>
+                <p className="text-sm">{audience.description}</p>
+              </div>
+            )}
+            {audience.operation_status && (
+              <div>
+                <Label className="text-muted-foreground text-xs">Status</Label>
+                <p className={cn(
+                  "text-sm font-medium",
+                  audience.operation_status === 471 ? "text-amber-600" : "text-green-600"
+                )}>
+                  {audience.operation_status === 471 ? 'Flagged' : 'Active'}
+                </p>
+              </div>
+            )}
+            {audience.lookalike_spec && (
+              <div>
+                <Label className="text-muted-foreground text-xs">Lookalike Info</Label>
+                <p className="text-sm">Ratio: {(audience.lookalike_spec.ratio || 0.01) * 100}%</p>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <Button onClick={onClose} className="w-full mt-6">Close</Button>
+      </div>
+    </div>
+  );
+}
+
+// Share Audience Modal
+function ShareAudienceModal({
+  audienceId,
+  audienceName,
+  onClose,
+}: {
+  audienceId: string;
+  audienceName: string;
+  onClose: () => void;
+}) {
+  const [adAccountId, setAdAccountId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleShare = async () => {
+    if (!adAccountId.trim()) {
+      alert('Ad Account ID is required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/v1/meta-ads/audiences/${audienceId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient_ad_account_id: adAccountId })
+      });
+
+      if (response.ok) {
+        alert('Audience shared successfully!');
+        onClose();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.detail || 'Failed to share audience'}`);
+      }
+    } catch (err) {
+      alert('Failed to share audience');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-background rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold">Share Audience</h2>
+            <p className="text-sm text-muted-foreground">{audienceName}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <Label>Recipient Ad Account ID</Label>
+            <Input
+              value={adAccountId}
+              onChange={(e) => setAdAccountId(e.target.value)}
+              placeholder="act_123456789"
+              className="mt-1"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter the ad account ID (with act_ prefix) to share this audience with.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleShare} disabled={isSubmitting}>
+            {isSubmitting ? 'Sharing...' : 'Share'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Remove Users Modal (GDPR compliance)
+function RemoveUsersModal({
+  audienceId,
+  audienceName,
+  onClose,
+  onRefresh,
+}: {
+  audienceId: string;
+  audienceName: string;
+  onClose: () => void;
+  onRefresh: () => void;
+}) {
+  const [step, setStep] = useState(1);
+  const [schema, setSchema] = useState<string[]>([]);
+  const [data, setData] = useState<string[][]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; numRemoved?: number; error?: string } | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim());
+
+      if (lines.length > 0) {
+        const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
+        const rows = lines.slice(1).map(line => line.split(',').map(cell => cell.trim()));
+
+        setSchema(headers);
+        setData(rows);
+        setStep(2);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRemove = async () => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/v1/meta-ads/audiences/${audienceId}/users`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schema, data })
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok) {
+        setResult({ success: true, numRemoved: responseData.num_received });
+        onRefresh();
+      } else {
+        setResult({ success: false, error: responseData.detail || 'Failed to remove users' });
+      }
+    } catch (err) {
+      setResult({ success: false, error: 'Failed to remove users' });
+    } finally {
+      setIsSubmitting(false);
+      setStep(3);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-background rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold">Remove Users</h2>
+            <p className="text-sm text-muted-foreground">{audienceName}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-200">GDPR Compliance</p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Use this to remove users from your audience who have requested data deletion.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-2 border-dashed rounded-lg p-8 text-center">
+              <Trash2 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="font-medium mb-2">Upload CSV File</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Upload a CSV file with user data to remove from this audience.
+              </p>
+              <input
+                type="file"
+                accept=".csv,.txt"
+                onChange={handleFileChange}
+                className="hidden"
+                id="remove-csv-upload"
+              />
+              <label htmlFor="remove-csv-upload">
+                <Button asChild variant="destructive">
+                  <span>Select File</span>
+                </Button>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <p className="text-sm">
+              Found <strong>{data.length}</strong> users to remove with fields: {schema.join(', ')}
+            </p>
+            <div className="max-h-40 overflow-y-auto border rounded-lg">
+              <table className="w-full text-xs">
+                <thead className="bg-muted">
+                  <tr>
+                    {schema.map((col, i) => (
+                      <th key={i} className="p-2 text-left">{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.slice(0, 5).map((row, i) => (
+                    <tr key={i} className="border-t">
+                      {row.map((cell, j) => (
+                        <td key={j} className="p-2 truncate max-w-[100px]">{cell}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {data.length > 5 && (
+                <p className="p-2 text-center text-muted-foreground">
+                  + {data.length - 5} more users
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+              <Button variant="destructive" onClick={handleRemove} disabled={isSubmitting}>
+                {isSubmitting ? 'Removing...' : 'Remove Users'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && result && (
+          <div className="text-center py-4">
+            {result.success ? (
+              <>
+                <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 mx-auto mb-4 flex items-center justify-center">
+                  <Trash2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Users Removed</h3>
+                <p className="text-muted-foreground">{result.numRemoved} users processed for removal.</p>
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900 mx-auto mb-4 flex items-center justify-center">
+                  <X className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Removal Failed</h3>
+                <p className="text-muted-foreground">{result.error}</p>
+              </>
+            )}
+            <Button onClick={onClose} className="mt-6">Close</Button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -462,6 +462,7 @@ function CreateAdModal({
 }) {
   const [step, setStep] = useState(1);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [thumbnailPickerOpen, setThumbnailPickerOpen] = useState(false);
   const [carouselMedia, setCarouselMedia] = useState<SelectedMedia[]>([]);
 
   const updateCreative = (updates: Partial<AdCreative>) => {
@@ -479,11 +480,20 @@ function CreateAdModal({
         updateCreative({ image_url: media[0].url });
       }
     } else {
-      // Single item
-      updateCreative({
-        image_url: media.url,
-        video_id: media.type === 'video' ? media.id : undefined,
-      });
+      // Single item - image or video
+      if (media.type === 'video') {
+        updateCreative({
+          image_url: media.url, // Used as thumbnail/preview
+          video_url: media.url, // Backend will upload this to Meta
+          video_id: media.id, // If already uploaded to Meta
+        });
+      } else {
+        updateCreative({
+          image_url: media.url,
+          video_id: undefined,
+          video_url: undefined,
+        });
+      }
     }
   };
 
@@ -818,24 +828,107 @@ function CreateAdModal({
                       </Button>
                     </div>
 
-                    {/* URL Input */}
+                    {/* URL Input - use video_url for video, image_url for others */}
                     <div className="relative">
                       <Input
                         type="url"
-                        placeholder="Or paste media URL directly"
-                        value={formData.creative.image_url || ''}
-                        onChange={(e) => updateCreative({ image_url: e.target.value })}
+                        placeholder={
+                          creativeType === 'video'
+                            ? 'Or paste video URL directly'
+                            : creativeType === 'carousel'
+                              ? 'Or paste first image URL directly'
+                              : 'Or paste image URL directly'
+                        }
+                        value={creativeType === 'video'
+                          ? (formData.creative.video_url || formData.creative.image_url || '')
+                          : (formData.creative.image_url || '')}
+                        onChange={(e) => {
+                          if (creativeType === 'video') {
+                            updateCreative({
+                              video_url: e.target.value,
+                              image_url: e.target.value // Also set as preview
+                            });
+                          } else {
+                            updateCreative({ image_url: e.target.value });
+                          }
+                        }}
                         className="pr-10"
                       />
-                      {formData.creative.image_url && (
+                      {(formData.creative.image_url || formData.creative.video_url) && (
                         <button
-                          onClick={() => updateCreative({ image_url: '' })}
+                          onClick={() => updateCreative({
+                            image_url: '',
+                            video_url: undefined
+                          })}
                           className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
                         >
                           <X className="w-4 h-4 text-muted-foreground" />
                         </button>
                       )}
                     </div>
+
+                    {/* Video Thumbnail Upload - Only show for video type */}
+                    {creativeType === 'video' && (
+                      <div className="mt-4 p-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Image className="w-4 h-4 text-muted-foreground" />
+                          <Label className="text-sm font-medium">Video Thumbnail (Optional)</Label>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Upload a custom thumbnail image for your video. If not provided, Meta will auto-generate one.
+                        </p>
+
+                        {/* Thumbnail Preview */}
+                        {formData.creative.thumbnail_url && (
+                          <div className="mb-3 rounded-lg overflow-hidden border relative group" style={{ aspectRatio: '16/9', maxWidth: '200px' }}>
+                            <img
+                              src={formData.creative.thumbnail_url}
+                              alt="Thumbnail preview"
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              onClick={() => updateCreative({ thumbnail_url: '' })}
+                              className="absolute top-1 right-1 p-1 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-3 h-3 text-white" />
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Browse Library Button */}
+                        <div className="flex gap-2 mb-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 gap-2"
+                            onClick={() => setThumbnailPickerOpen(true)}
+                          >
+                            <FolderOpen className="w-4 h-4" />
+                            {formData.creative.thumbnail_url ? 'Change Thumbnail' : 'Browse Library'}
+                          </Button>
+                        </div>
+
+                        {/* URL Input */}
+                        <div className="relative">
+                          <Input
+                            type="url"
+                            placeholder="Or paste thumbnail URL directly"
+                            value={formData.creative.thumbnail_url || ''}
+                            onChange={(e) => updateCreative({ thumbnail_url: e.target.value })}
+                            className="pr-10 text-sm"
+                          />
+                          {formData.creative.thumbnail_url && (
+                            <button
+                              onClick={() => updateCreative({ thumbnail_url: '' })}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
+                            >
+                              <X className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -934,8 +1027,48 @@ function CreateAdModal({
                       <p className="text-muted-foreground italic">Add primary text to see it here...</p>
                     )}
                   </div>
-                  <div className="aspect-video bg-muted flex items-center justify-center">
-                    {formData.creative.image_url ? (
+                  <div className="aspect-video bg-muted flex items-center justify-center relative overflow-hidden">
+                    {creativeType === 'carousel' && carouselMedia.length > 0 ? (
+                      // CAROUSEL PREVIEW: Show first image with carousel indicator
+                      <div className="w-full h-full relative">
+                        <img
+                          src={carouselMedia[0].url}
+                          alt="Carousel Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Carousel indicator dots */}
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                          {carouselMedia.map((_, idx) => (
+                            <div
+                              key={idx}
+                              className={cn(
+                                "w-2 h-2 rounded-full",
+                                idx === 0 ? "bg-white" : "bg-white/50"
+                              )}
+                            />
+                          ))}
+                        </div>
+                        <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                          1/{carouselMedia.length}
+                        </div>
+                      </div>
+                    ) : creativeType === 'video' && (formData.creative.thumbnail_url || formData.creative.image_url) ? (
+                      // VIDEO PREVIEW: Show custom thumbnail or video URL with play button overlay
+                      <div className="w-full h-full relative">
+                        <img
+                          src={formData.creative.thumbnail_url || formData.creative.image_url}
+                          alt="Video Thumbnail"
+                          className="w-full h-full object-cover"
+                        />
+                        {/* Play button overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                            <Play className="w-8 h-8 text-gray-800 ml-1" fill="currentColor" />
+                          </div>
+                        </div>
+                      </div>
+                    ) : formData.creative.image_url ? (
+                      // SINGLE IMAGE PREVIEW
                       <img
                         src={formData.creative.image_url}
                         alt="Preview"
@@ -946,8 +1079,18 @@ function CreateAdModal({
                       />
                     ) : (
                       <div className="text-center">
-                        <Image className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Add media to preview</p>
+                        {creativeType === 'video' ? (
+                          <Video className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                        ) : creativeType === 'carousel' ? (
+                          <Layers className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                        ) : (
+                          <Image className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                        )}
+                        <p className="text-sm text-muted-foreground">
+                          {creativeType === 'carousel' ? 'Add carousel media to preview' :
+                            creativeType === 'video' ? 'Add video to preview' :
+                              'Add media to preview'}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1083,6 +1226,21 @@ function CreateAdModal({
           ? 'Choose 2-10 images or videos for your carousel ad'
           : `Choose ${creativeType === 'video' ? 'a video' : 'an image'} from your media library`
         }
+      />
+
+      {/* Thumbnail Picker - Images only for video thumbnails */}
+      <MediaLibraryPicker
+        open={thumbnailPickerOpen}
+        onOpenChange={setThumbnailPickerOpen}
+        onSelect={(media) => {
+          if (!Array.isArray(media)) {
+            updateCreative({ thumbnail_url: media.url });
+          }
+        }}
+        mediaType="image"
+        multiple={false}
+        title="Select Thumbnail Image"
+        description="Choose an image from your library to use as the video thumbnail"
       />
     </div >
   );

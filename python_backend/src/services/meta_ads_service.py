@@ -207,12 +207,12 @@ class MetaAdsService:
                 lifetime_budget=int(updates["lifetime_budget"] * 100) if updates.get("lifetime_budget") else None
             )
             
-            return {"data": result, "error": None}
+            return {"success": True, "data": result, "error": None}
             
         except MetaSDKError as e:
-            return {"data": None, "error": e.message}
+            return {"success": False, "data": None, "error": e.message}
         except Exception as e:
-            return {"data": None, "error": str(e)}
+            return {"success": False, "data": None, "error": str(e)}
     
     async def delete_campaign(
         self,
@@ -223,12 +223,12 @@ class MetaAdsService:
         try:
             client = self._get_sdk_client(access_token)
             result = await client.delete_campaign(campaign_id)
-            return {"data": result, "error": None}
+            return {"success": True, "data": result, "error": None}
             
         except MetaSDKError as e:
-            return {"data": None, "error": e.message}
+            return {"success": False, "data": None, "error": e.message}
         except Exception as e:
-            return {"data": None, "error": str(e)}
+            return {"success": False, "data": None, "error": str(e)}
     
     async def get_campaign_details(
         self,
@@ -288,19 +288,25 @@ class MetaAdsService:
         bid_amount: Optional[float] = None,
         # v25.0+ 2026 default: Enable Advantage+ Audience
         advantage_audience: bool = True,
+        # v25.0+ 2026 Required Parameters (Jan 6, 2026+)
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        promoted_object: Optional[Dict[str, Any]] = None,
+        destination_type: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
-        Create a new ad set using SDK.
+        Create a new ad set using SDK - v25.0+ 2026 Compliant.
         
-        v25.0+ COMPLIANCE:
+        v25.0+ 2026 COMPLIANCE (Effective Jan 6, 2026):
         - advantage_audience defaults to True per Meta API v25.0+
-        - Injects targeting_automation.advantage_audience = 1 when enabled
-        - Detailed targeting becomes advisory (signals) when enabled
+        - is_adset_budget_sharing_enabled: Share up to 20% budget between ad sets
+        - placement_soft_opt_out: Allow 5% spend on excluded placements (Sales/Leads only)
+        - targeting_automation.advantage_audience = 1 for Advantage+ Audience
+        - Detailed targeting becomes advisory (signals) when Advantage+ Audience enabled
         """
         try:
-            # Daily budget and lifetime budget are already provided as parameters
-            # Convert to cents if provided
+            # Convert budgets to cents
             if daily_budget is not None:
                 daily_budget = int(daily_budget) if isinstance(daily_budget, (int, float)) else daily_budget
             if lifetime_budget is not None:
@@ -314,11 +320,9 @@ class MetaAdsService:
                     "age_max": 65
                 }
             
-            # v25.0+: Inject targeting_automation for Advantage+ Audience
+            # v25.0+ 2026: Inject targeting_automation for Advantage+ Audience
             if advantage_audience:
                 targeting["targeting_automation"] = {"advantage_audience": 1}
-                # When Advantage+ Audience is enabled, age constraints are advisory
-                # Meta will expand beyond specified age range
                 logger.info(f"Advantage+ Audience enabled for adset {name}")
             else:
                 targeting["targeting_automation"] = {"advantage_audience": 0}
@@ -339,13 +343,20 @@ class MetaAdsService:
                 lifetime_budget=lifetime_budget,
                 start_time=start_time,
                 end_time=end_time,
-                bid_amount=int(bid_amount * 100) if bid_amount else None
+                bid_amount=int(bid_amount * 100) if bid_amount else None,
+                # v25.0+ 2026 Required Parameters
+                is_adset_budget_sharing_enabled=is_adset_budget_sharing_enabled,
+                placement_soft_opt_out=placement_soft_opt_out,
+                promoted_object=promoted_object,
+                destination_type=destination_type
             )
             
             return {
                 "success": True,
                 "adset": {"id": result.get("adset_id") or result.get("id")},
                 "advantage_audience_enabled": advantage_audience,
+                "is_adset_budget_sharing_enabled": is_adset_budget_sharing_enabled,
+                "placement_soft_opt_out": placement_soft_opt_out,
                 "error": None
             }
             
@@ -362,12 +373,17 @@ class MetaAdsService:
         access_token: str,
         **updates
     ) -> Dict[str, Any]:
-        """Update an ad set using SDK"""
+        """
+        Update an ad set using SDK - v25.0+ 2026 Compliant.
+        
+        v25.0+ 2026 Parameters:
+        - is_adset_budget_sharing_enabled: Share up to 20% budget between ad sets
+        - placement_soft_opt_out: Allow 5% spend on excluded placements
+        """
         try:
-            # v25.0+ Advantage+ Audience injection
+            # v25.0+ 2026: Advantage+ Audience injection
             if updates.get("advantage_audience") is not None and updates["advantage_audience"]:
                 targeting = updates.get("targeting") or {}
-                # Inject v25.0+ automation field
                 if "targeting_automation" not in targeting:
                     targeting["targeting_automation"] = {}
                 targeting["targeting_automation"]["advantage_audience"] = 1
@@ -375,24 +391,75 @@ class MetaAdsService:
 
             client = self._get_sdk_client(access_token)
             
-            # Filter updates to match SDK signature
-            # Note: SDK update_adset needs to be updated if we want to support is_adset_budget_sharing_enabled
-            # For now, we focus on targeting/advantage_audience
+            # v25.0+ 2026 compliant update with all new parameters
             result = await client.update_adset(
                 adset_id=adset_id,
                 name=updates.get("name"),
                 status=updates.get("status"),
                 daily_budget=int(updates["daily_budget"] * 100) if updates.get("daily_budget") else None,
                 lifetime_budget=int(updates["lifetime_budget"] * 100) if updates.get("lifetime_budget") else None,
-                targeting=updates.get("targeting")
+                targeting=updates.get("targeting"),
+                # v25.0+ 2026 Required Parameters
+                is_adset_budget_sharing_enabled=updates.get("is_adset_budget_sharing_enabled"),
+                placement_soft_opt_out=updates.get("placement_soft_opt_out"),
+                bid_amount=int(updates["bid_amount"] * 100) if updates.get("bid_amount") else None
             )
             
-            return {"data": result, "error": None}
+            return {"success": True, "data": result, "error": None}
             
         except MetaSDKError as e:
-            return {"data": None, "error": e.message}
+            return {"success": False, "data": None, "error": e.message}
         except Exception as e:
-            return {"data": None, "error": str(e)}
+            return {"success": False, "data": None, "error": str(e)}
+    
+    async def delete_adset(
+        self,
+        adset_id: str,
+        access_token: str
+    ) -> Dict[str, Any]:
+        """Delete an ad set using SDK"""
+        try:
+            client = self._get_sdk_client(access_token)
+            result = await client.delete_adset(adset_id=adset_id)
+            
+            return {"success": True, "data": result, "error": None}
+            
+        except MetaSDKError as e:
+            return {"success": False, "data": None, "error": e.message}
+        except Exception as e:
+            return {"success": False, "data": None, "error": str(e)}
+    
+    async def duplicate_adset(
+        self,
+        adset_id: str,
+        access_token: str,
+        new_name: Optional[str] = None,
+        campaign_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Duplicate an ad set using Meta's Ad Copies API.
+        
+        Uses POST /{ad_set_id}/copies endpoint per Meta API docs.
+        """
+        try:
+            client = self._get_sdk_client(access_token)
+            result = await client.duplicate_adset(
+                adset_id=adset_id,
+                new_name=new_name,
+                campaign_id=campaign_id
+            )
+            
+            return {
+                "success": True,
+                "adset_id": result.get("copied_adset_id") or result.get("id"),
+                "data": result,
+                "error": None
+            }
+            
+        except MetaSDKError as e:
+            return {"success": False, "adset_id": None, "data": None, "error": e.message}
+        except Exception as e:
+            return {"success": False, "adset_id": None, "data": None, "error": str(e)}
     
     # ========================================================================
     # AD OPERATIONS - Using SDK
@@ -432,9 +499,12 @@ class MetaAdsService:
         format_automation: bool = False,
         degrees_of_freedom_spec: Optional[Dict[str, Any]] = None,
         ad_disclaimer_spec: Optional[Dict[str, Any]] = None,
-        product_set_id: Optional[str] = None
+        product_set_id: Optional[str] = None,
+        # New: Carousel and video thumbnail support
+        carousel_child_attachments: Optional[List[Dict[str, Any]]] = None,
+        thumbnail_url: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Create an ad creative using SDK"""
+        """Create an ad creative using SDK - supports image, video, and carousel"""
         try:
             client = self._get_sdk_client(access_token)
             result = await client.create_ad_creative(
@@ -451,7 +521,11 @@ class MetaAdsService:
                 format_automation=format_automation,
                 degrees_of_freedom_spec=degrees_of_freedom_spec,
                 ad_disclaimer_spec=ad_disclaimer_spec,
-                product_set_id=product_set_id
+                product_set_id=product_set_id,
+                # New: Pass carousel and video params to SDK
+                carousel_child_attachments=carousel_child_attachments,
+                thumbnail_url=thumbnail_url,
+                title=title
             )
             
             creative_id = result.get("creative_id") or result.get("id")
@@ -512,12 +586,12 @@ class MetaAdsService:
                 status=updates.get("status")
             )
             
-            return {"data": result, "error": None}
+            return {"success": True, "data": result, "error": None}
             
         except MetaSDKError as e:
-            return {"data": None, "error": e.message}
+            return {"success": False, "data": None, "error": e.message}
         except Exception as e:
-            return {"data": None, "error": str(e)}
+            return {"success": False, "data": None, "error": str(e)}
     
     async def delete_ad(
         self,
@@ -528,6 +602,102 @@ class MetaAdsService:
         try:
             client = self._get_sdk_client(access_token)
             result = await client.delete_ad(ad_id)
+            return {"success": True, "data": result, "error": None}
+            
+        except MetaSDKError as e:
+            return {"success": False, "data": None, "error": e.message}
+        except Exception as e:
+            return {"success": False, "data": None, "error": str(e)}
+    
+    async def duplicate_ad(
+        self,
+        ad_id: str,
+        access_token: str,
+        new_name: Optional[str] = None,
+        adset_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Duplicate an ad using Meta's Ad Copies API.
+        
+        Uses POST /{ad-id}/copies endpoint per Meta API docs.
+        """
+        try:
+            client = self._get_sdk_client(access_token)
+            result = await client.duplicate_ad(
+                ad_id=ad_id,
+                new_name=new_name,
+                adset_id=adset_id
+            )
+            
+            return {
+                "success": True,
+                "ad_id": result.get("copied_ad_id") or result.get("id"),
+                "data": result,
+                "error": None
+            }
+            
+        except MetaSDKError as e:
+            return {"success": False, "ad_id": None, "data": None, "error": e.message}
+        except Exception as e:
+            return {"success": False, "ad_id": None, "data": None, "error": str(e)}
+    
+    # ========================================================================
+    # AD PREVIEW OPERATIONS - Using SDK
+    # ========================================================================
+    
+    async def get_ad_preview(
+        self,
+        ad_id: str,
+        access_token: str,
+        ad_format: str = "DESKTOP_FEED_STANDARD"
+    ) -> Dict[str, Any]:
+        """
+        Get ad preview for an existing ad.
+        
+        Uses /{ad-id}/previews endpoint.
+        
+        Supported formats:
+        - DESKTOP_FEED_STANDARD
+        - MOBILE_FEED_STANDARD
+        - INSTAGRAM_STANDARD
+        - INSTAGRAM_STORY
+        - FACEBOOK_STORY_MOBILE
+        - RIGHT_COLUMN_STANDARD
+        """
+        try:
+            client = self._get_sdk_client(access_token)
+            result = await client.get_ad_preview(
+                ad_id=ad_id,
+                ad_format=ad_format
+            )
+            
+            return {"data": result, "error": None}
+            
+        except MetaSDKError as e:
+            return {"data": None, "error": e.message}
+        except Exception as e:
+            return {"data": None, "error": str(e)}
+    
+    async def generate_ad_preview(
+        self,
+        account_id: str,
+        access_token: str,
+        creative: Dict[str, Any],
+        ad_format: str = "DESKTOP_FEED_STANDARD"
+    ) -> Dict[str, Any]:
+        """
+        Generate a preview for an ad creative without creating an ad.
+        
+        Uses /{account-id}/generatepreviews endpoint.
+        """
+        try:
+            client = self._get_sdk_client(access_token)
+            result = await client.generate_ad_preview(
+                account_id=account_id,
+                creative=creative,
+                ad_format=ad_format
+            )
+            
             return {"data": result, "error": None}
             
         except MetaSDKError as e:
@@ -555,6 +725,61 @@ class MetaAdsService:
             return {"data": None, "error": e.message}
         except Exception as e:
             return {"data": None, "error": str(e)}
+    
+    async def create_lookalike_audience(
+        self,
+        account_id: str,
+        access_token: str,
+        name: str,
+        origin_audience_id: str,
+        country: str = "US",
+        ratio: float = 0.01,
+        lookalike_type: str = "similarity"
+    ) -> Dict[str, Any]:
+        """
+        Create a lookalike audience based on a source custom audience.
+        
+        Per Meta API v25.0 docs:
+        - lookalike_spec is MANDATORY from January 6, 2026
+        - type: 'similarity' (top 1%) or 'custom_ratio' (for value-based)
+        - ratio: 0.01 to 0.20 (1% to 20%)
+        - Minimum source audience size: 100 people
+        
+        Args:
+            account_id: Ad Account ID
+            access_token: User access token
+            name: Name for the lookalike audience
+            origin_audience_id: ID of source custom audience
+            country: Target country code (e.g., 'US', 'GB')
+            ratio: Percentage of population (0.01 = 1%)
+            lookalike_type: 'similarity' or 'custom_ratio'
+        """
+        try:
+            client = self._get_sdk_client(access_token)
+            result = await client.create_lookalike_audience(
+                account_id=account_id,
+                name=name,
+                source_audience_id=origin_audience_id,
+                target_countries=[country],
+                ratio=ratio
+            )
+            
+            if result.get("success"):
+                return {
+                    "success": True,
+                    "audience": {
+                        "id": result.get("audience_id"),
+                        "name": name,
+                        "subtype": "LOOKALIKE"
+                    }
+                }
+            else:
+                return {"success": False, "error": result.get("error")}
+            
+        except MetaSDKError as e:
+            return {"success": False, "error": e.message}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
     
     # ========================================================================
     # INSIGHTS / ANALYTICS - Using SDK
@@ -679,6 +904,113 @@ class MetaAdsService:
         except Exception as e:
             return {"breakdowns": [], "error": str(e)}
     
+    async def get_insights_breakdown(
+        self,
+        account_id: str,
+        access_token: str,
+        breakdown: str = "age",
+        level: str = "account",
+        date_preset: str = "last_7d",
+        campaign_id: Optional[str] = None,
+        adset_id: Optional[str] = None,
+        ad_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get insights with demographic/placement breakdown.
+        Wrapper for fetch_insights_breakdown that handles filtering.
+        """
+        try:
+            client = self._get_sdk_client(access_token)
+            
+            # Use specific object if provided
+            if ad_id:
+                result = await client.get_ad_insights_breakdown(
+                    ad_id=ad_id, breakdown=breakdown, date_preset=date_preset
+                )
+            elif adset_id:
+                result = await client.get_adset_insights_breakdown(
+                    adset_id=adset_id, breakdown=breakdown, date_preset=date_preset
+                )
+            elif campaign_id:
+                result = await client.get_campaign_insights_breakdown(
+                    campaign_id=campaign_id, breakdown=breakdown, date_preset=date_preset
+                )
+            else:
+                result = await client.get_account_insights_breakdown(
+                    ad_account_id=account_id, breakdown=breakdown, date_preset=date_preset, level=level
+                )
+            
+            return {"data": result, "error": None}
+            
+        except MetaSDKError as e:
+            return {"data": None, "error": e.message}
+        except Exception as e:
+            return {"data": None, "error": str(e)}
+    
+    async def get_insights_time_series(
+        self,
+        account_id: str,
+        access_token: str,
+        time_increment: str = "1",
+        level: str = "account",
+        date_preset: str = "last_30d",
+        campaign_id: Optional[str] = None,
+        adset_id: Optional[str] = None,
+        ad_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get insights with time series data.
+        """
+        try:
+            client = self._get_sdk_client(access_token)
+            result = await client.get_insights_time_series(
+                ad_account_id=account_id,
+                time_increment=time_increment,
+                date_preset=date_preset,
+                level=level,
+                campaign_id=campaign_id,
+                adset_id=adset_id,
+                ad_id=ad_id
+            )
+            
+            return {"data": result, "error": None}
+            
+        except MetaSDKError as e:
+            return {"data": None, "error": e.message}
+        except Exception as e:
+            return {"data": None, "error": str(e)}
+    
+    async def get_insights_actions(
+        self,
+        account_id: str,
+        access_token: str,
+        level: str = "account",
+        date_preset: str = "last_7d",
+        campaign_id: Optional[str] = None,
+        adset_id: Optional[str] = None,
+        ad_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get action breakdown insights (conversions, clicks, video views, etc.)
+        """
+        try:
+            client = self._get_sdk_client(access_token)
+            result = await client.get_insights_actions(
+                ad_account_id=account_id,
+                date_preset=date_preset,
+                level=level,
+                campaign_id=campaign_id,
+                adset_id=adset_id,
+                ad_id=ad_id
+            )
+            
+            return {"data": result, "error": None}
+            
+        except MetaSDKError as e:
+            return {"data": None, "error": e.message}
+        except Exception as e:
+            return {"data": None, "error": str(e)}
+    
     # ========================================================================
     # CAMPAIGN OPERATIONS - Bulk & Duplicate
     # ========================================================================
@@ -692,7 +1024,7 @@ class MetaAdsService:
         """
         Duplicate an existing campaign.
         
-        Creates a copy of the campaign with all ad sets and ads.
+        Creates a copy of the campaign with the same settings.
         """
         try:
             # First, get the campaign details
@@ -701,19 +1033,42 @@ class MetaAdsService:
                 return {"success": False, "error": details["error"]}
             
             campaign_data = details.get("data", {})
+            if not campaign_data:
+                return {"success": False, "error": "Campaign not found"}
             
             # Create new campaign with same settings
             client = self._get_sdk_client(access_token)
             
-            # The Meta API doesn't have a native duplicate, so we recreate
-            # For a full implementation, we'd also copy ad sets and ads
-            # This is a simplified version that copies the campaign only
+            # Get account ID from campaign
+            account_id = campaign_data.get("account_id")
+            if not account_id:
+                return {"success": False, "error": "Could not determine ad account ID"}
             
-            return {
-                "success": True,
-                "campaign_id": campaign_id,
-                "message": "Campaign duplication requires copying campaign, ad sets, and ads. Use the full wizard for complete duplication."
-            }
+            # Build new campaign name
+            original_name = campaign_data.get("name", "Campaign")
+            duplicate_name = new_name or f"{original_name} (Copy)"
+            
+            # Create new campaign using SDK
+            result = await client.create_advantage_plus_campaign(
+                ad_account_id=account_id,
+                name=duplicate_name,
+                objective=campaign_data.get("objective", "OUTCOME_TRAFFIC"),
+                status="PAUSED",  # Always start paused for safety
+                special_ad_categories=campaign_data.get("special_ad_categories", []),
+                daily_budget=campaign_data.get("daily_budget"),
+                lifetime_budget=campaign_data.get("lifetime_budget"),
+                bid_strategy=campaign_data.get("bid_strategy")
+            )
+            
+            if result.get("id"):
+                return {
+                    "success": True,
+                    "campaign_id": result.get("id"),
+                    "data": result,
+                    "message": "Campaign duplicated successfully"
+                }
+            else:
+                return {"success": False, "error": "Failed to create duplicate campaign"}
             
         except Exception as e:
             return {"success": False, "error": str(e)}

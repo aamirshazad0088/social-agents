@@ -29,16 +29,24 @@ class ReachEstimationService:
         account_id: str,
         targeting_spec: Dict[str, Any],
         optimization_goal: str = "REACH",
-        prediction_days: int = 7
+        budget: int = 10000,  # Default $100 if not provided
+        currency: str = "USD",
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+        prediction_mode: int = 0
     ) -> Dict[str, Any]:
         """
         Get reach estimate for targeting spec.
         
         Args:
-            account_id: Ad account ID (without act_ prefix)
+            account_id: Ad account ID
             targeting_spec: Targeting specification dict
             optimization_goal: Campaign optimization goal
-            prediction_days: Days to predict
+            budget: Budget in cents (e.g. 1000 = $10.00)
+            currency: Currency code
+            start_time: Unix timestamp for start
+            end_time: Unix timestamp for end
+            prediction_mode: 0 = Reach, 1 = Impression
         """
         try:
             from facebook_business.api import FacebookAdsApi
@@ -46,17 +54,27 @@ class ReachEstimationService:
             
             account = AdAccount(f"act_{account_id}")
             
+            # Default time window: Next 24h to 7 days if not provided
+            if not start_time:
+                start_time = int((datetime.now() + timedelta(hours=1)).timestamp())
+            
+            if not end_time:
+                # Default to 7 days duration
+                end_time = int((datetime.fromtimestamp(start_time) + timedelta(days=7)).timestamp())
+            
+            # Create prediction params per v24.0 spec
+            params = {
+                "targeting_spec": targeting_spec,
+                "objective": optimization_goal,
+                "prediction_mode": prediction_mode,
+                "budget_to_calculate_for": budget,  # Dynamic budget
+                "start_time": start_time,
+                "stop_time": end_time,
+                "currency": currency
+            }
+            
             # Create prediction
-            prediction = account.create_reach_frequency_prediction(
-                params={
-                    "targeting_spec": targeting_spec,
-                    "objective": "REACH",
-                    "prediction_mode": 0,  # REACH prediction
-                    "budget_to_calculate_for": 10000,  # $100 budget
-                    "start_time": int(datetime.now().timestamp()),
-                    "stop_time": int((datetime.now() + timedelta(days=prediction_days)).timestamp()),
-                }
-            )
+            prediction = account.create_reach_frequency_prediction(params=params)
             
             return {
                 "success": True,
@@ -64,7 +82,8 @@ class ReachEstimationService:
                 "reach_estimate": prediction.get("prediction_reach", 0),
                 "frequency": prediction.get("prediction_frequency", 0),
                 "impressions": prediction.get("prediction_impressions", 0),
-                "budget": prediction.get("prediction_budget", 0)
+                "budget": prediction.get("prediction_budget", 0),
+                "curve_budget_reach": prediction.get("curve_budget_reach", [])
             }
             
         except FacebookRequestError as e:
@@ -79,7 +98,11 @@ class ReachEstimationService:
         account_id: str,
         targeting_spec: Dict[str, Any],
         optimization_goal: str = "REACH",
-        prediction_days: int = 7
+        budget: int = 10000,
+        currency: str = "USD",
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+        prediction_mode: int = 0
     ) -> Dict[str, Any]:
         """Async wrapper for reach estimation."""
         return await asyncio.to_thread(
@@ -87,7 +110,11 @@ class ReachEstimationService:
             account_id,
             targeting_spec,
             optimization_goal,
-            prediction_days
+            budget,
+            currency,
+            start_time,
+            end_time,
+            prediction_mode
         )
     
     def _get_delivery_estimate_sync(

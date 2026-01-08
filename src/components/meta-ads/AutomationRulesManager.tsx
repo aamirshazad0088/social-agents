@@ -22,6 +22,8 @@ import {
     Target,
     BarChart3,
     Copy,
+    History,
+    X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -37,13 +39,15 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
-// Rule execution types with icons - per Meta Ad Rules Engine docs
+// Rule execution types with icons - per Meta Ad Rules Engine v24.0 docs
 const EXECUTION_TYPES = [
     { value: 'PAUSE', label: 'Pause', icon: Pause, color: 'text-yellow-500' },
     { value: 'UNPAUSE', label: 'Activate', icon: Play, color: 'text-green-500' },
     { value: 'CHANGE_BUDGET', label: 'Adjust Budget', icon: DollarSign, color: 'text-blue-500' },
     { value: 'CHANGE_BID', label: 'Adjust Bid', icon: TrendingUp, color: 'text-cyan-500' },
     { value: 'NOTIFICATION', label: 'Send Alert', icon: Bell, color: 'text-purple-500' },
+    { value: 'REBALANCE_BUDGET', label: 'Rebalance', icon: BarChart3, color: 'text-orange-500' },
+    { value: 'PING_ENDPOINT', label: 'Webhook', icon: Zap, color: 'text-pink-500' },
 ];
 
 // Available metrics for conditions
@@ -126,8 +130,10 @@ export default function AutomationRulesManager({ onRefresh }: AutomationRulesMan
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [updatingRuleId, setUpdatingRuleId] = useState<string | null>(null);
+    const [historyRuleId, setHistoryRuleId] = useState<string | null>(null);
+    const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
 
-    // Form state - per Meta Ad Rules Engine docs
+    // Form state - per Meta Ad Rules Engine v24.0 docs
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -136,7 +142,24 @@ export default function AutomationRulesManager({ onRefresh }: AutomationRulesMan
         time_preset: 'LAST_7D', // For insights filters
         conditions: [{ field: 'ctr', operator: 'LESS_THAN', value: 1.0 }],
         execution_type: 'PAUSE',
-        schedule: { schedule_type: 'DAILY' },
+        execution_options: {
+            execution_count_limit: null as number | null,
+            action_frequency: null as number | null,
+            // For CHANGE_BUDGET
+            budget_change_type: 'INCREASE_BY',
+            budget_change_value: 20,
+            budget_change_unit: 'PERCENT',
+            // For NOTIFICATION
+            user_ids: [] as string[],
+            // For PING_ENDPOINT
+            endpoint_url: '',
+        },
+        schedule: {
+            schedule_type: 'DAILY',
+            start_minute: 0,
+            end_minute: 1439,
+            days: [0, 1, 2, 3, 4, 5, 6], // All days
+        },
         status: 'ENABLED',
     });
 
@@ -248,8 +271,22 @@ export default function AutomationRulesManager({ onRefresh }: AutomationRulesMan
                     time_preset: 'LAST_7D',
                     conditions: [{ field: 'ctr', operator: 'LESS_THAN', value: 1.0 }],
                     execution_type: 'PAUSE',
-                    schedule: { schedule_type: 'DAILY' },
+                    schedule: {
+                        schedule_type: 'DAILY',
+                        start_minute: 0,
+                        end_minute: 1439,
+                        days: [0, 1, 2, 3, 4, 5, 6]
+                    },
                     status: 'ENABLED',
+                    execution_options: {
+                        execution_count_limit: null,
+                        action_frequency: null,
+                        budget_change_type: 'INCREASE_BY',
+                        budget_change_value: 20,
+                        budget_change_unit: 'PERCENT',
+                        user_ids: [],
+                        endpoint_url: '',
+                    },
                 });
             } else {
                 const data = await response.json();
@@ -310,8 +347,22 @@ export default function AutomationRulesManager({ onRefresh }: AutomationRulesMan
             time_preset: 'LAST_7D',
             conditions: template.conditions,
             execution_type: template.execution_type,
-            schedule: { schedule_type: 'DAILY' },
+            schedule: {
+                schedule_type: 'DAILY',
+                start_minute: 0,
+                end_minute: 1439,
+                days: [0, 1, 2, 3, 4, 5, 6]
+            },
             status: 'ENABLED',
+            execution_options: {
+                execution_count_limit: null,
+                action_frequency: null,
+                budget_change_type: 'INCREASE_BY',
+                budget_change_value: 20,
+                budget_change_unit: 'PERCENT',
+                user_ids: [],
+                endpoint_url: '',
+            },
         });
         setShowTemplates(false);
         setShowCreateModal(true);
@@ -438,6 +489,22 @@ export default function AutomationRulesManager({ onRefresh }: AutomationRulesMan
                                             onCheckedChange={() => handleToggleRule(rule.id, rule.status)}
                                             disabled={updatingRuleId === rule.id}
                                         />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => setHistoryRuleId(rule.id)}
+                                            title="View History"
+                                        >
+                                            <History className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => setEditingRule(rule)}
+                                            title="Edit Rule"
+                                        >
+                                            <Edit className="w-4 h-4" />
+                                        </Button>
                                         <Button
                                             variant="ghost"
                                             size="icon"
@@ -692,6 +759,112 @@ export default function AutomationRulesManager({ onRefresh }: AutomationRulesMan
                                 </div>
                             </div>
 
+                            {/* Execution Options - show based on selected action */}
+                            {(formData.execution_type === 'CHANGE_BUDGET' || formData.execution_type === 'CHANGE_BID') && (
+                                <div className="p-3 rounded-lg border bg-muted/30 space-y-3">
+                                    <Label className="text-xs font-medium">
+                                        {formData.execution_type === 'CHANGE_BUDGET' ? 'Budget' : 'Bid'} Change
+                                    </Label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Select
+                                            value={formData.execution_options.budget_change_type}
+                                            onValueChange={(v) => setFormData({
+                                                ...formData,
+                                                execution_options: { ...formData.execution_options, budget_change_type: v }
+                                            })}
+                                        >
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="INCREASE_BY">Increase by</SelectItem>
+                                                <SelectItem value="DECREASE_BY">Decrease by</SelectItem>
+                                                <SelectItem value="SET_TO">Set to</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Input
+                                            type="number"
+                                            value={formData.execution_options.budget_change_value}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                execution_options: { ...formData.execution_options, budget_change_value: parseFloat(e.target.value) || 0 }
+                                            })}
+                                            className="h-8 text-xs"
+                                        />
+                                        <Select
+                                            value={formData.execution_options.budget_change_unit}
+                                            onValueChange={(v) => setFormData({
+                                                ...formData,
+                                                execution_options: { ...formData.execution_options, budget_change_unit: v }
+                                            })}
+                                        >
+                                            <SelectTrigger className="h-8 text-xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="PERCENT">%</SelectItem>
+                                                <SelectItem value="ABSOLUTE">$</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {formData.execution_type === 'PING_ENDPOINT' && (
+                                <div className="p-3 rounded-lg border bg-muted/30">
+                                    <Label htmlFor="webhookUrl" className="text-xs font-medium">Webhook URL</Label>
+                                    <Input
+                                        id="webhookUrl"
+                                        value={formData.execution_options.endpoint_url}
+                                        onChange={(e) => setFormData({
+                                            ...formData,
+                                            execution_options: { ...formData.execution_options, endpoint_url: e.target.value }
+                                        })}
+                                        placeholder="https://your-webhook.com/endpoint"
+                                        className="mt-1.5 h-9"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Advanced Options */}
+                            <div className="p-3 rounded-lg border bg-muted/30 space-y-3">
+                                <Label className="text-xs font-medium">Advanced Options</Label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <Label className="text-[10px] text-muted-foreground">Max Executions</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.execution_options.execution_count_limit || ''}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                execution_options: {
+                                                    ...formData.execution_options,
+                                                    execution_count_limit: e.target.value ? parseInt(e.target.value) : null
+                                                }
+                                            })}
+                                            placeholder="Unlimited"
+                                            className="h-8 text-xs mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="text-[10px] text-muted-foreground">Cooldown (mins)</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.execution_options.action_frequency ? formData.execution_options.action_frequency / 60 : ''}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                execution_options: {
+                                                    ...formData.execution_options,
+                                                    action_frequency: e.target.value ? parseInt(e.target.value) * 60 : null
+                                                }
+                                            })}
+                                            placeholder="No limit"
+                                            className="h-8 text-xs mt-1"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             {error && (
                                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-50 text-red-600 dark:bg-red-950/20">
                                     <AlertCircle className="w-4 h-4" />
@@ -722,6 +895,288 @@ export default function AutomationRulesManager({ onRefresh }: AutomationRulesMan
                     </Card>
                 </div>
             )}
+
+            {/* Edit Rule Modal */}
+            {editingRule && (
+                <EditRuleModal
+                    rule={editingRule}
+                    onClose={() => setEditingRule(null)}
+                    onSave={() => {
+                        setEditingRule(null);
+                        fetchRules();
+                        onRefresh?.();
+                    }}
+                />
+            )}
+
+            {/* Rule History Modal */}
+            {historyRuleId && (
+                <RuleHistoryModal
+                    ruleId={historyRuleId}
+                    onClose={() => setHistoryRuleId(null)}
+                />
+            )}
         </div>
     );
 }
+
+// Rule History Modal Component
+function RuleHistoryModal({ ruleId, onClose }: { ruleId: string; onClose: () => void }) {
+    const [history, setHistory] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            setIsLoading(true);
+            try {
+                const response = await fetch(`/api/v1/meta-ads/rules/${ruleId}/history`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setHistory(data.history || []);
+                } else {
+                    const err = await response.json();
+                    setError(err.detail || 'Failed to load history');
+                }
+            } catch (err) {
+                setError('Failed to load history');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchHistory();
+    }, [ruleId]);
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-lg rounded-xl shadow-2xl overflow-hidden border-0">
+                <CardHeader className="pb-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2 text-lg text-white">
+                            <History className="w-5 h-5" />
+                            Rule Execution History
+                        </CardTitle>
+                        <CardDescription className="text-white/80 text-sm">
+                            Recent executions for this rule
+                        </CardDescription>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
+                        <X className="w-5 h-5" />
+                    </Button>
+                </CardHeader>
+                <CardContent className="max-h-[50vh] overflow-y-auto p-4">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : error ? (
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 text-red-600 dark:bg-red-950/20">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-sm">{error}</span>
+                        </div>
+                    ) : history.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <Clock className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No execution history found</p>
+                            <p className="text-xs mt-1">The rule hasn't been triggered yet</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {history.map((entry, idx) => (
+                                <div key={idx} className="p-3 rounded-lg border bg-muted/30">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                            {new Date(entry.time).toLocaleString()}
+                                        </span>
+                                        <span className={cn(
+                                            "text-xs px-2 py-0.5 rounded-full",
+                                            entry.is_manual
+                                                ? "bg-blue-100 text-blue-700"
+                                                : "bg-green-100 text-green-700"
+                                        )}>
+                                            {entry.is_manual ? 'Manual' : 'Scheduled'}
+                                        </span>
+                                    </div>
+                                    {entry.exception_code && (
+                                        <div className="text-xs text-red-500 mb-1">
+                                            Error: {entry.exception_message || entry.exception_code}
+                                        </div>
+                                    )}
+                                    {entry.results && entry.results.length > 0 && (
+                                        <div className="text-xs text-muted-foreground">
+                                            {entry.results.length} object(s) affected
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+// Edit Rule Modal Component
+function EditRuleModal({
+    rule,
+    onClose,
+    onSave
+}: {
+    rule: AutomationRule;
+    onClose: () => void;
+    onSave: () => void;
+}) {
+    const [name, setName] = useState(rule.name);
+    const [status, setStatus] = useState(rule.status);
+    const [conditions, setConditions] = useState(rule.conditions || []);
+    const [executionType, setExecutionType] = useState(rule.execution_type);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSave = async () => {
+        if (!name.trim()) {
+            setError('Name is required');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            const response = await fetch(`/api/v1/meta-ads/rules/${rule.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    status,
+                    execution_spec: {
+                        execution_type: executionType
+                    }
+                })
+            });
+
+            if (response.ok) {
+                onSave();
+            } else {
+                const err = await response.json();
+                setError(err.detail || 'Failed to update rule');
+            }
+        } catch (err) {
+            setError('Network error. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-lg rounded-xl shadow-2xl overflow-hidden border-0">
+                <CardHeader className="pb-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2 text-lg text-white">
+                            <Edit className="w-5 h-5" />
+                            Edit Rule
+                        </CardTitle>
+                        <CardDescription className="text-white/80 text-sm">
+                            Modify rule settings
+                        </CardDescription>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
+                        <X className="w-5 h-5" />
+                    </Button>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                    <div>
+                        <Label htmlFor="editRuleName" className="text-xs font-medium">Rule Name</Label>
+                        <Input
+                            id="editRuleName"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="mt-1.5 h-9"
+                        />
+                    </div>
+
+                    <div>
+                        <Label className="text-xs font-medium">Status</Label>
+                        <Select value={status} onValueChange={setStatus}>
+                            <SelectTrigger className="mt-1.5 h-9">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ENABLED">Enabled</SelectItem>
+                                <SelectItem value="DISABLED">Disabled</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div>
+                        <Label className="text-xs font-medium">Action</Label>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                            {EXECUTION_TYPES.map((exec) => {
+                                const Icon = exec.icon;
+                                return (
+                                    <div
+                                        key={exec.value}
+                                        className={cn(
+                                            "p-2.5 rounded-lg border cursor-pointer transition-all flex items-center gap-2",
+                                            executionType === exec.value
+                                                ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 shadow-sm"
+                                                : "border-muted hover:border-amber-300 hover:bg-muted/50"
+                                        )}
+                                        onClick={() => setExecutionType(exec.value)}
+                                    >
+                                        <Icon className={cn('w-4 h-4', exec.color)} />
+                                        <span className="font-medium text-xs">{exec.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Conditions display (read-only for now) */}
+                    {conditions.length > 0 && (
+                        <div>
+                            <Label className="text-xs font-medium">Conditions</Label>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                {conditions.map((c, idx) => (
+                                    <span key={idx} className="text-xs bg-muted px-2 py-1 rounded">
+                                        {c.field} {c.operator.replace('_', ' ').toLowerCase()} {c.value}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-50 text-red-600 dark:bg-red-950/20">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-xs">{error}</span>
+                        </div>
+                    )}
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2 p-3 border-t bg-muted/30">
+                    <Button variant="outline" size="sm" className="h-9" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button
+                        size="sm"
+                        className="h-9 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+                        onClick={handleSave}
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                                Saving...
+                            </>
+                        ) : (
+                            'Save Changes'
+                        )}
+                    </Button>
+                </CardFooter>
+            </Card>
+        </div>
+    );
+}
+

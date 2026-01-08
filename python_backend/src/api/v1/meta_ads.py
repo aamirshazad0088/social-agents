@@ -20,6 +20,7 @@ from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Request, HTTPException, Query, Path
 from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel
 
 from ...services.supabase_service import (
     get_supabase_admin_client,
@@ -564,6 +565,67 @@ async def delete_campaign(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/campaigns/{campaign_id}/archive")
+async def archive_campaign(request: Request, campaign_id: str = Path(...)):
+    """
+    POST /api/v1/meta-ads/campaigns/{campaign_id}/archive
+    
+    Archive a campaign (sets status to ARCHIVED)
+    Archived campaigns can still have stats queried but won't run.
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.update_campaign(
+            campaign_id,
+            credentials["access_token"],
+            status="ARCHIVED"
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Campaign archived"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error archiving campaign: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/campaigns/{campaign_id}/unarchive")
+async def unarchive_campaign(request: Request, campaign_id: str = Path(...)):
+    """
+    POST /api/v1/meta-ads/campaigns/{campaign_id}/unarchive
+    
+    Unarchive a campaign (sets status to PAUSED)
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.update_campaign(
+            campaign_id,
+            credentials["access_token"],
+            status="PAUSED"
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Campaign unarchived"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unarchiving campaign: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================================
 # AD SET ENDPOINTS
 # ============================================================================
@@ -729,6 +791,150 @@ async def update_adset(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# PUT alias for PATCH - frontend uses PUT
+@router.put("/adsets/{adset_id}")
+async def update_adset_put(
+    request: Request,
+    adset_id: str = Path(...),
+    body: UpdateAdSetRequest = None
+):
+    """
+    PUT /api/v1/meta-ads/adsets/{adset_id}
+    
+    Update an ad set (alias for PATCH)
+    """
+    return await update_adset(request, adset_id, body)
+
+
+@router.delete("/adsets/{adset_id}")
+async def delete_adset(request: Request, adset_id: str = Path(...)):
+    """
+    DELETE /api/v1/meta-ads/adsets/{adset_id}
+    
+    Delete an ad set
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.delete_adset(
+            adset_id,
+            credentials["access_token"]
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Ad set deleted"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting ad set: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/adsets/{adset_id}/duplicate")
+async def duplicate_adset(
+    request: Request,
+    adset_id: str = Path(...),
+    body: dict = None
+):
+    """
+    POST /api/v1/meta-ads/adsets/{adset_id}/duplicate
+    
+    Duplicate an ad set using Meta's Ad Copies API
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        new_name = body.get("new_name") if body else None
+        
+        service = get_meta_ads_service()
+        result = await service.duplicate_adset(
+            adset_id,
+            credentials["access_token"],
+            new_name=new_name
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={
+            "success": True,
+            "adset_id": result.get("adset_id"),
+            "message": "Ad set duplicated successfully"
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error duplicating ad set: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/adsets/{adset_id}/archive")
+async def archive_adset(request: Request, adset_id: str = Path(...)):
+    """
+    POST /api/v1/meta-ads/adsets/{adset_id}/archive
+    
+    Archive an ad set (sets status to ARCHIVED)
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.update_adset(
+            adset_id,
+            credentials["access_token"],
+            status="ARCHIVED"
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Ad set archived"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error archiving ad set: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/adsets/{adset_id}/unarchive")
+async def unarchive_adset(request: Request, adset_id: str = Path(...)):
+    """
+    POST /api/v1/meta-ads/adsets/{adset_id}/unarchive
+    
+    Unarchive an ad set (sets status to PAUSED)
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.update_adset(
+            adset_id,
+            credentials["access_token"],
+            status="PAUSED"
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Ad set unarchived"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unarchiving ad set: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================================
 # AD ENDPOINTS
 # ============================================================================
@@ -779,16 +985,73 @@ async def create_ad(request: Request, body: CreateAdRequest):
                 detail="page_id is required. Please connect a Facebook Page."
             )
         
-        # Step 1: Upload image if URL provided
+        # Step 1: Handle media uploads based on creative type
         image_hash = None
-        if body.creative.image_url and not body.creative.image_hash:
+        video_id = body.creative.video_id
+        carousel_child_attachments = None
+        
+        # Check if this is a carousel ad
+        if body.creative.carousel_items and len(body.creative.carousel_items) >= 2:
+            # CAROUSEL AD: Upload each carousel item's image
+            carousel_child_attachments = []
+            for idx, item in enumerate(body.creative.carousel_items):
+                item_image_hash = None
+                if item.image_url:
+                    item_upload = await service.upload_ad_image(
+                        credentials["account_id"],
+                        credentials["access_token"],
+                        item.image_url,
+                        item.title or f"Carousel Item {idx + 1}"
+                    )
+                    if item_upload.get("data") and item_upload["data"].get("hash"):
+                        item_image_hash = item_upload["data"]["hash"]
+                    else:
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Failed to upload carousel image {idx + 1}: {item_upload.get('error', 'Unknown error')}"
+                        )
+                
+                # Build child attachment for carousel
+                child_attachment = {
+                    "link": item.link or body.creative.link_url,
+                    "name": item.title or body.creative.title,
+                    "description": item.description or body.creative.body,
+                }
+                if item_image_hash:
+                    child_attachment["image_hash"] = item_image_hash
+                if item.video_id:
+                    child_attachment["video_id"] = item.video_id
+                
+                carousel_child_attachments.append(child_attachment)
+            
+            logger.info(f"Prepared {len(carousel_child_attachments)} carousel items")
+        
+        # Check if this is a video ad (not carousel)
+        elif body.creative.video_url and not video_id:
+            # VIDEO AD: Upload video from URL
+            video_upload = await service.upload_ad_video(
+                credentials["account_id"],
+                credentials["access_token"],
+                body.creative.video_url,
+                body.creative.title or body.name
+            )
+            if video_upload.get("data") and video_upload["data"].get("video_id"):
+                video_id = video_upload["data"]["video_id"]
+                logger.info(f"Uploaded video with ID: {video_id}")
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to upload video: {video_upload.get('error', 'Unknown error')}"
+                )
+        
+        # SINGLE IMAGE AD: Upload image if URL provided
+        elif body.creative.image_url and not body.creative.image_hash:
             upload_result = await service.upload_ad_image(
                 credentials["account_id"],
                 credentials["access_token"],
                 body.creative.image_url,
                 body.creative.title
             )
-            # upload_ad_image returns {"data": {"hash": ...}, "error": ...}
             if upload_result.get("data") and upload_result["data"].get("hash"):
                 image_hash = upload_result["data"]["hash"]
             else:
@@ -799,22 +1062,26 @@ async def create_ad(request: Request, body: CreateAdRequest):
         else:
             image_hash = body.creative.image_hash
         
-        # Step 2: Create ad creative
+        # Step 2: Create ad creative with appropriate format
         creative_result = await service.create_ad_creative(
             account_id=credentials["account_id"],
             access_token=credentials["access_token"],
             page_id=page_id,
             name=f"{body.name} - Creative",
             image_hash=image_hash,
-            video_id=body.creative.video_id,
+            video_id=video_id,
             title=body.creative.title,
             body=body.creative.body,
             link_url=body.creative.link_url,
             call_to_action_type=body.creative.call_to_action_type.value if body.creative.call_to_action_type else "LEARN_MORE",
-            advantage_plus_creative=body.creative.advantage_plus_creative if body.creative.advantage_plus_creative is not None else True,  # v25.0+ Default
-            gen_ai_disclosure=body.creative.gen_ai_disclosure if body.creative.gen_ai_disclosure else False,  # v25.0+ AI transparency
-            format_automation=body.creative.format_automation if body.creative.format_automation else False,  # v25.0+ Format Automation
-            product_set_id=body.creative.product_set_id  # Catalog product set
+            advantage_plus_creative=body.creative.advantage_plus_creative if body.creative.advantage_plus_creative is not None else True,
+            gen_ai_disclosure=body.creative.gen_ai_disclosure if body.creative.gen_ai_disclosure else False,
+            format_automation=body.creative.format_automation if body.creative.format_automation else False,
+            product_set_id=body.creative.product_set_id,
+            # New: Pass carousel items for carousel ads
+            carousel_child_attachments=carousel_child_attachments,
+            # New: Pass thumbnail for video ads
+            thumbnail_url=body.creative.thumbnail_url
         )
         
         if not creative_result.get("success"):
@@ -912,6 +1179,416 @@ async def update_ad(
         raise
     except Exception as e:
         logger.error(f"Error updating ad: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# PUT alias for PATCH - frontend uses PUT
+@router.put("/ads/{ad_id}")
+async def update_ad_put(
+    request: Request,
+    ad_id: str = Path(...),
+    body: UpdateAdRequest = None
+):
+    """
+    PUT /api/v1/meta-ads/ads/{ad_id}
+    
+    Update an ad (alias for PATCH)
+    """
+    return await update_ad(request, ad_id, body)
+
+
+@router.delete("/ads/{ad_id}")
+async def delete_ad(request: Request, ad_id: str = Path(...)):
+    """
+    DELETE /api/v1/meta-ads/ads/{ad_id}
+    
+    Delete an ad
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.delete_ad(
+            ad_id,
+            credentials["access_token"]
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Ad deleted"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting ad: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ads/{ad_id}/duplicate")
+async def duplicate_ad(
+    request: Request,
+    ad_id: str = Path(...),
+    body: dict = None
+):
+    """
+    POST /api/v1/meta-ads/ads/{ad_id}/duplicate
+    
+    Duplicate an ad using Meta's Ad Copies API
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        new_name = body.get("new_name") if body else None
+        
+        service = get_meta_ads_service()
+        result = await service.duplicate_ad(
+            ad_id,
+            credentials["access_token"],
+            new_name=new_name
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={
+            "success": True,
+            "ad_id": result.get("ad_id"),
+            "message": "Ad duplicated successfully"
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error duplicating ad: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ads/{ad_id}/archive")
+async def archive_ad(request: Request, ad_id: str = Path(...)):
+    """
+    POST /api/v1/meta-ads/ads/{ad_id}/archive
+    
+    Archive an ad (sets status to ARCHIVED)
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.update_ad(
+            ad_id,
+            credentials["access_token"],
+            status="ARCHIVED"
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Ad archived"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error archiving ad: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ads/{ad_id}/unarchive")
+async def unarchive_ad(request: Request, ad_id: str = Path(...)):
+    """
+    POST /api/v1/meta-ads/ads/{ad_id}/unarchive
+    
+    Unarchive an ad (sets status to PAUSED)
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.update_ad(
+            ad_id,
+            credentials["access_token"],
+            status="PAUSED"
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Ad unarchived"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unarchiving ad: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ads/{ad_id}/preview")
+async def get_ad_preview(
+    request: Request,
+    ad_id: str = Path(...),
+    ad_format: str = Query("DESKTOP_FEED_STANDARD", description="Preview format: DESKTOP_FEED_STANDARD, MOBILE_FEED_STANDARD, INSTAGRAM_STANDARD, INSTAGRAM_STORY, etc.")
+):
+    """
+    GET /api/v1/meta-ads/ads/{ad_id}/preview
+    
+    Get ad preview for a specific placement format.
+    
+    Supported formats:
+    - DESKTOP_FEED_STANDARD: Facebook Desktop Feed
+    - MOBILE_FEED_STANDARD: Facebook Mobile Feed
+    - INSTAGRAM_STANDARD: Instagram Feed
+    - INSTAGRAM_STORY: Instagram Story
+    - FACEBOOK_STORY_MOBILE: Facebook Story
+    - AUDIENCE_NETWORK_OUTSTREAM_VIDEO: Audience Network
+    - RIGHT_COLUMN_STANDARD: Facebook Right Column
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.get_ad_preview(
+            ad_id,
+            credentials["access_token"],
+            ad_format=ad_format
+        )
+        
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={
+            "success": True,
+            "preview": result.get("data")
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting ad preview: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ads/generatepreview")
+async def generate_ad_preview(
+    request: Request,
+    body: dict
+):
+    """
+    POST /api/v1/meta-ads/ads/generatepreview
+    
+    Generate a preview for an ad creative without creating an ad.
+    Useful for previewing before publishing.
+    
+    Body should contain:
+    - creative: Creative specification
+    - ad_format: Preview format
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        creative = body.get("creative", {})
+        ad_format = body.get("ad_format", "DESKTOP_FEED_STANDARD")
+        
+        service = get_meta_ads_service()
+        result = await service.generate_ad_preview(
+            credentials["account_id"],
+            credentials["access_token"],
+            creative=creative,
+            ad_format=ad_format
+        )
+        
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={
+            "success": True,
+            "preview": result.get("data")
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating ad preview: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# BATCH OPERATIONS
+# ============================================================================
+
+class BulkActionRequest(BaseModel):
+    """Request body for bulk actions"""
+    ids: List[str]
+    action: str  # PAUSE, ACTIVATE, DELETE, ARCHIVE
+
+
+@router.post("/campaigns/bulk")
+async def bulk_campaign_action(request: Request, body: BulkActionRequest):
+    """
+    POST /api/v1/meta-ads/campaigns/bulk
+    
+    Perform bulk action on multiple campaigns.
+    
+    Actions: PAUSE, ACTIVATE, DELETE, ARCHIVE
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        results = {"success": [], "failed": []}
+        
+        status_map = {
+            "PAUSE": "PAUSED",
+            "ACTIVATE": "ACTIVE",
+            "DELETE": "DELETED",
+            "ARCHIVE": "ARCHIVED"
+        }
+        
+        for campaign_id in body.ids:
+            try:
+                if body.action == "DELETE":
+                    result = await service.delete_campaign(campaign_id, credentials["access_token"])
+                else:
+                    result = await service.update_campaign(
+                        campaign_id,
+                        credentials["access_token"],
+                        status=status_map.get(body.action.upper(), "PAUSED")
+                    )
+                
+                if result.get("success"):
+                    results["success"].append(campaign_id)
+                else:
+                    results["failed"].append({"id": campaign_id, "error": result.get("error")})
+            except Exception as e:
+                results["failed"].append({"id": campaign_id, "error": str(e)})
+        
+        return JSONResponse(content={
+            "success": True,
+            "processed": len(results["success"]),
+            "failed": len(results["failed"]),
+            "results": results
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk campaign action: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/adsets/bulk")
+async def bulk_adset_action(request: Request, body: BulkActionRequest):
+    """
+    POST /api/v1/meta-ads/adsets/bulk
+    
+    Perform bulk action on multiple ad sets.
+    
+    Actions: PAUSE, ACTIVATE, DELETE, ARCHIVE
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        results = {"success": [], "failed": []}
+        
+        status_map = {
+            "PAUSE": "PAUSED",
+            "ACTIVATE": "ACTIVE",
+            "DELETE": "DELETED",
+            "ARCHIVE": "ARCHIVED"
+        }
+        
+        for adset_id in body.ids:
+            try:
+                if body.action == "DELETE":
+                    result = await service.delete_adset(adset_id, credentials["access_token"])
+                else:
+                    result = await service.update_adset(
+                        adset_id,
+                        credentials["access_token"],
+                        status=status_map.get(body.action.upper(), "PAUSED")
+                    )
+                
+                if result.get("success"):
+                    results["success"].append(adset_id)
+                else:
+                    results["failed"].append({"id": adset_id, "error": result.get("error")})
+            except Exception as e:
+                results["failed"].append({"id": adset_id, "error": str(e)})
+        
+        return JSONResponse(content={
+            "success": True,
+            "processed": len(results["success"]),
+            "failed": len(results["failed"]),
+            "results": results
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk ad set action: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ads/bulk")
+async def bulk_ad_action(request: Request, body: BulkActionRequest):
+    """
+    POST /api/v1/meta-ads/ads/bulk
+    
+    Perform bulk action on multiple ads.
+    
+    Actions: PAUSE, ACTIVATE, DELETE, ARCHIVE
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        results = {"success": [], "failed": []}
+        
+        status_map = {
+            "PAUSE": "PAUSED",
+            "ACTIVATE": "ACTIVE",
+            "DELETE": "DELETED",
+            "ARCHIVE": "ARCHIVED"
+        }
+        
+        for ad_id in body.ids:
+            try:
+                if body.action == "DELETE":
+                    result = await service.delete_ad(ad_id, credentials["access_token"])
+                else:
+                    result = await service.update_ad(
+                        ad_id,
+                        credentials["access_token"],
+                        status=status_map.get(body.action.upper(), "PAUSED")
+                    )
+                
+                if result.get("success"):
+                    results["success"].append(ad_id)
+                else:
+                    results["failed"].append({"id": ad_id, "error": result.get("error")})
+            except Exception as e:
+                results["failed"].append({"id": ad_id, "error": str(e)})
+        
+        return JSONResponse(content={
+            "success": True,
+            "processed": len(results["success"]),
+            "failed": len(results["failed"]),
+            "results": results
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk ad action: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1112,6 +1789,252 @@ async def create_custom_audience(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error creating custom audience: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/audiences/{audience_id}")
+async def get_audience_details(request: Request, audience_id: str = Path(...)):
+    """
+    GET /api/v1/meta-ads/audiences/{audience_id}
+    
+    Get details of a specific audience.
+    Returns full audience info including operation_status for flagged audiences.
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        result = await client.get_audience_details(audience_id)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "audience": result.get("audience")})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting audience details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/audiences/{audience_id}")
+async def delete_audience(request: Request, audience_id: str = Path(...)):
+    """
+    DELETE /api/v1/meta-ads/audiences/{audience_id}
+    
+    Delete a custom audience.
+    NOTE: Audiences actively being used in ad sets cannot be deleted.
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        result = await client.delete_custom_audience(audience_id)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        # Log the activity
+        await log_activity(
+            workspace_id=workspace_id,
+            user_id=user_id,
+            action="delete_audience",
+            resource_type="audience",
+            resource_id=audience_id,
+            details={"audience_id": audience_id}
+        )
+        
+        return JSONResponse(content={"success": True, "message": "Audience deleted successfully"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting audience: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/audiences/{audience_id}")
+async def update_audience(request: Request, audience_id: str = Path(...)):
+    """
+    PUT /api/v1/meta-ads/audiences/{audience_id}
+    
+    Update an audience's name or description.
+    
+    Request body:
+    {
+        "name": "New audience name",
+        "description": "Updated description"
+    }
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        body = await request.json()
+        
+        name = body.get("name")
+        description = body.get("description")
+        
+        if not name and not description:
+            raise HTTPException(status_code=400, detail="At least one of 'name' or 'description' is required")
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        result = await client.update_audience(
+            audience_id=audience_id,
+            name=name,
+            description=description
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "message": "Audience updated successfully"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating audience: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/audiences/{audience_id}/users")
+async def remove_audience_users(request: Request, audience_id: str = Path(...)):
+    """
+    DELETE /api/v1/meta-ads/audiences/{audience_id}/users
+    
+    Remove users from a custom audience.
+    Used for GDPR/privacy compliance - user opt-out requests.
+    
+    Request body:
+    {
+        "schema": ["EMAIL", "PHONE"],
+        "data": [
+            ["user@example.com", "+1234567890"],
+            ...
+        ]
+    }
+    
+    Data will be normalized and hashed before sending to Meta.
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        body = await request.json()
+        
+        schema = body.get("schema", [])
+        data = body.get("data", [])
+        
+        if not schema:
+            raise HTTPException(status_code=400, detail="schema is required")
+        if not data:
+            raise HTTPException(status_code=400, detail="data is required")
+        
+        # Validate schema fields
+        valid_fields = ["EMAIL", "PHONE", "FN", "LN", "CT", "ST", "ZIP", 
+                       "COUNTRY", "DOBY", "DOBM", "DOBD", "GEN", "EXTERN_ID"]
+        for field in schema:
+            if field not in valid_fields:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid schema field: {field}. Valid fields: {valid_fields}"
+                )
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        result = await client.remove_audience_users(
+            audience_id=audience_id,
+            schema=schema,
+            data=data
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        # Log for GDPR compliance
+        await log_activity(
+            workspace_id=workspace_id,
+            user_id=user_id,
+            action="remove_audience_users",
+            resource_type="audience",
+            resource_id=audience_id,
+            details={
+                "audience_id": audience_id,
+                "num_received": result.get("num_received", 0),
+                "num_invalid_entries": result.get("num_invalid_entries", 0)
+            }
+        )
+        
+        return JSONResponse(content={
+            "success": True,
+            "num_received": result.get("num_received", 0),
+            "num_invalid_entries": result.get("num_invalid_entries", 0),
+            "message": "Users removed successfully"
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing audience users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/audiences/{audience_id}/share")
+async def share_audience(request: Request, audience_id: str = Path(...)):
+    """
+    POST /api/v1/meta-ads/audiences/{audience_id}/share
+    
+    Share an audience with another ad account.
+    
+    Request body:
+    {
+        "recipient_ad_account_id": "act_123456789"
+    }
+    
+    The recipient must be a business partner or the ad account must
+    have permissions to receive shared audiences.
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        body = await request.json()
+        
+        recipient_ad_account_id = body.get("recipient_ad_account_id")
+        
+        if not recipient_ad_account_id:
+            raise HTTPException(status_code=400, detail="recipient_ad_account_id is required")
+        
+        client = create_meta_sdk_client(credentials["access_token"])
+        result = await client.share_audience(
+            audience_id=audience_id,
+            recipient_ad_account_id=recipient_ad_account_id
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        # Log the activity
+        await log_activity(
+            workspace_id=workspace_id,
+            user_id=user_id,
+            action="share_audience",
+            resource_type="audience",
+            resource_id=audience_id,
+            details={
+                "audience_id": audience_id,
+                "shared_with": recipient_ad_account_id
+            }
+        )
+        
+        return JSONResponse(content={"success": True, "message": "Audience shared successfully"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sharing audience: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1359,13 +2282,20 @@ async def create_lookalike_audience(request: Request):
         
         body = await request.json()
         
+        # Handle both target_countries (frontend) and country (single) formats
+        target_countries = body.get("target_countries")
+        if target_countries and isinstance(target_countries, list) and len(target_countries) > 0:
+            country = target_countries[0]  # Use first country for now
+        else:
+            country = body.get("country", "US")
+        
         service = get_meta_ads_service()
         result = await service.create_lookalike_audience(
             account_id=credentials["account_id"],
             access_token=credentials["access_token"],
             name=body.get("name"),
             origin_audience_id=body.get("source_audience_id"),
-            country=body.get("country", "US"),
+            country=country,
             ratio=body.get("ratio", 0.01),
             lookalike_type=body.get("type", "similarity")
         )
@@ -1959,23 +2889,97 @@ async def create_automation_rule(request: Request):
             "time_preset": time_preset,  # Per Meta docs - insights time range
         }
         
-        # Build execution spec from execution_type
+        # Build execution spec from execution_type - per Meta v24.0 docs
         execution_type = body.get("execution_type", "PAUSE")
         execution_spec = {
             "execution_type": execution_type,
         }
         
-        # Handle CHANGE_BUDGET and CHANGE_BID execution options per Meta docs
-        if execution_type in ["CHANGE_BUDGET", "CHANGE_BID"] and body.get("execution_options"):
-            execution_spec["execution_options"] = body["execution_options"]
+        # Handle execution options - per Meta Ad Rules Engine v24.0 docs
+        execution_options = body.get("execution_options", {})
+        if execution_options:
+            exec_opts = []
+            
+            # Execution limits
+            if execution_options.get("execution_count_limit"):
+                exec_opts.append({
+                    "field": "execution_count_limit",
+                    "value": execution_options["execution_count_limit"],
+                    "operator": "EQUAL"
+                })
+            if execution_options.get("action_frequency"):
+                exec_opts.append({
+                    "field": "action_frequency",
+                    "value": execution_options["action_frequency"],
+                    "operator": "EQUAL"
+                })
+            
+            # For NOTIFICATION - user_ids
+            if execution_type == "NOTIFICATION" and execution_options.get("user_ids"):
+                exec_opts.append({
+                    "field": "user_ids",
+                    "value": execution_options["user_ids"],
+                    "operator": "EQUAL"
+                })
+            
+            # For CHANGE_BUDGET - build change_spec
+            if execution_type == "CHANGE_BUDGET":
+                change_spec = {}
+                if execution_options.get("budget_change_type"):
+                    change_spec["change_type"] = execution_options["budget_change_type"]
+                if execution_options.get("budget_change_value"):
+                    change_spec["change_value"] = execution_options["budget_change_value"]
+                if execution_options.get("budget_change_unit"):
+                    change_spec["change_unit"] = execution_options["budget_change_unit"]
+                if execution_options.get("budget_min"):
+                    change_spec["min_value"] = execution_options["budget_min"]
+                if execution_options.get("budget_max"):
+                    change_spec["max_value"] = execution_options["budget_max"]
+                if change_spec:
+                    execution_spec["change_spec"] = change_spec
+            
+            # For CHANGE_BID - build change_spec
+            if execution_type == "CHANGE_BID":
+                change_spec = {}
+                if execution_options.get("bid_change_type"):
+                    change_spec["change_type"] = execution_options["bid_change_type"]
+                if execution_options.get("bid_change_value"):
+                    change_spec["change_value"] = execution_options["bid_change_value"]
+                if execution_options.get("bid_change_unit"):
+                    change_spec["change_unit"] = execution_options["bid_change_unit"]
+                if change_spec:
+                    execution_spec["change_spec"] = change_spec
+            
+            # For REBALANCE_BUDGET - build rebalance_spec
+            if execution_type == "REBALANCE_BUDGET":
+                if execution_options.get("rebalance_metric"):
+                    execution_spec["rebalance_spec"] = {
+                        "metric": execution_options["rebalance_metric"]
+                    }
+            
+            # For PING_ENDPOINT - endpoint URL
+            if execution_type == "PING_ENDPOINT":
+                if execution_options.get("endpoint_url"):
+                    execution_spec["endpoint"] = execution_options["endpoint_url"]
+            
+            if exec_opts:
+                execution_spec["execution_options"] = exec_opts
         
-        # Schedule spec
+        # Schedule spec - per Meta v24.0 docs with full fields
         schedule_spec = None
         if body.get("schedule"):
             schedule = body["schedule"]
             schedule_spec = {
                 "schedule_type": schedule.get("schedule_type", "DAILY")
             }
+            # Custom schedule with days and time range
+            if schedule.get("schedule_type") == "CUSTOM" or schedule.get("start_minute") is not None:
+                if schedule.get("start_minute") is not None:
+                    schedule_spec["start_minute"] = schedule["start_minute"]
+                if schedule.get("end_minute") is not None:
+                    schedule_spec["end_minute"] = schedule["end_minute"]
+                if schedule.get("days"):
+                    schedule_spec["days"] = schedule["days"]
         
         from ...services.meta_sdk_client import create_meta_sdk_client
         client = create_meta_sdk_client(credentials["access_token"])
@@ -2109,6 +3113,84 @@ async def delete_automation_rule(
         raise
     except Exception as e:
         logger.error(f"Error deleting automation rule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/rules/{rule_id}")
+async def get_automation_rule(
+    request: Request,
+    rule_id: str = Path(...)
+):
+    """
+    GET /api/v1/meta-ads/rules/{rule_id}
+    
+    Get details of a specific automation rule.
+    Returns full rule spec including evaluation_spec, execution_spec, schedule_spec.
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        result = await client.get_automation_rule(rule_id=rule_id)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={"success": True, "rule": result.get("rule")})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting automation rule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/rules/{rule_id}/history")
+async def get_rule_history(
+    request: Request,
+    rule_id: str = Path(...),
+    limit: int = Query(25, ge=1, le=100),
+    action: Optional[str] = Query(None, description="Filter by action: PAUSE, UNPAUSE, CHANGE_BUDGET, etc."),
+    hide_no_changes: bool = Query(False, description="Exclude entries with no results")
+):
+    """
+    GET /api/v1/meta-ads/rules/{rule_id}/history
+    
+    Get execution history for an automation rule.
+    
+    Per Meta Ad Rules Engine docs: /{ad-rule-id}/history endpoint
+    Returns execution results ordered by time.
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        result = await client.get_rule_history(
+            rule_id=rule_id,
+            limit=limit,
+            action=action,
+            hide_no_changes=hide_no_changes
+        )
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={
+            "success": True,
+            "history": result.get("history", []),
+            "paging": result.get("paging")
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting rule history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -2660,6 +3742,165 @@ async def get_lookalike_ratios(request: Request):
 
 
 # =============================================================================
+# ENHANCED INSIGHTS ENDPOINTS
+# =============================================================================
+
+@router.get("/insights/breakdown")
+async def get_insights_with_breakdown(
+    request: Request,
+    breakdown: str = Query("age", description="Breakdown type: age, gender, age,gender, platform_position, publisher_platform, device_platform"),
+    level: str = Query("account", description="Level: account, campaign, adset, ad"),
+    date_preset: str = Query("last_7d", description="Date preset: today, yesterday, last_7d, last_14d, last_30d, last_90d"),
+    campaign_id: Optional[str] = Query(None),
+    adset_id: Optional[str] = Query(None),
+    ad_id: Optional[str] = Query(None)
+):
+    """
+    GET /api/v1/meta-ads/insights/breakdown
+    
+    Get insights with demographic/placement breakdowns.
+    
+    Breakdowns:
+    - age: Age ranges (18-24, 25-34, 35-44, 45-54, 55-64, 65+)
+    - gender: Male, Female, Unknown
+    - age,gender: Combined age and gender
+    - platform_position: Feed, Stories, Reels, etc.
+    - publisher_platform: Facebook, Instagram, Audience Network
+    - device_platform: Mobile, Desktop
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.get_insights_breakdown(
+            account_id=credentials["account_id"],
+            access_token=credentials["access_token"],
+            breakdown=breakdown,
+            level=level,
+            date_preset=date_preset,
+            campaign_id=campaign_id,
+            adset_id=adset_id,
+            ad_id=ad_id
+        )
+        
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={
+            "success": True,
+            "breakdown": breakdown,
+            "level": level,
+            "data": result.get("data")
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting insights breakdown: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/insights/time-series")
+async def get_insights_time_series(
+    request: Request,
+    time_increment: str = Query("1", description="Time increment: 1 (daily), 7 (weekly), monthly, all_days"),
+    level: str = Query("account", description="Level: account, campaign, adset, ad"),
+    date_preset: str = Query("last_30d", description="Date preset"),
+    campaign_id: Optional[str] = Query(None),
+    adset_id: Optional[str] = Query(None),
+    ad_id: Optional[str] = Query(None)
+):
+    """
+    GET /api/v1/meta-ads/insights/time-series
+    
+    Get insights with time series data for trend analysis.
+    
+    Time increments:
+    - 1: Daily data points
+    - 7: Weekly aggregation
+    - monthly: Monthly aggregation
+    - all_days: Each day separately
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.get_insights_time_series(
+            account_id=credentials["account_id"],
+            access_token=credentials["access_token"],
+            time_increment=time_increment,
+            level=level,
+            date_preset=date_preset,
+            campaign_id=campaign_id,
+            adset_id=adset_id,
+            ad_id=ad_id
+        )
+        
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={
+            "success": True,
+            "time_increment": time_increment,
+            "level": level,
+            "data": result.get("data")
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting time series insights: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/insights/actions")
+async def get_insights_actions(
+    request: Request,
+    level: str = Query("account", description="Level: account, campaign, adset, ad"),
+    date_preset: str = Query("last_7d"),
+    campaign_id: Optional[str] = Query(None),
+    adset_id: Optional[str] = Query(None),
+    ad_id: Optional[str] = Query(None)
+):
+    """
+    GET /api/v1/meta-ads/insights/actions
+    
+    Get action breakdowns (conversions, clicks, video views, etc.)
+    """
+    try:
+        user_id, workspace_id = await get_user_context(request)
+        credentials = await get_verified_credentials(workspace_id, user_id)
+        
+        service = get_meta_ads_service()
+        result = await service.get_insights_actions(
+            account_id=credentials["account_id"],
+            access_token=credentials["access_token"],
+            level=level,
+            date_preset=date_preset,
+            campaign_id=campaign_id,
+            adset_id=adset_id,
+            ad_id=ad_id
+        )
+        
+        if result.get("error"):
+            raise HTTPException(status_code=400, detail=result.get("error"))
+        
+        return JSONResponse(content={
+            "success": True,
+            "level": level,
+            "data": result.get("data")
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting action insights: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
 # BUDGET OPTIMIZER ENDPOINTS
 # =============================================================================
 
@@ -3150,6 +4391,367 @@ async def get_analytics_breakdown(
     except Exception as e:
         logger.error(f"Error fetching analytics breakdown: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# =============================================================================
+# AD ACCOUNT SETTINGS ENDPOINTS - Meta Marketing API v24.0
+# =============================================================================
+
+@router.get("/accounts/settings")
+async def get_account_settings():
+    """
+    Get ad account settings including spend cap, timezone, business info.
+    
+    Returns comprehensive account settings per Meta Marketing API v24.0.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        account_id = credentials["account_id"].replace("act_", "")
+        settings = await client.get_ad_account_settings(account_id)
+        
+        # Format response with human-readable values
+        result = {
+            **settings,
+            # Convert spend values from cents to dollars
+            "spend_cap_formatted": f"${settings.get('spend_cap', 0) / 100:.2f}" if settings.get('spend_cap') else "No limit",
+            "amount_spent_formatted": f"${settings.get('amount_spent', 0) / 100:.2f}" if settings.get('amount_spent') else "$0.00",
+            "balance_formatted": f"${float(settings.get('balance', '0')) / 100:.2f}" if settings.get('balance') else "$0.00",
+        }
+        
+        return JSONResponse(content=result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching account settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/accounts/settings")
+async def update_account_settings(request: Request):
+    """
+    Update ad account settings.
+    
+    Supported fields: name, spend_cap
+    """
+    try:
+        body = await request.json()
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        account_id = credentials["account_id"].replace("act_", "")
+        result = await client.update_ad_account_settings(
+            account_id=account_id,
+            name=body.get("name"),
+            spend_cap=body.get("spend_cap"),
+        )
+        
+        return JSONResponse(content=result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating account settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/business/settings")
+async def get_business_settings():
+    """
+    Get business settings for the connected Business Manager.
+    
+    Returns business info, timezone, verification status.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        # First get account settings to find business_id
+        account_id = credentials["account_id"].replace("act_", "")
+        account_settings = await client.get_ad_account_settings(account_id)
+        
+        business = account_settings.get("business", {})
+        business_id = business.get("id") if isinstance(business, dict) else business
+        
+        if not business_id:
+            return JSONResponse(content={
+                "error": "No business manager connected to this ad account",
+                "account_name": account_settings.get("name"),
+                "is_personal": account_settings.get("is_personal", True)
+            })
+        
+        settings = await client.get_business_settings(business_id)
+        return JSONResponse(content=settings)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching business settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/team/access")
+async def get_team_access():
+    """
+    Get team members with access to the ad account.
+    
+    Returns list of users, their roles, and permissions.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        account_id = credentials["account_id"].replace("act_", "")
+        users = await client.get_ad_account_users(account_id)
+        
+        return JSONResponse(content={
+            "users": users.get("data", []),
+            "total_count": len(users.get("data", []))
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching team access: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/notifications/settings")
+async def get_notification_settings():
+    """
+    Get notification settings for the ad account.
+    
+    Returns notification rules configured for alerting.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        account_id = credentials["account_id"].replace("act_", "")
+        settings = await client.get_notification_settings(account_id)
+        
+        return JSONResponse(content=settings)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching notification settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/accounts/funding")
+async def get_funding_source():
+    """
+    Get funding source (payment methods) for the ad account.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        account_id = credentials["account_id"].replace("act_", "")
+        funding = await client.get_funding_source(account_id)
+        
+        return JSONResponse(content=funding)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching funding source: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# PIXELS MANAGEMENT ENDPOINTS - Meta Marketing API v24.0
+# =============================================================================
+
+@router.get("/accounts/pixels")
+async def get_account_pixels():
+    """
+    Get all pixels for the ad account.
+    
+    Returns list of pixels with their settings.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        account_id = credentials["account_id"].replace("act_", "")
+        pixels = await client.get_ad_account_pixels(account_id)
+        
+        return JSONResponse(content={
+            "pixels": pixels.get("data", []),
+            "total_count": len(pixels.get("data", []))
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching pixels: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pixels/{pixel_id}")
+async def get_pixel_details(pixel_id: str):
+    """
+    Get details for a single pixel.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        pixel = await client.get_pixel_details(pixel_id)
+        return JSONResponse(content=pixel)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching pixel details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pixels/{pixel_id}/users")
+async def get_pixel_users(pixel_id: str):
+    """
+    Get users assigned to a pixel.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        users = await client.get_pixel_assigned_users(pixel_id)
+        return JSONResponse(content={
+            "users": users.get("data", []),
+            "total_count": len(users.get("data", []))
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching pixel users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/pixels/{pixel_id}")
+async def update_pixel(pixel_id: str, request: Request):
+    """
+    Update pixel settings.
+    
+    Supported fields: name, enable_automatic_matching
+    """
+    try:
+        body = await request.json()
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        result = await client.update_pixel_settings(
+            pixel_id=pixel_id,
+            name=body.get("name"),
+            enable_automatic_matching=body.get("enable_automatic_matching"),
+        )
+        
+        return JSONResponse(content=result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating pixel: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# ACTIVITIES LOG ENDPOINTS - Meta Marketing API v24.0
+# =============================================================================
+
+@router.get("/accounts/activities")
+async def get_account_activities(limit: int = 50):
+    """
+    Get activity log for the ad account.
+    
+    Returns recent account activities/changes.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        account_id = credentials["account_id"].replace("act_", "")
+        activities = await client.get_ad_account_activities(account_id, limit)
+        
+        return JSONResponse(content={
+            "activities": activities.get("data", []),
+            "total_count": len(activities.get("data", []))
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching activities: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# BILLING & INVOICES ENDPOINTS - Meta Marketing API v24.0
+# =============================================================================
+
+@router.get("/business/invoices")
+async def get_invoices():
+    """
+    Get invoices for the business.
+    """
+    try:
+        credentials = await get_meta_credentials()
+        
+        from ...services.meta_sdk_client import create_meta_sdk_client
+        client = create_meta_sdk_client(credentials["access_token"])
+        
+        # Get business ID from account settings
+        account_id = credentials["account_id"].replace("act_", "")
+        account_settings = await client.get_ad_account_settings(account_id)
+        
+        business = account_settings.get("business", {})
+        business_id = business.get("id") if isinstance(business, dict) else business
+        
+        if not business_id:
+            return JSONResponse(content={
+                "invoices": [],
+                "total_count": 0,
+                "message": "No business manager connected"
+            })
+        
+        invoices = await client.get_business_invoices(business_id)
+        return JSONResponse(content={
+            "invoices": invoices.get("data", []),
+            "total_count": len(invoices.get("data", []))
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching invoices: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # =============================================================================
 # INCLUDE SDK FEATURES ROUTER

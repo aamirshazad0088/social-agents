@@ -39,8 +39,15 @@ async def estimate_reach(request: Request):
     """
     POST /api/v1/meta-ads/sdk/reach/estimate
     
-    Estimate reach for targeting spec.
-    Body: { "targeting_spec": {...}, "prediction_days": 7 }
+    Estimate reach for targeting spec with dynamic parameters.
+    Body: { 
+        "targeting_spec": {...}, 
+        "budget": 1000,
+        "currency": "USD",
+        "optimization_goal": "REACH",
+        "start_time": 1234567890,
+        "end_time": 1234567890
+    }
     """
     try:
         creds = await get_sdk_credentials(request)
@@ -52,7 +59,11 @@ async def estimate_reach(request: Request):
         result = await service.get_reach_estimate(
             account_id=creds["account_id"].replace("act_", ""),
             targeting_spec=body.get("targeting_spec", {}),
-            prediction_days=body.get("prediction_days", 7)
+            optimization_goal=body.get("optimization_goal", "REACH"),
+            budget=body.get("budget", 10000),
+            currency=body.get("currency", "USD"),
+            start_time=body.get("start_time"),
+            end_time=body.get("end_time")
         )
         
         return JSONResponse(content=result)
@@ -163,6 +174,34 @@ async def search_targeting(
         
     except Exception as e:
         logger.error(f"Targeting search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/targeting/browse")
+async def browse_targeting(
+    request: Request,
+    type: str = "adinterest",
+    target_class: str = "interests"
+):
+    """
+    GET /api/v1/meta-ads/sdk/targeting/browse
+    Browse targeting options by class (interests, behaviors, etc.)
+    """
+    try:
+        creds = await get_sdk_credentials(request)
+        
+        from ..services.sdk_targeting import TargetingService
+        service = TargetingService(creds["access_token"])
+        
+        result = await service.browse_targeting(
+            target_type=type,
+            targeting_class=target_class
+        )
+        
+        return JSONResponse(content=result)
+        
+    except Exception as e:
+        logger.error(f"Targeting browse error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -598,7 +637,8 @@ async def start_async_report(request: Request):
             account_id=creds["account_id"].replace("act_", ""),
             level=body.get("level", "campaign"),
             date_preset=body.get("date_preset", "last_30d"),
-            fields=body.get("fields")
+            fields=body.get("fields"),
+            breakdowns=body.get("breakdowns")
         )
         
         return JSONResponse(content=result)

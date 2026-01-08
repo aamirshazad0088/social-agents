@@ -324,6 +324,7 @@ export interface AdCreative {
   image_hash?: string;
   image_url?: string;
   video_id?: string;
+  video_url?: string;  // For video upload from URL
   thumbnail_url?: string;
   object_story_spec?: ObjectStorySpec;
   degrees_of_freedom_spec?: DegreesOfFreedomSpec;
@@ -715,6 +716,10 @@ export interface AdSetFormData {
   advantage_placements?: boolean;
   // v25.0+ Attribution Settings
   attribution_spec?: AttributionSpec[];
+  // v25.0+ 2026 Required Parameters (Jan 6, 2026+)
+  is_adset_budget_sharing_enabled?: boolean;  // Share up to 20% budget between ad sets
+  placement_soft_opt_out?: boolean;           // Allow 5% spend on excluded placements
+  destination_type?: DestinationType;         // Where ads send people
 }
 
 export interface AdFormData {

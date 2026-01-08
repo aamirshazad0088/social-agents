@@ -19,12 +19,14 @@ import {
     MapPin,
     Eye,
     BarChart,
+    Monitor,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import {
     Select,
     SelectContent,
@@ -149,10 +151,138 @@ export default function SDKToolbox({ onRefresh }: SDKToolboxProps) {
                 <TabsContent value="reports">
                     <AsyncReportsPanel />
                 </TabsContent>
+
+                {/* Ad Library Tab */}
+                <TabsContent value="ad-library">
+                    <AdLibraryPanel />
+                </TabsContent>
             </Tabs>
         </div>
     );
 }
+
+// =============================================================================
+// AD LIBRARY PANEL
+// =============================================================================
+
+function AdLibraryPanel() {
+    const [pageId, setPageId] = useState('');
+    const [result, setResult] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const analyzePage = async () => {
+        if (!pageId.trim()) return;
+        setIsLoading(true);
+        setResult(null);
+        try {
+            const response = await fetch(`/api/v1/meta-ads/sdk/ad-library/analyze/${pageId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setResult(data);
+            }
+        } catch (err) {
+            console.error('Analysis failed:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Monitor className="w-5 h-5 text-blue-600" />
+                        Competitor Analysis
+                    </CardTitle>
+                    <CardDescription>Analyze Page Strategy via Ad Library</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex gap-3">
+                        <Input
+                            placeholder="Page ID"
+                            value={pageId}
+                            onChange={(e) => setPageId(e.target.value)}
+                            className="flex-1"
+                        />
+                        <Button onClick={analyzePage} disabled={isLoading || !pageId.trim()} className="gap-2">
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                            Analyze
+                        </Button>
+                    </div>
+
+                    <div className="bg-muted/50 p-4 rounded-lg text-sm text-muted-foreground">
+                        <p>Enter a Facebook Page ID to see:</p>
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                            <li>Active vs Inactive Ads count</li>
+                            <li>Platform distribution (FB, IG, etc.)</li>
+                            <li>Format distribution (Image, Video, Text)</li>
+                            <li>Average ad longevity</li>
+                        </ul>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Analysis Results</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {result ? (
+                        <div className="space-y-6">
+                            {/* Summary Stats */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 bg-green-50 text-green-700 rounded-lg text-center">
+                                    <div className="text-2xl font-bold">{result.analysis?.active_ads || 0}</div>
+                                    <div className="text-xs">Active Ads</div>
+                                </div>
+                                <div className="p-3 bg-gray-50 text-gray-700 rounded-lg text-center">
+                                    <div className="text-2xl font-bold">{result.analysis?.total_ads || 0}</div>
+                                    <div className="text-xs">Total Ads Scanned</div>
+                                </div>
+                            </div>
+
+                            {/* Avg Age */}
+                            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                                <span className="text-sm font-medium">Avg Ad Longevity</span>
+                                <span className="font-bold">{result.analysis?.avg_ad_age_days || 0} days</span>
+                            </div>
+
+                            {/* Platforms */}
+                            <div>
+                                <h4 className="text-sm font-medium mb-3">Platform Usage</h4>
+                                <div className="space-y-2">
+                                    {Object.entries(result.analysis?.platform_distribution || {}).map(([platform, count]: [string, any]) => (
+                                        <div key={platform} className="flex items-center justify-between text-sm">
+                                            <span className="capitalize">{platform.replace('_', ' ')}</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-blue-500"
+                                                        style={{ width: `${(count / (result.analysis?.total_ads || 1)) * 100}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-muted-foreground w-8 text-right">{count}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 text-muted-foreground">
+                            Run analysis to view data
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+// =============================================================================
+// REACH ESTIMATION PANEL
+// =============================================================================
 
 // =============================================================================
 // REACH ESTIMATION PANEL
@@ -164,11 +294,14 @@ function ReachEstimationPanel() {
     const [ageMin, setAgeMin] = useState('18');
     const [ageMax, setAgeMax] = useState('65');
     const [countries, setCountries] = useState('US');
+    const [budget, setBudget] = useState('100');
+    const [currency, setCurrency] = useState('USD');
+    const [goal, setGoal] = useState('REACH');
 
     const estimateReach = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch('/api/v1/meta-ads/sdk/reach/delivery', {
+            const response = await fetch('/api/v1/meta-ads/sdk/reach/estimate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -176,7 +309,10 @@ function ReachEstimationPanel() {
                         age_min: parseInt(ageMin),
                         age_max: parseInt(ageMax),
                         geo_locations: { countries: countries.split(',').map(c => c.trim()) }
-                    }
+                    },
+                    budget: parseFloat(budget) * 100, // Convert to cents
+                    currency: currency,
+                    optimization_goal: goal
                 })
             });
             if (response.ok) {
@@ -207,10 +343,54 @@ function ReachEstimationPanel() {
                             <Input type="number" value={ageMax} onChange={(e) => setAgeMax(e.target.value)} />
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label>Budget</Label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
+                                <Input
+                                    type="number"
+                                    className="pl-7"
+                                    value={budget}
+                                    onChange={(e) => setBudget(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <Label>Currency</Label>
+                            <Select value={currency} onValueChange={setCurrency}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="USD">USD</SelectItem>
+                                    <SelectItem value="EUR">EUR</SelectItem>
+                                    <SelectItem value="GBP">GBP</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label>Optimization Goal</Label>
+                        <Select value={goal} onValueChange={setGoal}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="REACH">Reach</SelectItem>
+                                <SelectItem value="IMPRESSIONS">Impressions</SelectItem>
+                                <SelectItem value="LINK_CLICKS">Link Clicks</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     <div>
                         <Label>Countries (comma-separated)</Label>
                         <Input value={countries} onChange={(e) => setCountries(e.target.value)} placeholder="US,CA,GB" />
                     </div>
+
                     <Button onClick={estimateReach} disabled={isLoading} className="w-full gap-2">
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
                         Estimate Reach
@@ -228,17 +408,23 @@ function ReachEstimationPanel() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-4 bg-muted rounded-lg text-center">
                                     <div className="text-2xl font-bold text-blue-500">
-                                        {result.estimate_dau?.toLocaleString() || 0}
+                                        {result.reach_estimate?.toLocaleString() || 0}
                                     </div>
-                                    <div className="text-xs text-muted-foreground">Daily Users</div>
+                                    <div className="text-xs text-muted-foreground">Estimated Reach</div>
                                 </div>
                                 <div className="p-4 bg-muted rounded-lg text-center">
                                     <div className="text-2xl font-bold text-green-500">
-                                        {result.estimate_mau?.toLocaleString() || 0}
+                                        {result.impressions?.toLocaleString() || 0}
                                     </div>
-                                    <div className="text-xs text-muted-foreground">Monthly Users</div>
+                                    <div className="text-xs text-muted-foreground">Impressions</div>
                                 </div>
                             </div>
+
+                            {result.budget > 0 && (
+                                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md text-sm text-center">
+                                    Based on daily budget of <strong>{currency} {(result.budget / 100).toFixed(2)}</strong>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="text-center py-8 text-muted-foreground">
@@ -255,11 +441,17 @@ function ReachEstimationPanel() {
 // TARGETING PANEL
 // =============================================================================
 
+// =============================================================================
+// TARGETING PANEL
+// =============================================================================
+
 function TargetingPanel() {
     const [query, setQuery] = useState('');
     const [type, setType] = useState('adinterest');
+    const [targetClass, setTargetClass] = useState('interests');
     const [results, setResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [mode, setMode] = useState<'search' | 'browse'>('search');
 
     const searchTargeting = async () => {
         if (!query.trim()) return;
@@ -277,11 +469,32 @@ function TargetingPanel() {
         }
     };
 
-    const TYPES = [
-        { value: 'adinterest', label: 'Interests' },
-        { value: 'adbehavior', label: 'Behaviors' },
-        { value: 'adgeolocation', label: 'Locations' },
-        { value: 'adworkposition', label: 'Job Titles' },
+    const browseTargeting = async () => {
+        setIsSearching(true);
+        try {
+            // Map class to type automatically for common cases
+            let searchType = 'adinterest';
+            if (targetClass === 'behaviors') searchType = 'adbehavior';
+            if (targetClass === 'demographics') searchType = 'addemographic';
+
+            const response = await fetch(`/api/v1/meta-ads/sdk/targeting/browse?type=${searchType}&target_class=${targetClass}`);
+            if (response.ok) {
+                const data = await response.json();
+                setResults(data.categories || []);
+            }
+        } catch (err) {
+            console.error('Targeting browse failed:', err);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const CLASSES = [
+        { value: 'interests', label: 'Interests' },
+        { value: 'behaviors', label: 'Behaviors' },
+        { value: 'demographics', label: 'Demographics' },
+        { value: 'life_events', label: 'Life Events' },
+        { value: 'industries', label: 'Industries' },
     ];
 
     return (
@@ -289,49 +502,72 @@ function TargetingPanel() {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Target className="w-5 h-5 text-purple-500" />
-                    Targeting Search
+                    Targeting Exploration
                 </CardTitle>
-                <CardDescription>Find interests, behaviors, and demographics</CardDescription>
+                <CardDescription>Search or browse Meta's detailed targeting options</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex gap-3">
-                    <div className="flex-1">
-                        <Input
-                            placeholder="Search targeting options..."
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && searchTargeting()}
-                        />
-                    </div>
-                    <Select value={type} onValueChange={setType}>
-                        <SelectTrigger className="w-[140px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {TYPES.map(t => (
-                                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Button onClick={searchTargeting} disabled={isSearching} className="gap-2">
-                        {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                        Search
-                    </Button>
-                </div>
+                <Tabs value={mode} onValueChange={(v: any) => { setMode(v); setResults([]); }} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                        <TabsTrigger value="search">Search</TabsTrigger>
+                        <TabsTrigger value="browse">Browse Categories</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="search" className="space-y-4">
+                        <div className="flex gap-3">
+                            <Input
+                                placeholder="Search interests, job titles..."
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && searchTargeting()}
+                                className="flex-1"
+                            />
+                            <Button onClick={searchTargeting} disabled={isSearching} className="gap-2">
+                                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                                Search
+                            </Button>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="browse" className="space-y-4">
+                        <div className="flex gap-3">
+                            <Select value={targetClass} onValueChange={setTargetClass}>
+                                <SelectTrigger className="w-[200px]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {CLASSES.map(t => (
+                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button onClick={browseTargeting} disabled={isSearching} className="gap-2">
+                                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+                                Browse
+                            </Button>
+                        </div>
+                    </TabsContent>
+                </Tabs>
 
                 {results.length > 0 && (
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                        <div className="text-xs text-muted-foreground mb-2">{results.length} results found</div>
                         {results.map((r, i) => (
-                            <div key={i} className="p-3 bg-muted rounded-lg flex items-center justify-between">
+                            <div key={i} className="p-3 bg-muted rounded-lg flex items-center justify-between hover:bg-muted/80 transition-colors">
                                 <div>
-                                    <div className="font-medium text-sm">{r.name}</div>
+                                    <div className="font-medium text-sm flex items-center gap-2">
+                                        {r.name}
+                                        {r.type && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded capitalize">{r.type}</span>}
+                                    </div>
                                     {r.path?.length > 0 && (
-                                        <div className="text-xs text-muted-foreground">{r.path.join(' > ')}</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">{r.path.join(' > ')}</div>
                                     )}
                                 </div>
                                 {r.audience_size && (
-                                    <div className="text-sm text-muted-foreground">
-                                        {r.audience_size.toLocaleString()} users
+                                    <div className="text-sm text-muted-foreground bg-background px-2 py-1 rounded border">
+                                        {typeof r.audience_size === 'number'
+                                            ? r.audience_size.toLocaleString()
+                                            : r.audience_size} users
                                     </div>
                                 )}
                             </div>
@@ -407,9 +643,16 @@ function SavedAudiencesPanel() {
 // LEAD FORMS PANEL
 // =============================================================================
 
+// =============================================================================
+// LEAD FORMS PANEL
+// =============================================================================
+
 function LeadFormsPanel() {
     const [pageId, setPageId] = useState('');
     const [forms, setForms] = useState<any[]>([]);
+    const [selectedForm, setSelectedForm] = useState<string | null>(null);
+    const [leads, setLeads] = useState<any[]>([]);
+    const [cursor, setCursor] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     const fetchForms = async () => {
@@ -428,49 +671,127 @@ function LeadFormsPanel() {
         }
     };
 
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-teal-500" />
-                    Lead Forms
-                </CardTitle>
-                <CardDescription>Manage lead generation forms</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex gap-3">
-                    <Input
-                        placeholder="Page ID"
-                        value={pageId}
-                        onChange={(e) => setPageId(e.target.value)}
-                        className="flex-1"
-                    />
-                    <Button onClick={fetchForms} disabled={isLoading || !pageId.trim()} className="gap-2">
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                        Fetch
-                    </Button>
-                </div>
+    const fetchLeads = async (formId: string, afterCursor: string | null = null) => {
+        setIsLoading(true);
+        if (!afterCursor) setLeads([]);
 
-                {forms.length > 0 && (
-                    <div className="space-y-2">
-                        {forms.map(f => (
-                            <div key={f.id} className="p-3 bg-muted rounded-lg flex items-center justify-between">
-                                <div>
-                                    <div className="font-medium text-sm">{f.name}</div>
-                                    <div className="text-xs text-muted-foreground">{f.leads_count} leads</div>
-                                </div>
-                                <span className={cn(
-                                    "px-2 py-0.5 text-xs rounded-full",
-                                    f.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                                )}>
-                                    {f.status}
-                                </span>
-                            </div>
-                        ))}
+        try {
+            let url = `/api/v1/meta-ads/sdk/leads/${formId}?limit=25`;
+            if (afterCursor) url += `&after=${afterCursor}`;
+
+            const response = await fetch(url);
+            if (response.ok) {
+                const data = await response.json();
+                setLeads(prev => [...prev, ...(data.leads || [])]);
+                setCursor(data.paging?.cursors?.after || null);
+            }
+        } catch (err) {
+            console.error('Fetch leads failed:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-teal-500" />
+                        Lead Forms
+                    </CardTitle>
+                    <CardDescription>Manage lead generation forms</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex gap-3">
+                        <Input
+                            placeholder="Page ID"
+                            value={pageId}
+                            onChange={(e) => setPageId(e.target.value)}
+                            className="flex-1"
+                        />
+                        <Button onClick={fetchForms} disabled={isLoading || !pageId.trim()} className="gap-2">
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                            Fetch
+                        </Button>
                     </div>
-                )}
-            </CardContent>
-        </Card>
+
+                    {forms.length > 0 && (
+                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                            {forms.map(f => (
+                                <div
+                                    key={f.id}
+                                    className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border ${selectedForm === f.id ? 'bg-teal-50 border-teal-500' : 'bg-muted border-transparent hover:bg-muted/80'
+                                        }`}
+                                    onClick={() => { setSelectedForm(f.id); fetchLeads(f.id); }}
+                                >
+                                    <div>
+                                        <div className="font-medium text-sm">{f.name}</div>
+                                        <div className="text-xs text-muted-foreground">{f.leads_count} leads</div>
+                                    </div>
+                                    <span className={cn(
+                                        "px-2 py-0.5 text-xs rounded-full",
+                                        f.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                                    )}>
+                                        {f.status}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Leads Data</CardTitle>
+                    <CardDescription>
+                        {selectedForm ? `${leads.length} leads loaded` : 'Select a form to view leads'}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {leads.length > 0 ? (
+                        <div className="space-y-4">
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                                {leads.map((lead, i) => (
+                                    <div key={lead.id} className="p-3 bg-muted rounded-lg text-sm">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="font-bold">Lead #{i + 1}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {new Date(lead.created_time).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                            {Object.entries(lead.data || {}).map(([key, val]: [string, any]) => (
+                                                <div key={key}>
+                                                    <span className="font-medium text-muted-foreground">{key}:</span> {val}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {cursor && (
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={() => selectedForm && fetchLeads(selectedForm, cursor)}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                    Load More Leads
+                                </Button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 text-muted-foreground">
+                            {selectedForm ? 'No leads found' : 'Select a form on the left'}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
     );
 }
 
@@ -886,11 +1207,12 @@ function AdPreviewPanel() {
 
 function AsyncReportsPanel() {
     const [level, setLevel] = useState('campaign');
-    const [status, setStatus] = useState('');
+    const [status, setStatus] = useState<string>('');
     const [reportId, setReportId] = useState('');
     const [progress, setProgress] = useState(0);
     const [results, setResults] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [breakdowns, setBreakdowns] = useState<string[]>([]);
 
     const startReport = async () => {
         setIsLoading(true);
@@ -904,7 +1226,8 @@ function AsyncReportsPanel() {
                 body: JSON.stringify({
                     level,
                     date_preset: 'last_30d',
-                    fields: ['campaign_name', 'impressions', 'clicks', 'spend', 'cpc', 'ctr']
+                    fields: ['campaign_name', 'impressions', 'clicks', 'spend', 'cpc', 'ctr'],
+                    breakdowns: breakdowns.length > 0 ? breakdowns : undefined
                 })
             });
 
@@ -964,6 +1287,12 @@ function AsyncReportsPanel() {
         }
     };
 
+    const toggleBreakdown = (val: string) => {
+        setBreakdowns(prev =>
+            prev.includes(val) ? prev.filter(b => b !== val) : [...prev, val]
+        );
+    };
+
     return (
         <div className="grid gap-6 lg:grid-cols-2">
             <Card>
@@ -975,7 +1304,7 @@ function AsyncReportsPanel() {
                     <CardDescription>Generate reports for large datasets</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div>
+                    <div className="space-y-2">
                         <Label>Breakdown Level</Label>
                         <Select value={level} onValueChange={setLevel}>
                             <SelectTrigger>
@@ -989,11 +1318,27 @@ function AsyncReportsPanel() {
                         </Select>
                     </div>
 
+                    <div className="space-y-2">
+                        <Label>Optional Breakdowns</Label>
+                        <div className="flex flex-wrap gap-2">
+                            {['age', 'gender', 'country', 'impression_device'].map(b => (
+                                <Badge
+                                    key={b}
+                                    variant={breakdowns.includes(b) ? "default" : "outline"}
+                                    onClick={() => toggleBreakdown(b)}
+                                    className="cursor-pointer select-none"
+                                >
+                                    {b}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+
                     {status && (
                         <div className="p-4 bg-muted rounded-lg space-y-2">
                             <div className="flex justify-between text-sm">
                                 <span className="font-medium">Status: {status}</span>
-                                <span>{progress}%</span>
+                                <span className="text-muted-foreground">{progress}%</span>
                             </div>
                             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                                 <div
@@ -1022,10 +1367,15 @@ function AsyncReportsPanel() {
                             {results.map((row, i) => (
                                 <div key={i} className="p-3 bg-muted rounded-lg text-sm">
                                     <div className="font-medium">{row.campaign_name || row.adset_name || row.ad_name}</div>
-                                    <div className="grid grid-cols-3 gap-2 mt-2 text-xs text-muted-foreground">
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
                                         <div>Spend: ${row.spend}</div>
                                         <div>Impr: {row.impressions}</div>
                                         <div>Clicks: {row.clicks}</div>
+                                        {breakdowns.map(b => row[b] && (
+                                            <div key={b} className="capitalize text-indigo-500 font-medium run-in">
+                                                {b}: {row[b]}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             ))}

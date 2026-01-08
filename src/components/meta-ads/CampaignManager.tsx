@@ -49,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import toast from 'react-hot-toast';
 import type {
   Campaign,
   CampaignFormData,
@@ -142,13 +143,20 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
 
   const handleStatusChange = async (campaignId: string, newStatus: CampaignStatus) => {
     try {
-      await fetch(`/api/v1/meta-ads/campaigns/${campaignId}`, {
+      const response = await fetch(`/api/v1/meta-ads/campaigns/${campaignId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      onRefresh();
+      if (response.ok) {
+        toast.success(`Campaign ${newStatus === 'ACTIVE' ? 'activated' : 'paused'} successfully`);
+        onRefresh();
+      } else {
+        const data = await response.json();
+        toast.error(`Failed to update campaign: ${data.detail || 'Unknown error'}`);
+      }
     } catch (error) {
+      toast.error('Failed to update campaign status');
     }
   };
 
@@ -178,12 +186,17 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
       });
 
       if (response.ok) {
+        toast.success('Campaign updated successfully');
         setShowEditModal(false);
         setEditingCampaign(null);
         setEditFormData(initialFormData);
         onRefresh();
+      } else {
+        const data = await response.json();
+        toast.error(`Failed to update campaign: ${data.detail || 'Unknown error'}`);
       }
     } catch (error) {
+      toast.error('Failed to update campaign');
     } finally {
       setIsSubmitting(false);
     }
@@ -191,25 +204,23 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
 
   const handleDuplicateCampaign = async (campaign: Campaign) => {
     try {
-      const response = await fetch('/api/v1/meta-ads/campaigns', {
+      const response = await fetch(`/api/v1/meta-ads/campaigns/${campaign.id}/duplicate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `${campaign.name} (Copy)`,
-          objective: campaign.objective,
-          status: 'PAUSED',
-          buying_type: campaign.buying_type || 'AUCTION',
-          budget_type: campaign.daily_budget ? 'daily' : 'lifetime',
-          budget_amount: campaign.daily_budget ? campaign.daily_budget / 100 : campaign.lifetime_budget ? campaign.lifetime_budget / 100 : 20,
-          special_ad_categories: campaign.special_ad_categories || [],
-          is_campaign_budget_optimization: campaign.is_campaign_budget_optimization ?? true,
+          new_name: `${campaign.name} (Copy)`,
         }),
       });
 
       if (response.ok) {
+        toast.success('Campaign duplicated successfully');
         onRefresh();
+      } else {
+        const data = await response.json();
+        toast.error(`Failed to duplicate campaign: ${data.detail || data.error || 'Unknown error'}`);
       }
     } catch (error) {
+      toast.error('Failed to duplicate campaign');
     }
   };
 
@@ -218,11 +229,18 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
       return;
     }
     try {
-      await fetch(`/api/v1/meta-ads/campaigns/${campaign.id}`, {
+      const response = await fetch(`/api/v1/meta-ads/campaigns/${campaign.id}`, {
         method: 'DELETE',
       });
-      onRefresh();
+      if (response.ok) {
+        toast.success('Campaign deleted successfully');
+        onRefresh();
+      } else {
+        const data = await response.json();
+        toast.error(`Failed to delete campaign: ${data.detail || 'Unknown error'}`);
+      }
     } catch (error) {
+      toast.error('Failed to delete campaign');
     }
   };
 
@@ -245,27 +263,35 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
     setSelectedCampaignIds(newSelected);
   };
 
-  const handleBulkStatusUpdate = async (newStatus: 'ACTIVE' | 'PAUSED') => {
+  const handleBulkAction = async (action: 'PAUSE' | 'ACTIVATE' | 'DELETE' | 'ARCHIVE') => {
     if (selectedCampaignIds.size === 0) return;
+
+    if (action === 'DELETE' && !confirm(`Are you sure you want to delete ${selectedCampaignIds.size} campaign(s)?`)) {
+      return;
+    }
 
     setIsBulkUpdating(true);
     try {
-      const response = await fetch('/api/v1/meta-ads/bulk-status', {
+      const response = await fetch('/api/v1/meta-ads/campaigns/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          entity_type: 'campaign',
-          entity_ids: Array.from(selectedCampaignIds),
-          status: newStatus,
+          ids: Array.from(selectedCampaignIds),
+          action: action,
         }),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success(`${data.processed} campaign(s) ${action.toLowerCase()}d successfully`);
         setSelectedCampaignIds(new Set());
         onRefresh();
+      } else {
+        toast.error(`Bulk action failed: ${data.failed || 0} failed`);
       }
     } catch (error) {
-      console.error('Bulk status update failed:', error);
+      toast.error('Bulk action failed');
+      console.error('Bulk action failed:', error);
     } finally {
       setIsBulkUpdating(false);
     }
@@ -326,22 +352,42 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleBulkStatusUpdate('ACTIVE')}
+                onClick={() => handleBulkAction('ACTIVATE')}
                 disabled={isBulkUpdating}
                 className="gap-1"
               >
                 {isBulkUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-                Activate All
+                Activate
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleBulkStatusUpdate('PAUSED')}
+                onClick={() => handleBulkAction('PAUSE')}
                 disabled={isBulkUpdating}
                 className="gap-1"
               >
                 {isBulkUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pause className="w-3 h-3" />}
-                Pause All
+                Pause
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleBulkAction('ARCHIVE')}
+                disabled={isBulkUpdating}
+                className="gap-1"
+              >
+                {isBulkUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Layers className="w-3 h-3" />}
+                Archive
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleBulkAction('DELETE')}
+                disabled={isBulkUpdating}
+                className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                {isBulkUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                Delete
               </Button>
               <Button
                 size="sm"
@@ -400,6 +446,7 @@ export default function CampaignManager({ campaigns = [], adSets = [], ads = [],
                     onDelete={handleDeleteCampaign}
                     onCreateAdSet={onCreateAdSet}
                     onCreateAd={onCreateAd}
+                    onRefresh={onRefresh}
                   />
                 ))
               ) : (
@@ -471,6 +518,7 @@ function CampaignRow({
   onDelete,
   onCreateAdSet,
   onCreateAd,
+  onRefresh,
 }: {
   campaign: Campaign;
   adSets: any[];
@@ -484,8 +532,11 @@ function CampaignRow({
   onDelete: (campaign: Campaign) => void;
   onCreateAdSet?: (campaignId: string) => void;
   onCreateAd?: (adSetId: string) => void;
+  onRefresh?: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [editingAdSet, setEditingAdSet] = useState<any | null>(null);
+  const [editFormData, setEditFormData] = useState({ name: '', status: 'PAUSED', daily_budget: '' });
 
   const statusColors: Record<string, string> = {
     ACTIVE: 'bg-emerald-500 text-white',
@@ -542,7 +593,7 @@ function CampaignRow({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {campaign.objective.replace('OUTCOME_', '')} â€¢ {adSets.length} Ad Set{adSets.length !== 1 ? 's' : ''}
+                  {campaign.objective.replace('OUTCOME_', '')} • {adSets.length} Ad Set{adSets.length !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
@@ -605,6 +656,25 @@ function CampaignRow({
                 <Copy className="w-4 h-4 mr-2" />
                 Duplicate
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={async () => {
+                const action = campaign.status === 'ARCHIVED' ? 'unarchive' : 'archive';
+                try {
+                  const res = await fetch(`/api/v1/meta-ads/campaigns/${campaign.id}/${action}`, {
+                    method: 'POST'
+                  });
+                  if (res.ok) {
+                    toast.success(`Campaign ${action === 'archive' ? 'archived' : 'unarchived'}`);
+                    onRefresh?.();
+                  } else {
+                    toast.error(`Failed to ${action} campaign`);
+                  }
+                } catch {
+                  toast.error(`Failed to ${action} campaign`);
+                }
+              }}>
+                <Layers className="w-4 h-4 mr-2" />
+                {campaign.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onDelete(campaign)} className="text-red-600">
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -618,6 +688,9 @@ function CampaignRow({
       {/* Expanded Ad Sets */}
       {isExpanded && adSets.length > 0 && adSets.map((adSet) => {
         const adSetAds = ads.filter(ad => ad.adset_id === adSet.id);
+        const adSetCtr = adSet.insights?.impressions
+          ? ((adSet.insights.clicks / adSet.insights.impressions) * 100).toFixed(2)
+          : '0.00';
         return (
           <tr key={adSet.id} className="border-b bg-muted/10 hover:bg-muted/20">
             <td className="p-3"></td>
@@ -629,7 +702,7 @@ function CampaignRow({
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{adSet.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {adSet.optimization_goal?.replace('_', ' ')} â€¢ {adSetAds.length} Ad{adSetAds.length !== 1 ? 's' : ''}
+                    {adSet.optimization_goal?.replace('_', ' ')} • {adSetAds.length} Ad{adSetAds.length !== 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
@@ -640,16 +713,119 @@ function CampaignRow({
               </span>
             </td>
             <td className="p-3 text-right text-sm text-muted-foreground">
-              ${adSet.daily_budget ? (adSet.daily_budget / 100).toFixed(0) : 'â€”'}
+              ${adSet.daily_budget ? (adSet.daily_budget / 100).toFixed(0) : '-'}/day
             </td>
             <td className="p-3 text-right text-sm">${(adSet.insights?.spend || 0).toFixed(2)}</td>
             <td className="p-3 text-right text-sm hidden md:table-cell">{formatNumber(adSet.insights?.impressions || 0)}</td>
             <td className="p-3 text-right text-sm hidden sm:table-cell">{formatNumber(adSet.insights?.clicks || 0)}</td>
-            <td className="p-3 text-right text-sm hidden lg:table-cell">â€”</td>
+            <td className="p-3 text-right text-sm hidden lg:table-cell">
+              <span className={parseFloat(adSetCtr) > 1.5 ? 'text-green-600' : 'text-muted-foreground'}>
+                {adSetCtr}%
+              </span>
+            </td>
             <td className="p-3">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCreateAd?.(adSet.id)}>
-                <Plus className="w-4 h-4" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onClick={() => onCreateAd?.(adSet.id)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Ad
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => {
+                    const newStatus = adSet.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+                    fetch(`/api/v1/meta-ads/adsets/${adSet.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ status: newStatus })
+                    }).then(res => {
+                      if (res.ok) {
+                        toast.success(`Ad Set ${newStatus === 'ACTIVE' ? 'activated' : 'paused'}`);
+                        // Trigger refresh via parent
+                      } else {
+                        toast.error('Failed to update ad set status');
+                      }
+                    });
+                  }}>
+                    {adSet.status === 'ACTIVE' ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                    {adSet.status === 'ACTIVE' ? 'Pause' : 'Activate'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setEditFormData({
+                      name: adSet.name || '',
+                      status: adSet.status || 'PAUSED',
+                      daily_budget: adSet.daily_budget ? (adSet.daily_budget / 100).toString() : ''
+                    });
+                    setEditingAdSet(adSet);
+                  }}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/v1/meta-ads/adsets/${adSet.id}/duplicate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ new_name: `${adSet.name} (Copy)` })
+                      });
+                      if (res.ok) {
+                        toast.success('Ad Set duplicated successfully');
+                      } else {
+                        toast.error('Failed to duplicate ad set');
+                      }
+                    } catch {
+                      toast.error('Failed to duplicate ad set');
+                    }
+                  }}>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    const action = adSet.status === 'ARCHIVED' ? 'unarchive' : 'archive';
+                    try {
+                      const res = await fetch(`/api/v1/meta-ads/adsets/${adSet.id}/${action}`, {
+                        method: 'POST'
+                      });
+                      if (res.ok) {
+                        toast.success(`Ad Set ${action === 'archive' ? 'archived' : 'unarchived'}`);
+                      } else {
+                        toast.error(`Failed to ${action} ad set`);
+                      }
+                    } catch {
+                      toast.error(`Failed to ${action} ad set`);
+                    }
+                  }}>
+                    <Layers className="w-4 h-4 mr-2" />
+                    {adSet.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={async () => {
+                      if (!confirm('Are you sure you want to delete this ad set?')) return;
+                      try {
+                        const res = await fetch(`/api/v1/meta-ads/adsets/${adSet.id}`, {
+                          method: 'DELETE'
+                        });
+                        if (res.ok) {
+                          toast.success('Ad Set deleted');
+                        } else {
+                          toast.error('Failed to delete ad set');
+                        }
+                      } catch {
+                        toast.error('Failed to delete ad set');
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </td>
           </tr>
         );
@@ -669,6 +845,96 @@ function CampaignRow({
               >
                 Create one
               </button>
+            </div>
+          </td>
+        </tr>
+      )}
+
+      {/* Edit Ad Set Modal */}
+      {editingAdSet && (
+        <tr className="border-b">
+          <td colSpan={10} className="p-0">
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+              <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Edit Ad Set</h3>
+                  <button onClick={() => setEditingAdSet(null)} className="p-1 hover:bg-muted rounded">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="adset-name">Name</Label>
+                    <Input
+                      id="adset-name"
+                      value={editFormData.name}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="adset-status">Status</Label>
+                    <Select
+                      value={editFormData.status}
+                      onValueChange={(value) => setEditFormData(prev => ({ ...prev, status: value }))}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ACTIVE">Active</SelectItem>
+                        <SelectItem value="PAUSED">Paused</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="adset-budget">Daily Budget ($)</Label>
+                    <Input
+                      id="adset-budget"
+                      type="number"
+                      value={editFormData.daily_budget}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, daily_budget: e.target.value }))}
+                      placeholder="Enter daily budget"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-6">
+                  <Button variant="outline" onClick={() => setEditingAdSet(null)} className="flex-1">
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={async () => {
+                      try {
+                        const updateData: any = { name: editFormData.name, status: editFormData.status };
+                        if (editFormData.daily_budget) {
+                          updateData.budget_amount = parseFloat(editFormData.daily_budget) * 100;
+                        }
+                        const res = await fetch(`/api/v1/meta-ads/adsets/${editingAdSet.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(updateData)
+                        });
+                        if (res.ok) {
+                          toast.success('Ad Set updated successfully');
+                          setEditingAdSet(null);
+                        } else {
+                          toast.error('Failed to update ad set');
+                        }
+                      } catch {
+                        toast.error('Failed to update ad set');
+                      }
+                    }}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
             </div>
           </td>
         </tr>
@@ -892,6 +1158,88 @@ function CampaignDetailView({
                                 <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", statusColors[ad.status] || statusColors.PAUSED)}>
                                   {ad.status}
                                 </span>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                      <MoreHorizontal className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-40">
+                                    <DropdownMenuItem onClick={async () => {
+                                      const newStatus = ad.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+                                      try {
+                                        const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ status: newStatus })
+                                        });
+                                        if (res.ok) {
+                                          toast.success(`Ad ${newStatus === 'ACTIVE' ? 'activated' : 'paused'}`);
+                                          onRefresh();
+                                        } else {
+                                          toast.error('Failed to update ad status');
+                                        }
+                                      } catch {
+                                        toast.error('Failed to update ad status');
+                                      }
+                                    }}>
+                                      {ad.status === 'ACTIVE' ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                                      {ad.status === 'ACTIVE' ? 'Pause' : 'Activate'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={async () => {
+                                      try {
+                                        const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}/preview`);
+                                        if (res.ok) {
+                                          const data = await res.json();
+                                          if (data.preview?.previews?.[0]?.body) {
+                                            const win = window.open('', '_blank', 'width=600,height=800');
+                                            if (win) win.document.write(data.preview.previews[0].body);
+                                          } else toast.error('No preview available');
+                                        } else toast.error('Failed to get preview');
+                                      } catch { toast.error('Failed to get preview'); }
+                                    }}>
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      Preview
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={async () => {
+                                      try {
+                                        const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}/duplicate`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ new_name: `${ad.name} (Copy)` })
+                                        });
+                                        if (res.ok) { toast.success('Ad duplicated'); onRefresh(); }
+                                        else toast.error('Failed to duplicate ad');
+                                      } catch { toast.error('Failed to duplicate ad'); }
+                                    }}>
+                                      <Copy className="w-4 h-4 mr-2" />
+                                      Duplicate
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={async () => {
+                                      const action = ad.status === 'ARCHIVED' ? 'unarchive' : 'archive';
+                                      try {
+                                        const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}/${action}`, { method: 'POST' });
+                                        if (res.ok) { toast.success(`Ad ${action}d`); onRefresh(); }
+                                        else toast.error(`Failed to ${action} ad`);
+                                      } catch { toast.error(`Failed to ${action} ad`); }
+                                    }}>
+                                      <Layers className="w-4 h-4 mr-2" />
+                                      {ad.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-red-600" onClick={async () => {
+                                      if (!confirm('Delete this ad?')) return;
+                                      try {
+                                        const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}`, { method: 'DELETE' });
+                                        if (res.ok) { toast.success('Ad deleted'); onRefresh(); }
+                                        else toast.error('Failed to delete ad');
+                                      } catch { toast.error('Failed to delete ad'); }
+                                    }}>
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </div>
                           ))}
@@ -1025,9 +1373,118 @@ function AdSetRow({
                     </div>
                     <span className="text-sm font-medium">{ad.name}</span>
                   </div>
-                  <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", statusColors[ad.status] || statusColors.PAUSED)}>
-                    {ad.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", statusColors[ad.status] || statusColors.PAUSED)}>
+                      {ad.status}
+                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                          <MoreHorizontal className="w-3 h-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem onClick={async () => {
+                          const newStatus = ad.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+                          try {
+                            const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: newStatus })
+                            });
+                            if (res.ok) {
+                              toast.success(`Ad ${newStatus === 'ACTIVE' ? 'activated' : 'paused'}`);
+                            } else {
+                              toast.error('Failed to update ad status');
+                            }
+                          } catch {
+                            toast.error('Failed to update ad status');
+                          }
+                        }}>
+                          {ad.status === 'ACTIVE' ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                          {ad.status === 'ACTIVE' ? 'Pause' : 'Activate'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}/preview`);
+                            if (res.ok) {
+                              const data = await res.json();
+                              if (data.preview?.previews?.[0]?.body) {
+                                const win = window.open('', '_blank', 'width=600,height=800');
+                                if (win) {
+                                  win.document.write(data.preview.previews[0].body);
+                                }
+                              } else {
+                                toast.error('No preview available');
+                              }
+                            } else {
+                              toast.error('Failed to get preview');
+                            }
+                          } catch {
+                            toast.error('Failed to get preview');
+                          }
+                        }}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Preview
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}/duplicate`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ new_name: `${ad.name} (Copy)` })
+                            });
+                            if (res.ok) {
+                              toast.success('Ad duplicated');
+                            } else {
+                              toast.error('Failed to duplicate ad');
+                            }
+                          } catch {
+                            toast.error('Failed to duplicate ad');
+                          }
+                        }}>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={async () => {
+                          const action = ad.status === 'ARCHIVED' ? 'unarchive' : 'archive';
+                          try {
+                            const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}/${action}`, { method: 'POST' });
+                            if (res.ok) {
+                              toast.success(`Ad ${action === 'archive' ? 'archived' : 'unarchived'}`);
+                            } else {
+                              toast.error(`Failed to ${action} ad`);
+                            }
+                          } catch {
+                            toast.error(`Failed to ${action} ad`);
+                          }
+                        }}>
+                          <Layers className="w-4 h-4 mr-2" />
+                          {ad.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={async () => {
+                            if (!confirm('Delete this ad?')) return;
+                            try {
+                              const res = await fetch(`/api/v1/meta-ads/ads/${ad.id}`, { method: 'DELETE' });
+                              if (res.ok) {
+                                toast.success('Ad deleted');
+                              } else {
+                                toast.error('Failed to delete ad');
+                              }
+                            } catch {
+                              toast.error('Failed to delete ad');
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               ))}
             </div>

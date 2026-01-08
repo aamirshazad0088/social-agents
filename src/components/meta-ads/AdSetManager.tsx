@@ -92,6 +92,9 @@ const initialFormData: AdSetFormData = {
   bid_strategy: 'LOWEST_COST_WITHOUT_CAP', // Default - no bid amount needed
   advantage_audience: true, // v25.0+ default: Enable Advantage+ Audience
   advantage_placements: true, // v25.0+ default: Advantage+ Placements (Automatic)
+  // v25.0+ 2026 Required Parameters (Jan 6, 2026+)
+  is_adset_budget_sharing_enabled: false, // Share up to 20% budget between ad sets
+  placement_soft_opt_out: false, // Allow 5% spend on excluded placements
   targeting: {
     age_min: 18,
     age_max: 65,
@@ -1057,6 +1060,87 @@ function CreateAdSetModal({
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* v25.0+ 2026 Advanced Settings */}
+              <div className="pt-4 border-t space-y-4">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-orange-500" />
+                  <Label>Advanced Settings (v25.0 2026)</Label>
+                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-full">NEW</span>
+                </div>
+
+                {/* Budget Sharing Toggle */}
+                <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-900/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-white dark:bg-background shadow-sm border border-blue-100 dark:border-blue-900">
+                        <DollarSign className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">Budget Sharing</p>
+                        <p className="text-sm text-muted-foreground">
+                          Allow up to 20% budget sharing between ad sets
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setFormData(prev => ({ ...prev, is_adset_budget_sharing_enabled: !prev.is_adset_budget_sharing_enabled }))}
+                      className={cn(
+                        "w-12 h-6 rounded-full transition-colors relative",
+                        formData.is_adset_budget_sharing_enabled ? "bg-blue-500" : "bg-muted"
+                      )}
+                    >
+                      <div className={cn(
+                        "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                        formData.is_adset_budget_sharing_enabled ? "translate-x-7" : "translate-x-1"
+                      )} />
+                    </button>
+                  </div>
+                  {formData.is_adset_budget_sharing_enabled && (
+                    <div className="mt-3 pl-12 flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      Meta can reallocate up to 20% of budget to higher-performing ad sets
+                    </div>
+                  )}
+                </div>
+
+                {/* Placement Soft Opt-Out Toggle - Only for Sales/Leads */}
+                {selectedCampaign?.objective && ['OUTCOME_SALES', 'OUTCOME_LEADS'].includes(selectedCampaign.objective) && (
+                  <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-900/10 border border-purple-200/50 dark:border-purple-900/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-white dark:bg-background shadow-sm border border-purple-100 dark:border-purple-900">
+                          <Globe className="w-5 h-5 text-purple-500" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">Placement Soft Opt-Out</p>
+                          <p className="text-sm text-muted-foreground">
+                            Allow 5% spend on excluded placements for optimization
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setFormData(prev => ({ ...prev, placement_soft_opt_out: !prev.placement_soft_opt_out }))}
+                        className={cn(
+                          "w-12 h-6 rounded-full transition-colors relative",
+                          formData.placement_soft_opt_out ? "bg-purple-500" : "bg-muted"
+                        )}
+                      >
+                        <div className={cn(
+                          "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                          formData.placement_soft_opt_out ? "translate-x-7" : "translate-x-1"
+                        )} />
+                      </button>
+                    </div>
+                    {formData.placement_soft_opt_out && (
+                      <div className="mt-3 pl-12 flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                        Meta may spend up to 5% on excluded placements to improve results
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

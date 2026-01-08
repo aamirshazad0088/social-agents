@@ -151,16 +151,21 @@ class LeadFormsService:
     def _get_leads_sync(
         self,
         form_id: str,
-        limit: int = 100
+        limit: int = 25,
+        after: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Get leads from a form."""
+        """Get leads from a form with cursor pagination."""
         try:
             self._init_api()
             form = LeadGenForm(form_id)
             
+            params = {"limit": limit}
+            if after:
+                params["after"] = after
+            
             leads = form.get_leads(
                 fields=["id", "created_time", "field_data"],
-                params={"limit": limit}
+                params=params
             )
             
             result = []
@@ -175,7 +180,19 @@ class LeadFormsService:
                     "data": field_data
                 })
             
-            return {"success": True, "leads": result}
+            # Extract pagination cursor
+            paging = {}
+            if "paging" in leads:
+                paging = {
+                    "cursors": leads["paging"].get("cursors", {}),
+                    "next": leads["paging"].get("next")
+                }
+            
+            return {
+                "success": True, 
+                "leads": result,
+                "paging": paging
+            }
             
         except FacebookRequestError as e:
             logger.error(f"Facebook API error: {e}")
@@ -187,13 +204,15 @@ class LeadFormsService:
     async def get_leads(
         self,
         form_id: str,
-        limit: int = 100
+        limit: int = 25,
+        after: Optional[str] = None
     ) -> Dict[str, Any]:
         """Async wrapper."""
         return await asyncio.to_thread(
             self._get_leads_sync,
             form_id,
-            limit
+            limit,
+            after
         )
 
 

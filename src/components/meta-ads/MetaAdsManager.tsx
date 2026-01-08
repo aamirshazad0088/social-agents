@@ -23,6 +23,7 @@ import {
   Settings,
   MoreHorizontal,
   FlaskConical,
+  Bell,
   Zap,
   Image,
   Server,
@@ -65,6 +66,11 @@ import CreativeHub from './CreativeHub';
 import ConversionsAPIManager from './ConversionsAPIManager';
 import ComplianceCenter from './ComplianceCenter';
 import SDKToolbox from './SDKToolbox';
+import AccountSettingsManager from './AccountSettingsManager';
+import SettingsGeneral from './settings/SettingsGeneral';
+import SettingsTeam from './settings/SettingsTeam';
+import SettingsBilling from './settings/SettingsBilling';
+import SettingsNotifications from './settings/SettingsNotifications';
 
 import type { Campaign, AdSet, Ad, MetaAdsState, DatePreset } from '@/types/metaAds';
 import { DATE_PRESETS, formatNumber } from '@/types/metaAds';
@@ -270,6 +276,11 @@ export default function MetaAdsManager() {
           {activeTool === 'capi' && <ConversionsAPIManager onRefresh={loadDashboardData} />}
           {activeTool === 'compliance' && <ComplianceCenter onRefresh={loadDashboardData} />}
           {activeTool === 'sdk' && <SDKToolbox onRefresh={loadDashboardData} />}
+          {activeTool === 'account-settings' && <AccountSettingsManager onRefresh={loadDashboardData} />}
+          {activeTool === 'settings-general' && <SettingsGeneral onRefresh={loadDashboardData} />}
+          {activeTool === 'settings-team' && <SettingsTeam onRefresh={loadDashboardData} />}
+          {activeTool === 'settings-billing' && <SettingsBilling onRefresh={loadDashboardData} />}
+          {activeTool === 'settings-notifications' && <SettingsNotifications onRefresh={loadDashboardData} />}
         </div>
       </div>
     );
@@ -361,6 +372,16 @@ export default function MetaAdsManager() {
                 </SelectContent>
               </Select>
 
+              {/* Notifications */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setActiveTool('account-settings')}
+              >
+                <Bell className="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
+
               {/* Tools Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -386,6 +407,10 @@ export default function MetaAdsManager() {
                   <DropdownMenuItem onClick={() => setActiveTool('capi')} className="gap-2 text-xs">
                     <Server className="w-3.5 h-3.5" />
                     Conversions API
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveTool('account-settings')} className="gap-2 text-xs">
+                    <Settings className="w-3.5 h-3.5" />
+                    Account Settings
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setActiveTool('compliance')} className="gap-2 text-xs">
                     <Shield className="w-3.5 h-3.5" />
@@ -882,6 +907,11 @@ function ToolHeader({
     'capi': { label: 'Conversions API', icon: Server },
     'compliance': { label: 'Compliance Center', icon: Shield },
     'sdk': { label: 'SDK Toolbox', icon: Wrench },
+    'account-settings': { label: 'Account Settings', icon: Settings },
+    'settings-general': { label: 'General Settings', icon: Building2 },
+    'settings-team': { label: 'Team Access', icon: Users },
+    'settings-billing': { label: 'Billing & Spending', icon: DollarSign },
+    'settings-notifications': { label: 'Notifications', icon: Bell },
   };
 
   const tool = toolLabels[toolName] || { label: toolName, icon: Settings };
@@ -913,10 +943,17 @@ function SettingsPanel({ onSelectTool }: { onSelectTool: (tool: string) => void 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <SettingsCard
+        icon={Settings}
+        title="General Settings"
+        description="Account name, status, and timezone"
+        iconColor="bg-gradient-to-br from-teal-500 to-teal-600"
+        onClick={() => onSelectTool('settings-general')}
+      />
+      <SettingsCard
         icon={Server}
         title="Conversions API"
         description="Configure server-side event tracking"
-        iconColor="bg-gradient-to-br from-teal-500 to-teal-600"
+        iconColor="bg-gradient-to-br from-cyan-500 to-cyan-600"
         onClick={() => onSelectTool('capi')}
       />
       <SettingsCard
@@ -944,15 +981,22 @@ function SettingsPanel({ onSelectTool }: { onSelectTool: (tool: string) => void 
         icon={Users}
         title="Team Access"
         description="Manage team permissions"
-        iconColor="bg-gradient-to-br from-sky-500 to-sky-600"
-        onClick={() => window.location.href = '/settings?tab=team'}
+        iconColor="bg-gradient-to-br from-purple-500 to-purple-600"
+        onClick={() => onSelectTool('settings-team')}
       />
       <SettingsCard
         icon={AlertCircle}
         title="Notifications"
-        description="Alert and notification preferences"
-        iconColor="bg-gradient-to-br from-rose-500 to-rose-600"
-        onClick={() => window.location.href = '/settings?tab=notifications'}
+        description="Alert and notification rules"
+        iconColor="bg-gradient-to-br from-amber-500 to-orange-600"
+        onClick={() => onSelectTool('settings-notifications')}
+      />
+      <SettingsCard
+        icon={DollarSign}
+        title="Billing & Spending"
+        description="Spend caps and account balance"
+        iconColor="bg-gradient-to-br from-green-500 to-green-600"
+        onClick={() => onSelectTool('settings-billing')}
       />
     </div>
   );

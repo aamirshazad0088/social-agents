@@ -20,12 +20,14 @@ class RuleEvaluationType(str, Enum):
 
 
 class RuleExecutionType(str, Enum):
-    """Action to take when rule conditions are met - per Meta Ad Rules Engine docs"""
+    """Action to take when rule conditions are met - per Meta Ad Rules Engine v24.0 docs"""
     PAUSE = "PAUSE"
     UNPAUSE = "UNPAUSE"
     CHANGE_BUDGET = "CHANGE_BUDGET"
     CHANGE_BID = "CHANGE_BID"
     NOTIFICATION = "NOTIFICATION"  # Meta's official name
+    REBALANCE_BUDGET = "REBALANCE_BUDGET"  # Redistribute budget based on performance
+    PING_ENDPOINT = "PING_ENDPOINT"  # Call a webhook URL
 
 
 class RuleEntityType(str, Enum):
@@ -119,7 +121,19 @@ class RuleSchedule(BaseModel):
 
 
 class RuleExecutionOptions(BaseModel):
-    """Options for rule execution"""
+    """Options for rule execution - per Meta Ad Rules Engine v24.0 docs"""
+    # Execution limits
+    execution_count_limit: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Maximum times an action can be taken per object"
+    )
+    action_frequency: Optional[int] = Field(
+        default=None,
+        ge=60,
+        description="Minimum seconds until the same action can be taken again"
+    )
+    
     # For CHANGE_BUDGET
     budget_change_type: Optional[str] = Field(
         default=None,
@@ -133,9 +147,36 @@ class RuleExecutionOptions(BaseModel):
     budget_min: Optional[float] = None
     budget_max: Optional[float] = None
     
-    # For SEND_NOTIFICATION
+    # For CHANGE_BID
+    bid_change_type: Optional[str] = Field(
+        default=None,
+        description="INCREASE_BY, DECREASE_BY, SET_TO"
+    )
+    bid_change_value: Optional[float] = None
+    bid_change_unit: Optional[str] = Field(
+        default="PERCENT",
+        description="PERCENT or ABSOLUTE"
+    )
+    
+    # For REBALANCE_BUDGET
+    rebalance_metric: Optional[str] = Field(
+        default=None,
+        description="Metric to use for rebalancing (e.g., 'cpa', 'roas')"
+    )
+    
+    # For NOTIFICATION
+    user_ids: Optional[List[str]] = Field(
+        default=None,
+        description="User IDs to receive notifications"
+    )
     notification_email: Optional[str] = None
     notification_message: Optional[str] = None
+    
+    # For PING_ENDPOINT (webhook)
+    endpoint_url: Optional[str] = Field(
+        default=None,
+        description="URL to ping when rule triggers"
+    )
 
 
 class CreateAutomationRuleRequest(BaseModel):

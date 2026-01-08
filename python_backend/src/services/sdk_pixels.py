@@ -25,7 +25,7 @@ class PixelsService:
     
     def _init_api(self):
         from facebook_business.api import FacebookAdsApi
-        FacebookAdsApi.init(access_token=self.access_token)
+        FacebookAdsApi.init(access_token=self.access_token, api_version="v24.0")
     
     def _get_pixels_sync(
         self,
@@ -117,22 +117,24 @@ class PixelsService:
         self,
         pixel_id: str
     ) -> Dict[str, Any]:
-        """Get pixel statistics."""
+        """Get pixel statistics (v24.0)."""
         try:
             self._init_api()
             pixel = AdsPixel(pixel_id)
             
             stats = pixel.get_stats(
-                fields=["data"]
+                fields=["data", "aggregation", "timestamp"]
             )
             
             event_stats = []
+            # Meta standard response structure for v24.0 stats
             for stat in stats:
                 data = stat.get("data", [])
                 for event in data:
                     event_stats.append({
                         "event": event.get("event"),
                         "count": event.get("count", 0),
+                        "value": event.get("value", 0),
                         "timestamp": event.get("timestamp")
                     })
             

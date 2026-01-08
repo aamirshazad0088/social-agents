@@ -966,9 +966,21 @@ class MetaSDKClient:
         lifetime_budget: Optional[int] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        bid_amount: Optional[int] = None
+        bid_amount: Optional[int] = None,
+        # v25.0+ 2026 Required Parameters (Jan 6, 2026+)
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        promoted_object: Optional[Dict[str, Any]] = None,
+        destination_type: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Create a new ad set"""
+        """
+        Create a new ad set - v25.0+ 2026 Compliant.
+        
+        v25.0+ 2026 Requirements (Effective Jan 6, 2026):
+        - is_adset_budget_sharing_enabled: Required for ad set budgets (up to 20% sharing)
+        - placement_soft_opt_out: Allow 5% spend on excluded placements (Sales/Leads only)
+        - targeting_automation.advantage_audience = 1 for Advantage+ Audience
+        """
         self._ensure_initialized()
         
         if not ad_account_id.startswith('act_'):
@@ -984,6 +996,7 @@ class MetaSDKClient:
             'status': status
         }
         
+        # Budget parameters
         if daily_budget:
             params['daily_budget'] = daily_budget
         if lifetime_budget:
@@ -995,13 +1008,33 @@ class MetaSDKClient:
         if bid_amount:
             params['bid_amount'] = bid_amount
         
-        # v25.0+ 2026 Requirement: Targeting Automation (Advantage+ Audience) 
-        # Enforce modern structure. Legacy targeting expansion is deprecated.
-        if targeting.get('advantage_audience') or targeting.get('targeting_automation'):
-             params['targeting']['targeting_automation'] = {'advantage_audience': 1}
+        # v25.0+ 2026: Ad Set Budget Sharing (up to 20% between ad sets)
+        # Required parameter when setting budget at ad set level
+        if is_adset_budget_sharing_enabled is not None:
+            params['is_adset_budget_sharing_enabled'] = is_adset_budget_sharing_enabled
         
-        # Advantage+ Placements (Automatic Placements) is default in v25.0+
-        # If no specific placements are defined, Meta optimizes automatically.
+        # v25.0+ 2026: Placement Soft Opt-Out (5% spend on excluded placements)
+        # Only for OUTCOME_SALES and OUTCOME_LEADS objectives
+        if placement_soft_opt_out is not None:
+            params['placement_soft_opt_out'] = placement_soft_opt_out
+        
+        # v25.0+ 2026: Promoted Object for conversion tracking
+        if promoted_object:
+            params['promoted_object'] = promoted_object
+        
+        # v25.0+ 2026: Destination Type
+        if destination_type:
+            params['destination_type'] = destination_type
+        
+        # v25.0+ 2026 Requirement: Targeting Automation (Advantage+ Audience)
+        # Always ensure targeting_automation is set for v25.0+ compliance
+        if 'targeting_automation' not in targeting:
+            # Default to Advantage+ Audience enabled (v25.0+ default)
+            params['targeting']['targeting_automation'] = {'advantage_audience': 1}
+        elif targeting.get('targeting_automation', {}).get('advantage_audience') is None:
+            params['targeting']['targeting_automation']['advantage_audience'] = 1
+        
+        # Advantage+ Placements is default in v25.0+ (automatic when no exclusions)
         
         adset = account.create_ad_set(params=params)
         return {'id': adset.get('id'), 'adset_id': adset.get('id')}
@@ -1019,10 +1052,15 @@ class MetaSDKClient:
         lifetime_budget: Optional[int] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
-        bid_amount: Optional[int] = None
+        bid_amount: Optional[int] = None,
+        # v25.0+ 2026 Required Parameters
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        promoted_object: Optional[Dict[str, Any]] = None,
+        destination_type: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Create a new Ad Set.
+        Create a new Ad Set - v25.0+ 2026 Compliant.
         
         Args:
             ad_account_id: Ad Account ID
@@ -1030,20 +1068,26 @@ class MetaSDKClient:
             campaign_id: Parent Campaign ID
             optimization_goal: LINK_CLICKS, REACH, IMPRESSIONS, etc.
             billing_event: IMPRESSIONS, LINK_CLICKS, etc.
-            targeting: Targeting spec dict
+            targeting: Targeting spec dict (must include targeting_automation for v25.0+)
             status: ACTIVE or PAUSED
             daily_budget: Daily budget in cents
             lifetime_budget: Lifetime budget in cents
             start_time: Start time ISO string
             end_time: End time ISO string
             bid_amount: Bid amount in cents
+            is_adset_budget_sharing_enabled: v25.0+ Share up to 20% budget between ad sets
+            placement_soft_opt_out: v25.0+ Allow 5% spend on excluded placements
+            promoted_object: Conversion tracking object
+            destination_type: Where ads will send people
             
         Returns:
             Dict with adset_id
         """
         return await self._create_adset_sync(
             ad_account_id, name, campaign_id, optimization_goal, billing_event,
-            targeting, status, daily_budget, lifetime_budget, start_time, end_time, bid_amount
+            targeting, status, daily_budget, lifetime_budget, start_time, end_time, 
+            bid_amount, is_adset_budget_sharing_enabled, placement_soft_opt_out,
+            promoted_object, destination_type
         )
     
     @async_sdk_call
@@ -1054,9 +1098,19 @@ class MetaSDKClient:
         status: Optional[str] = None,
         daily_budget: Optional[int] = None,
         lifetime_budget: Optional[int] = None,
-        targeting: Optional[Dict[str, Any]] = None
+        targeting: Optional[Dict[str, Any]] = None,
+        # v25.0+ 2026 Required Parameters
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        bid_amount: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Update an ad set"""
+        """
+        Update an ad set - v25.0+ 2026 Compliant.
+        
+        v25.0+ 2026 Requirements:
+        - is_adset_budget_sharing_enabled: Required for ad set budgets
+        - placement_soft_opt_out: Allow 5% spend on excluded placements
+        """
         self._ensure_initialized()
         
         adset = AdSet(fbid=adset_id)
@@ -1070,11 +1124,24 @@ class MetaSDKClient:
             params['daily_budget'] = daily_budget
         if lifetime_budget is not None:
             params['lifetime_budget'] = lifetime_budget
+        if bid_amount is not None:
+            params['bid_amount'] = bid_amount
+            
+        # v25.0+ 2026: Ad Set Budget Sharing
+        if is_adset_budget_sharing_enabled is not None:
+            params['is_adset_budget_sharing_enabled'] = is_adset_budget_sharing_enabled
+        
+        # v25.0+ 2026: Placement Soft Opt-Out
+        if placement_soft_opt_out is not None:
+            params['placement_soft_opt_out'] = placement_soft_opt_out
+        
         if targeting:
             params['targeting'] = targeting
-            # v25.0+ 2026 Requirement: Ensure Targeting Automation is handled in updates too
-            if targeting.get('advantage_audience') or targeting.get('targeting_automation'):
-                 params['targeting']['targeting_automation'] = {'advantage_audience': 1}
+            # v25.0+ 2026: Ensure Targeting Automation is always set
+            if 'targeting_automation' not in targeting:
+                params['targeting']['targeting_automation'] = {'advantage_audience': 1}
+            elif targeting.get('targeting_automation', {}).get('advantage_audience') is None:
+                params['targeting']['targeting_automation']['advantage_audience'] = 1
         
         adset.api_update(params=params)
         return {'success': True, 'id': adset_id}
@@ -1086,10 +1153,80 @@ class MetaSDKClient:
         status: Optional[str] = None,
         daily_budget: Optional[int] = None,
         lifetime_budget: Optional[int] = None,
-        targeting: Optional[Dict[str, Any]] = None
+        targeting: Optional[Dict[str, Any]] = None,
+        # v25.0+ 2026 Required Parameters
+        is_adset_budget_sharing_enabled: Optional[bool] = None,
+        placement_soft_opt_out: Optional[bool] = None,
+        bid_amount: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Update an existing Ad Set"""
-        return await self._update_adset_sync(adset_id, name, status, daily_budget, lifetime_budget, targeting)
+        """Update an existing Ad Set - v25.0+ 2026 Compliant"""
+        return await self._update_adset_sync(
+            adset_id, name, status, daily_budget, lifetime_budget, targeting,
+            is_adset_budget_sharing_enabled, placement_soft_opt_out, bid_amount
+        )
+    
+    @async_sdk_call
+    def _delete_adset_sync(self, adset_id: str) -> Dict[str, Any]:
+        """Delete an ad set"""
+        self._ensure_initialized()
+        
+        adset = AdSet(fbid=adset_id)
+        adset.api_delete()
+        
+        return {'success': True, 'id': adset_id}
+    
+    async def delete_adset(self, adset_id: str) -> Dict[str, Any]:
+        """Delete an Ad Set"""
+        return await self._delete_adset_sync(adset_id)
+    
+    @async_sdk_call
+    def _duplicate_adset_sync(
+        self,
+        adset_id: str,
+        new_name: Optional[str] = None,
+        campaign_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Duplicate an ad set using Meta's Ad Copies API.
+        Uses POST /{ad_set_id}/copies endpoint.
+        """
+        self._ensure_initialized()
+        
+        adset = AdSet(fbid=adset_id)
+        
+        copy_params = {
+            'deep_copy': False,  # Don't copy ads
+        }
+        
+        if new_name:
+            # Use rename options
+            copy_params['rename_options'] = {
+                'rename_suffix': '',
+                'rename_prefix': '',
+            }
+            # Actually set the name directly
+            copy_params['adset_name'] = new_name
+        
+        if campaign_id:
+            copy_params['campaign_id'] = campaign_id
+        
+        result = adset.create_copy(params=copy_params)
+        
+        # Result contains 'copied_adset_id'
+        return {
+            'success': True,
+            'copied_adset_id': result.get('copied_adset_id'),
+            'id': result.get('copied_adset_id')
+        }
+    
+    async def duplicate_adset(
+        self,
+        adset_id: str,
+        new_name: Optional[str] = None,
+        campaign_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Duplicate an Ad Set using the Ad Copies API"""
+        return await self._duplicate_adset_sync(adset_id, new_name, campaign_id)
     
     # =========================================================================
     # AD CRUD OPERATIONS
@@ -1161,9 +1298,13 @@ class MetaSDKClient:
         format_automation: bool = False,
         degrees_of_freedom_spec: Optional[Dict[str, Any]] = None,
         ad_disclaimer_spec: Optional[Dict[str, Any]] = None,
-        product_set_id: Optional[str] = None
+        product_set_id: Optional[str] = None,
+        # New: Carousel and video thumbnail support (v25.0+)
+        carousel_child_attachments: Optional[List[Dict[str, Any]]] = None,
+        thumbnail_url: Optional[str] = None,
+        title: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Create an ad creative"""
+        """Create an ad creative - supports image, video, and carousel"""
         self._ensure_initialized()
         
         if not ad_account_id.startswith('act_'):
@@ -1176,21 +1317,46 @@ class MetaSDKClient:
         }
         
         # Build link_data or video_data based on content type
-        if video_id:
-            object_story_spec['video_data'] = {
+        # Order: Carousel > Video > Single Image
+        if carousel_child_attachments and len(carousel_child_attachments) >= 2:
+            # CAROUSEL AD: Use child_attachments in link_data
+            link_data = {
+                'link': link or '',
+                'message': message or '',
+                'child_attachments': carousel_child_attachments
+            }
+            if call_to_action_type:
+                link_data['call_to_action'] = {'type': call_to_action_type}
+            object_story_spec['link_data'] = link_data
+        elif video_id:
+            # VIDEO AD: Use video_data
+            video_data = {
                 'video_id': video_id,
                 'message': message or '',
             }
+            # Add thumbnail for video
+            if thumbnail_url:
+                video_data['image_url'] = thumbnail_url
+            elif image_hash:
+                video_data['image_hash'] = image_hash
+            # Add title if provided
+            if title:
+                video_data['title'] = title
+            # Add call to action
             if call_to_action_type and link:
-                object_story_spec['video_data']['call_to_action'] = {
+                video_data['call_to_action'] = {
                     'type': call_to_action_type,
                     'value': {'link': link}
                 }
+            object_story_spec['video_data'] = video_data
         else:
+            # SINGLE IMAGE AD: Use link_data
             link_data = {
                 'link': link or '',
                 'message': message or ''
             }
+            if title:
+                link_data['name'] = title
             if image_hash:
                 link_data['image_hash'] = image_hash
             elif image_url:
@@ -1257,10 +1423,14 @@ class MetaSDKClient:
         format_automation: bool = False,
         degrees_of_freedom_spec: Optional[Dict[str, Any]] = None,
         ad_disclaimer_spec: Optional[Dict[str, Any]] = None,
-        product_set_id: Optional[str] = None
+        product_set_id: Optional[str] = None,
+        # New: Carousel and video support
+        carousel_child_attachments: Optional[List[Dict[str, Any]]] = None,
+        thumbnail_url: Optional[str] = None,
+        title: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Create an Ad Creative.
+        Create an Ad Creative - supports image, video, and carousel.
         
         Args:
             ad_account_id: Ad Account ID
@@ -1273,6 +1443,9 @@ class MetaSDKClient:
             link: Destination link
             call_to_action_type: CTA type (LEARN_MORE, SHOP_NOW, etc.)
             advantage_plus_creative: Enable Standard Enhancements (v25.0+)
+            carousel_child_attachments: List of child attachments for carousel
+            thumbnail_url: Thumbnail URL for video ads
+            title: Headline/title for the ad
             
         Returns:
             Dict with creative_id
@@ -1281,7 +1454,8 @@ class MetaSDKClient:
             ad_account_id, name, page_id, image_hash, image_url, video_id,
             message, link, call_to_action_type, advantage_plus_creative, 
             gen_ai_disclosure, format_automation, degrees_of_freedom_spec,
-            ad_disclaimer_spec, product_set_id
+            ad_disclaimer_spec, product_set_id, carousel_child_attachments,
+            thumbnail_url, title
         )
     
     @async_sdk_call
@@ -1326,6 +1500,140 @@ class MetaSDKClient:
     async def delete_ad(self, ad_id: str) -> Dict[str, Any]:
         """Delete an Ad"""
         return await self._delete_ad_sync(ad_id)
+    
+    @async_sdk_call
+    def _duplicate_ad_sync(
+        self,
+        ad_id: str,
+        new_name: Optional[str] = None,
+        adset_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Duplicate an ad using Meta's Ad Copies API.
+        Uses POST /{ad-id}/copies endpoint.
+        """
+        self._ensure_initialized()
+        
+        ad = Ad(fbid=ad_id)
+        
+        copy_params = {}
+        
+        if new_name:
+            copy_params['rename_options'] = {
+                'rename_suffix': '',
+                'rename_prefix': '',
+            }
+        
+        if adset_id:
+            copy_params['adset_id'] = adset_id
+        
+        result = ad.create_copy(params=copy_params)
+        
+        return {
+            'success': True,
+            'copied_ad_id': result.get('copied_ad_id'),
+            'id': result.get('copied_ad_id')
+        }
+    
+    async def duplicate_ad(
+        self,
+        ad_id: str,
+        new_name: Optional[str] = None,
+        adset_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Duplicate an Ad using the Ad Copies API"""
+        return await self._duplicate_ad_sync(ad_id, new_name, adset_id)
+    
+    # =========================================================================
+    # AD PREVIEW
+    # =========================================================================
+    
+    @async_sdk_call
+    def _get_ad_preview_sync(
+        self,
+        ad_id: str,
+        ad_format: str = "DESKTOP_FEED_STANDARD"
+    ) -> Dict[str, Any]:
+        """
+        Get ad preview for an existing ad.
+        Uses /{ad-id}/previews endpoint.
+        """
+        self._ensure_initialized()
+        
+        ad = Ad(fbid=ad_id)
+        previews = ad.get_previews(params={
+            'ad_format': ad_format
+        }, fields=['body'])
+        
+        if previews:
+            return {
+                'success': True,
+                'previews': [p.export_all_data() for p in previews]
+            }
+        return {'success': True, 'previews': []}
+    
+    async def get_ad_preview(
+        self,
+        ad_id: str,
+        ad_format: str = "DESKTOP_FEED_STANDARD"
+    ) -> Dict[str, Any]:
+        """Get ad preview for an existing ad"""
+        return await self._get_ad_preview_sync(ad_id, ad_format)
+    
+    @async_sdk_call
+    def _generate_ad_preview_sync(
+        self,
+        account_id: str,
+        creative: Dict[str, Any],
+        ad_format: str = "DESKTOP_FEED_STANDARD"
+    ) -> Dict[str, Any]:
+        """
+        Generate a preview for an ad creative without creating an ad.
+        Uses /{account-id}/generatepreviews endpoint.
+        """
+        self._ensure_initialized()
+        
+        if not account_id.startswith('act_'):
+            account_id = f'act_{account_id}'
+        
+        account = AdAccount(fbid=account_id)
+        
+        # Build creative spec for preview
+        creative_spec = {}
+        if creative.get('object_story_spec'):
+            creative_spec['object_story_spec'] = creative['object_story_spec']
+        elif creative.get('page_id'):
+            creative_spec['object_story_spec'] = {
+                'page_id': creative.get('page_id'),
+                'link_data': {
+                    'link': creative.get('link', 'https://facebook.com'),
+                    'message': creative.get('message', ''),
+                    'name': creative.get('name', ''),
+                    'description': creative.get('description', ''),
+                    'image_hash': creative.get('image_hash'),
+                }
+            }
+        
+        previews = account.get_generate_previews(params={
+            'ad_format': ad_format,
+            'creative': creative_spec
+        }, fields=['body'])
+        
+        if previews:
+            return {
+                'success': True,
+                'previews': [p.export_all_data() for p in previews]
+            }
+        return {'success': True, 'previews': []}
+    
+    async def generate_ad_preview(
+        self,
+        account_id: str,
+        creative: Dict[str, Any],
+        ad_format: str = "DESKTOP_FEED_STANDARD"
+    ) -> Dict[str, Any]:
+        """Generate a preview for an ad creative without creating an ad"""
+        return await self._generate_ad_preview_sync(account_id, creative, ad_format)
     
     # =========================================================================
     # CUSTOM AUDIENCES
@@ -1639,6 +1947,205 @@ class MetaSDKClient:
         """Get campaign insights with demographic/placement breakdowns"""
         return await self._get_campaign_insights_breakdown_sync(
             campaign_id, breakdown, date_preset, fields
+        )
+
+    @async_sdk_call
+    def _get_adset_insights_breakdown_sync(
+        self, 
+        adset_id: str,
+        breakdown: str = 'age',
+        date_preset: str = 'last_7d',
+        fields: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """Get insights with breakdown for a specific ad set"""
+        self._ensure_initialized()
+        
+        from facebook_business.adobjects.adset import AdSet
+        
+        default_fields = ['impressions', 'reach', 'clicks', 'spend', 'cpc', 'cpm', 'ctr']
+        
+        adset = AdSet(fbid=adset_id)
+        params = {'date_preset': date_preset}
+        
+        if ',' in breakdown:
+            params['breakdowns'] = breakdown.split(',')
+        else:
+            params['breakdowns'] = [breakdown]
+        
+        insights = adset.get_insights(fields=fields or default_fields, params=params)
+        
+        return [dict(insight) for insight in insights] if insights else []
+    
+    async def get_adset_insights_breakdown(
+        self,
+        adset_id: str,
+        breakdown: str = 'age',
+        date_preset: str = 'last_7d',
+        fields: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """Get ad set insights with demographic/placement breakdowns"""
+        return await self._get_adset_insights_breakdown_sync(adset_id, breakdown, date_preset, fields)
+
+    @async_sdk_call
+    def _get_ad_insights_breakdown_sync(
+        self, 
+        ad_id: str,
+        breakdown: str = 'age',
+        date_preset: str = 'last_7d',
+        fields: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """Get insights with breakdown for a specific ad"""
+        self._ensure_initialized()
+        
+        default_fields = ['impressions', 'reach', 'clicks', 'spend', 'cpc', 'cpm', 'ctr']
+        
+        ad = Ad(fbid=ad_id)
+        params = {'date_preset': date_preset}
+        
+        if ',' in breakdown:
+            params['breakdowns'] = breakdown.split(',')
+        else:
+            params['breakdowns'] = [breakdown]
+        
+        insights = ad.get_insights(fields=fields or default_fields, params=params)
+        
+        return [dict(insight) for insight in insights] if insights else []
+    
+    async def get_ad_insights_breakdown(
+        self,
+        ad_id: str,
+        breakdown: str = 'age',
+        date_preset: str = 'last_7d',
+        fields: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """Get ad insights with demographic/placement breakdowns"""
+        return await self._get_ad_insights_breakdown_sync(ad_id, breakdown, date_preset, fields)
+
+    @async_sdk_call
+    def _get_insights_time_series_sync(
+        self,
+        ad_account_id: str,
+        time_increment: str = "1",
+        date_preset: str = "last_30d",
+        level: str = "account",
+        campaign_id: Optional[str] = None,
+        adset_id: Optional[str] = None,
+        ad_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get insights with time series data for trend analysis."""
+        self._ensure_initialized()
+        
+        if not ad_account_id.startswith('act_'):
+            ad_account_id = f'act_{ad_account_id}'
+        
+        default_fields = [
+            'impressions', 'reach', 'clicks', 'spend',
+            'cpc', 'cpm', 'ctr', 'date_start', 'date_stop'
+        ]
+        
+        account = AdAccount(fbid=ad_account_id)
+        
+        params = {
+            'date_preset': date_preset,
+            'level': level,
+            'time_increment': time_increment
+        }
+        
+        # Filter to specific objects if provided
+        if campaign_id:
+            params['filtering'] = [{'field': 'campaign.id', 'operator': 'EQUAL', 'value': campaign_id}]
+        elif adset_id:
+            params['filtering'] = [{'field': 'adset.id', 'operator': 'EQUAL', 'value': adset_id}]
+        elif ad_id:
+            params['filtering'] = [{'field': 'ad.id', 'operator': 'EQUAL', 'value': ad_id}]
+        
+        insights = account.get_insights(fields=default_fields, params=params)
+        
+        result = []
+        for insight in insights if insights else []:
+            result.append(dict(insight))
+        
+        return result
+    
+    async def get_insights_time_series(
+        self,
+        ad_account_id: str,
+        time_increment: str = "1",
+        date_preset: str = "last_30d",
+        level: str = "account",
+        campaign_id: Optional[str] = None,
+        adset_id: Optional[str] = None,
+        ad_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get insights with time series data"""
+        return await self._get_insights_time_series_sync(
+            ad_account_id, time_increment, date_preset, level,
+            campaign_id, adset_id, ad_id
+        )
+    
+    @async_sdk_call
+    def _get_insights_actions_sync(
+        self,
+        ad_account_id: str,
+        date_preset: str = "last_7d",
+        level: str = "account",
+        campaign_id: Optional[str] = None,
+        adset_id: Optional[str] = None,
+        ad_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get action breakdown insights (conversions, clicks, video views, etc.)"""
+        self._ensure_initialized()
+        
+        if not ad_account_id.startswith('act_'):
+            ad_account_id = f'act_{ad_account_id}'
+        
+        # Fields that include action breakdowns
+        action_fields = [
+            'impressions', 'reach', 'clicks', 'spend',
+            'actions', 'action_values', 'conversions',
+            'cost_per_action_type', 'cost_per_conversion',
+            'video_10_sec_watched_actions', 'video_30_sec_watched_actions',
+            'video_p25_watched_actions', 'video_p50_watched_actions',
+            'video_p75_watched_actions', 'video_p100_watched_actions'
+        ]
+        
+        account = AdAccount(fbid=ad_account_id)
+        
+        params = {
+            'date_preset': date_preset,
+            'level': level,
+            'action_breakdowns': ['action_type']
+        }
+        
+        # Filter to specific objects if provided
+        if campaign_id:
+            params['filtering'] = [{'field': 'campaign.id', 'operator': 'EQUAL', 'value': campaign_id}]
+        elif adset_id:
+            params['filtering'] = [{'field': 'adset.id', 'operator': 'EQUAL', 'value': adset_id}]
+        elif ad_id:
+            params['filtering'] = [{'field': 'ad.id', 'operator': 'EQUAL', 'value': ad_id}]
+        
+        insights = account.get_insights(fields=action_fields, params=params)
+        
+        result = []
+        for insight in insights if insights else []:
+            result.append(dict(insight))
+        
+        return result
+    
+    async def get_insights_actions(
+        self,
+        ad_account_id: str,
+        date_preset: str = "last_7d",
+        level: str = "account",
+        campaign_id: Optional[str] = None,
+        adset_id: Optional[str] = None,
+        ad_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get action breakdown insights"""
+        return await self._get_insights_actions_sync(
+            ad_account_id, date_preset, level,
+            campaign_id, adset_id, ad_id
         )
 
     # =========================================================================
@@ -3016,6 +3523,93 @@ class MetaSDKClient:
     async def delete_automation_rule(self, rule_id: str) -> Dict[str, Any]:
         """Delete an automation rule."""
         return await asyncio.to_thread(self._delete_automation_rule_sync, rule_id)
+    
+    def _get_automation_rule_sync(self, rule_id: str) -> Dict[str, Any]:
+        """Get details of a specific automation rule."""
+        import httpx
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{rule_id}"
+        params = {
+            "access_token": self._access_token,
+            "fields": "id,name,status,evaluation_spec,execution_spec,schedule_spec,created_time,updated_time"
+        }
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.get(url, params=params)
+            
+            if response.is_success:
+                return {"success": True, "rule": response.json()}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get rule")
+                }
+    
+    async def get_automation_rule(self, rule_id: str) -> Dict[str, Any]:
+        """Get details of a specific automation rule."""
+        return await asyncio.to_thread(self._get_automation_rule_sync, rule_id)
+    
+    def _get_rule_history_sync(
+        self,
+        rule_id: str,
+        limit: int = 25,
+        action: str = None,
+        hide_no_changes: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Get execution history for an automation rule.
+        
+        Args:
+            rule_id: The rule ID
+            limit: Max number of history entries to return
+            action: Filter by action (PAUSE, UNPAUSE, CHANGE_BUDGET, etc.)
+            hide_no_changes: If True, exclude entries with no results
+        
+        Per Meta docs: /{ad-rule-id}/history endpoint
+        """
+        import httpx
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{rule_id}/history"
+        params = {
+            "access_token": self._access_token,
+            "limit": limit,
+            "fields": "exception_code,exception_message,is_manual,results,rule_id,schedule_spec,time"
+        }
+        
+        if action:
+            params["action"] = action
+        if hide_no_changes:
+            params["hide_no_changes"] = "true"
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.get(url, params=params)
+            
+            if response.is_success:
+                data = response.json()
+                return {
+                    "success": True,
+                    "history": data.get("data", []),
+                    "paging": data.get("paging")
+                }
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get rule history")
+                }
+    
+    async def get_rule_history(
+        self,
+        rule_id: str,
+        limit: int = 25,
+        action: str = None,
+        hide_no_changes: bool = False
+    ) -> Dict[str, Any]:
+        """Get execution history for an automation rule."""
+        return await asyncio.to_thread(
+            self._get_rule_history_sync, rule_id, limit, action, hide_no_changes
+        )
 
     # =========================================================================
     # CREATIVE HUB METHODS
@@ -3514,6 +4108,257 @@ class MetaSDKClient:
     async def get_audiences(self, account_id: str) -> Dict[str, Any]:
         """Get all custom audiences."""
         return await asyncio.to_thread(self._get_audiences_sync, account_id)
+    
+    def _delete_custom_audience_sync(self, audience_id: str) -> Dict[str, Any]:
+        """Delete a custom audience."""
+        import httpx
+        import hmac
+        import hashlib
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{audience_id}"
+        
+        params = {
+            "access_token": self._access_token
+        }
+        
+        # Add appsecret_proof for server-side calls
+        app_secret = settings.FACEBOOK_APP_SECRET
+        if app_secret:
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                self._access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            params["appsecret_proof"] = appsecret_proof
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.delete(url, params=params)
+            
+            if response.is_success:
+                return {"success": True}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to delete audience")
+                }
+    
+    async def delete_custom_audience(self, audience_id: str) -> Dict[str, Any]:
+        """Delete a custom audience."""
+        return await asyncio.to_thread(self._delete_custom_audience_sync, audience_id)
+    
+    def _get_audience_details_sync(self, audience_id: str) -> Dict[str, Any]:
+        """Get details of a specific audience."""
+        import httpx
+        import hmac
+        import hashlib
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{audience_id}"
+        
+        params = {
+            "access_token": self._access_token,
+            "fields": "id,name,subtype,approximate_count,description,time_created,time_updated,retention_days,rule,lookalike_spec,operation_status,delivery_status,permission_for_actions"
+        }
+        
+        # Add appsecret_proof for server-side calls
+        app_secret = settings.FACEBOOK_APP_SECRET
+        if app_secret:
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                self._access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            params["appsecret_proof"] = appsecret_proof
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.get(url, params=params)
+            
+            if response.is_success:
+                return {"success": True, "audience": response.json()}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get audience details")
+                }
+    
+    async def get_audience_details(self, audience_id: str) -> Dict[str, Any]:
+        """Get details of a specific audience."""
+        return await asyncio.to_thread(self._get_audience_details_sync, audience_id)
+    
+    def _update_audience_sync(
+        self,
+        audience_id: str,
+        name: str = None,
+        description: str = None
+    ) -> Dict[str, Any]:
+        """Update a custom audience."""
+        import httpx
+        import hmac
+        import hashlib
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{audience_id}"
+        
+        payload = {"access_token": self._access_token}
+        
+        if name:
+            payload["name"] = name
+        if description:
+            payload["description"] = description
+        
+        # Add appsecret_proof for server-side calls
+        app_secret = settings.FACEBOOK_APP_SECRET
+        if app_secret:
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                self._access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            payload["appsecret_proof"] = appsecret_proof
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(url, data=payload)
+            
+            if response.is_success:
+                return {"success": True}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to update audience")
+                }
+    
+    async def update_audience(
+        self,
+        audience_id: str,
+        name: str = None,
+        description: str = None
+    ) -> Dict[str, Any]:
+        """Update a custom audience."""
+        return await asyncio.to_thread(
+            self._update_audience_sync, audience_id, name, description
+        )
+    
+    def _remove_audience_users_sync(
+        self,
+        audience_id: str,
+        schema: List[str],
+        data: List[List[str]],
+        session_id: str = None
+    ) -> Dict[str, Any]:
+        """Remove users from a custom audience (GDPR compliance)."""
+        import httpx
+        import hmac
+        import hashlib
+        import json
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{audience_id}/users"
+        
+        # Hash the data per Meta requirements
+        hashed_data = self._hash_user_data(schema, data)
+        
+        payload = {
+            "access_token": self._access_token,
+            "payload": json.dumps({
+                "schema": schema,
+                "data": hashed_data
+            })
+        }
+        
+        if session_id:
+            payload["session"] = json.dumps({
+                "session_id": session_id,
+                "batch_seq": 1,
+                "last_batch_flag": True
+            })
+        
+        # Add appsecret_proof
+        app_secret = settings.FACEBOOK_APP_SECRET
+        if app_secret:
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                self._access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            payload["appsecret_proof"] = appsecret_proof
+        
+        with httpx.Client(timeout=60.0) as client:
+            response = client.request("DELETE", url, data=payload)
+            
+            if response.is_success:
+                result = response.json()
+                return {
+                    "success": True,
+                    "num_received": result.get("num_received", 0),
+                    "num_invalid_entries": result.get("num_invalid_entries", 0)
+                }
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to remove users")
+                }
+    
+    async def remove_audience_users(
+        self,
+        audience_id: str,
+        schema: List[str],
+        data: List[List[str]],
+        session_id: str = None
+    ) -> Dict[str, Any]:
+        """Remove users from a custom audience (GDPR compliance)."""
+        return await asyncio.to_thread(
+            self._remove_audience_users_sync, audience_id, schema, data, session_id
+        )
+    
+    def _share_audience_sync(
+        self,
+        audience_id: str,
+        recipient_ad_account_id: str
+    ) -> Dict[str, Any]:
+        """Share an audience with another ad account."""
+        import httpx
+        import hmac
+        import hashlib
+        
+        url = f"https://graph.facebook.com/{META_API_VERSION}/{audience_id}/adaccounts"
+        
+        payload = {
+            "access_token": self._access_token,
+            "adaccounts": [recipient_ad_account_id]
+        }
+        
+        # Add appsecret_proof
+        app_secret = settings.FACEBOOK_APP_SECRET
+        if app_secret:
+            appsecret_proof = hmac.new(
+                app_secret.encode('utf-8'),
+                self._access_token.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            payload["appsecret_proof"] = appsecret_proof
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(url, data=payload)
+            
+            if response.is_success:
+                return {"success": True}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to share audience")
+                }
+    
+    async def share_audience(
+        self,
+        audience_id: str,
+        recipient_ad_account_id: str
+    ) -> Dict[str, Any]:
+        """Share an audience with another ad account."""
+        return await asyncio.to_thread(
+            self._share_audience_sync, audience_id, recipient_ad_account_id
+        )
     
     def _create_custom_audience_sync(
         self,
@@ -4866,3 +5711,412 @@ def create_meta_sdk_client(access_token: str) -> MetaSDKClient:
     async def delete_ad_study(self, study_id: str) -> Dict[str, Any]:
         """Delete A/B test"""
         return await self._delete_ad_study_sync(study_id)
+
+    # =========================================================================
+    # AD ACCOUNT SETTINGS - Meta Marketing API v24.0
+    # =========================================================================
+    
+    @async_sdk_call
+    def _get_ad_account_settings_sync(self, account_id: str) -> Dict[str, Any]:
+        """
+        Get ad account settings including spend cap, timezone, business info.
+        
+        Per Meta Marketing API v24.0 - AdAccount object fields.
+        """
+        self._ensure_initialized()
+        
+        # Fields to retrieve per Meta API docs
+        fields = [
+            "id",
+            "name", 
+            "account_id",
+            "account_status",
+            "age",
+            "amount_spent",
+            "balance",
+            "business",
+            "business_city",
+            "business_country_code",
+            "business_name",
+            "business_state",
+            "business_street",
+            "business_street2",
+            "business_zip",
+            "created_time",
+            "currency",
+            "disable_reason",
+            "end_advertiser",
+            "end_advertiser_name",
+            "funding_source",
+            "funding_source_details",
+            "is_personal",
+            "min_campaign_group_spend_cap",
+            "min_daily_budget",
+            "owner",
+            "spend_cap",
+            "timezone_id",
+            "timezone_name",
+            "timezone_offset_hours_utc",
+        ]
+        
+        account = AdAccount(f"act_{account_id}")
+        result = account.api_get(fields=fields)
+        
+        return dict(result)
+    
+    async def get_ad_account_settings(self, account_id: str) -> Dict[str, Any]:
+        """Get ad account settings"""
+        return await self._get_ad_account_settings_sync(account_id)
+    
+    @async_sdk_call
+    def _update_ad_account_settings_sync(
+        self, 
+        account_id: str, 
+        name: str = None,
+        spend_cap: float = None,
+    ) -> Dict[str, Any]:
+        """
+        Update ad account settings.
+        
+        Per Meta Marketing API v24.0 - limited fields are updatable.
+        """
+        self._ensure_initialized()
+        
+        params = {}
+        if name is not None:
+            params["name"] = name
+        if spend_cap is not None:
+            # Meta expects spend_cap in cents (integer)
+            params["spend_cap"] = int(spend_cap * 100) if spend_cap > 0 else 0
+        
+        if not params:
+            return {"success": False, "error": "No updates provided"}
+        
+        account = AdAccount(f"act_{account_id}")
+        account.api_update(params=params)
+        
+        return {"success": True, "account_id": account_id}
+    
+    async def update_ad_account_settings(
+        self, 
+        account_id: str, 
+        name: str = None,
+        spend_cap: float = None,
+    ) -> Dict[str, Any]:
+        """Update ad account settings"""
+        return await self._update_ad_account_settings_sync(account_id, name, spend_cap)
+    
+    @async_sdk_call
+    def _get_business_settings_sync(self, business_id: str) -> Dict[str, Any]:
+        """
+        Get business settings for a Business Manager.
+        
+        Per Meta Marketing API v24.0 - Business object.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/{business_id}"
+        params = {
+            "access_token": self.access_token,
+            "fields": "id,name,created_time,timezone,primary_page,profile_picture_uri,verification_status,vertical"
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_business_settings(self, business_id: str) -> Dict[str, Any]:
+        """Get business settings"""
+        return await self._get_business_settings_sync(business_id)
+    
+    @async_sdk_call
+    def _get_ad_account_users_sync(self, account_id: str) -> Dict[str, Any]:
+        """
+        Get users with access to an ad account (Team Access).
+        
+        Per Meta Marketing API v24.0 - AdAccount users edge.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/act_{account_id}/users"
+        params = {
+            "access_token": self.access_token,
+            "fields": "id,name,role,permissions"
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_ad_account_users(self, account_id: str) -> Dict[str, Any]:
+        """Get team access users for an ad account"""
+        return await self._get_ad_account_users_sync(account_id)
+    
+    @async_sdk_call
+    def _get_notification_settings_sync(self, account_id: str) -> Dict[str, Any]:
+        """
+        Get notification settings for an ad account.
+        
+        Note: Meta API doesn't have a direct notification settings endpoint.
+        This returns the ad rules configured for notifications.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/act_{account_id}/adrules_library"
+        params = {
+            "access_token": self.access_token,
+            "fields": "id,name,status,execution_spec",
+            "filtering": '[{"field":"execution_spec","operator":"CONTAIN","value":"notification"}]'
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Extract notification rules
+        notification_rules = []
+        for rule in data.get("data", []):
+            exec_spec = rule.get("execution_spec", {})
+            if exec_spec.get("execution_type") == "NOTIFICATION":
+                notification_rules.append(rule)
+        
+        return {
+            "notification_rules": notification_rules,
+            "total_count": len(notification_rules)
+        }
+    
+    async def get_notification_settings(self, account_id: str) -> Dict[str, Any]:
+        """Get notification settings for an ad account"""
+        return await self._get_notification_settings_sync(account_id)
+    
+    @async_sdk_call
+    def _get_funding_source_sync(self, account_id: str) -> Dict[str, Any]:
+        """
+        Get funding source (payment methods) for an ad account.
+        
+        Per Meta Marketing API v24.0.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/act_{account_id}"
+        params = {
+            "access_token": self.access_token,
+            "fields": "funding_source,funding_source_details"
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_funding_source(self, account_id: str) -> Dict[str, Any]:
+        """Get funding source for an ad account"""
+        return await self._get_funding_source_sync(account_id)
+    
+    # =========================================================================
+    # PIXELS MANAGEMENT - Meta Marketing API v24.0
+    # =========================================================================
+    
+    @async_sdk_call
+    def _get_ad_account_pixels_sync(self, account_id: str) -> Dict[str, Any]:
+        """
+        Get all pixels for an ad account.
+        
+        Per Meta Marketing API v24.0 - AdsPixels edge.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/act_{account_id}/adspixels"
+        params = {
+            "access_token": self.access_token,
+            "fields": "id,name,code,creation_time,creator,is_created_by_business,owner_ad_account,owner_business,last_fired_time,data_use_setting,enable_automatic_matching,first_party_cookie_status"
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_ad_account_pixels(self, account_id: str) -> Dict[str, Any]:
+        """Get all pixels for an ad account"""
+        return await self._get_ad_account_pixels_sync(account_id)
+    
+    @async_sdk_call
+    def _get_pixel_details_sync(self, pixel_id: str) -> Dict[str, Any]:
+        """
+        Get details for a single pixel.
+        
+        Per Meta Marketing API v24.0.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/{pixel_id}"
+        params = {
+            "access_token": self.access_token,
+            "fields": "id,name,code,creation_time,creator,is_created_by_business,owner_ad_account,owner_business,last_fired_time,data_use_setting,enable_automatic_matching,first_party_cookie_status"
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_pixel_details(self, pixel_id: str) -> Dict[str, Any]:
+        """Get details for a single pixel"""
+        return await self._get_pixel_details_sync(pixel_id)
+    
+    @async_sdk_call
+    def _get_pixel_assigned_users_sync(self, pixel_id: str) -> Dict[str, Any]:
+        """
+        Get users assigned to a pixel.
+        
+        Per Meta Marketing API v24.0 - assigned_users edge.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/{pixel_id}/assigned_users"
+        params = {
+            "access_token": self.access_token,
+            "fields": "id,name,tasks"
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_pixel_assigned_users(self, pixel_id: str) -> Dict[str, Any]:
+        """Get users assigned to a pixel"""
+        return await self._get_pixel_assigned_users_sync(pixel_id)
+    
+    @async_sdk_call
+    def _update_pixel_settings_sync(
+        self, 
+        pixel_id: str, 
+        name: str = None,
+        enable_automatic_matching: bool = None,
+    ) -> Dict[str, Any]:
+        """
+        Update pixel settings.
+        
+        Per Meta Marketing API v24.0.
+        """
+        self._ensure_initialized()
+        
+        params = {}
+        if name is not None:
+            params["name"] = name
+        if enable_automatic_matching is not None:
+            params["enable_automatic_matching"] = enable_automatic_matching
+        
+        if not params:
+            return {"success": False, "error": "No updates provided"}
+        
+        url = f"https://graph.facebook.com/v24.0/{pixel_id}"
+        params["access_token"] = self.access_token
+        
+        import httpx
+        response = httpx.post(url, params=params)
+        response.raise_for_status()
+        return {"success": True, "pixel_id": pixel_id}
+    
+    async def update_pixel_settings(
+        self, 
+        pixel_id: str, 
+        name: str = None,
+        enable_automatic_matching: bool = None,
+    ) -> Dict[str, Any]:
+        """Update pixel settings"""
+        return await self._update_pixel_settings_sync(pixel_id, name, enable_automatic_matching)
+    
+    # =========================================================================
+    # ACTIVITIES LOG - Meta Marketing API v24.0
+    # =========================================================================
+    
+    @async_sdk_call
+    def _get_ad_account_activities_sync(
+        self, 
+        account_id: str,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        """
+        Get activity log for an ad account.
+        
+        Per Meta Marketing API v24.0 - activities edge.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/act_{account_id}/activities"
+        params = {
+            "access_token": self.access_token,
+            "fields": "actor_id,actor_name,application_name,date_time_in_timezone,event_time,event_type,object_id,object_name,translated_event_type,extra_data",
+            "limit": limit
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_ad_account_activities(
+        self, 
+        account_id: str,
+        limit: int = 50,
+    ) -> Dict[str, Any]:
+        """Get activity log for an ad account"""
+        return await self._get_ad_account_activities_sync(account_id, limit)
+    
+    # =========================================================================
+    # BILLING & INVOICES - Meta Marketing API v24.0
+    # =========================================================================
+    
+    @async_sdk_call
+    def _get_business_invoices_sync(self, business_id: str) -> Dict[str, Any]:
+        """
+        Get invoices for a business.
+        
+        Per Meta Marketing API v24.0 - business_invoices edge.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/{business_id}/business_invoices"
+        params = {
+            "access_token": self.access_token,
+            "fields": "id,billing_period,entity,amount,status"
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_business_invoices(self, business_id: str) -> Dict[str, Any]:
+        """Get invoices for a business"""
+        return await self._get_business_invoices_sync(business_id)
+    
+    @async_sdk_call
+    def _get_spend_cap_history_sync(self, account_id: str) -> Dict[str, Any]:
+        """
+        Get spend cap history for an ad account.
+        
+        Per Meta Marketing API v24.0.
+        """
+        self._ensure_initialized()
+        
+        url = f"https://graph.facebook.com/v24.0/act_{account_id}"
+        params = {
+            "access_token": self.access_token,
+            "fields": "spend_cap,amount_spent,min_campaign_group_spend_cap"
+        }
+        
+        import httpx
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_spend_cap_history(self, account_id: str) -> Dict[str, Any]:
+        """Get spend cap history for an ad account"""
+        return await self._get_spend_cap_history_sync(account_id)

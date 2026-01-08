@@ -29,14 +29,15 @@ class AsyncReportsService:
     
     def _init_api(self):
         from facebook_business.api import FacebookAdsApi
-        FacebookAdsApi.init(access_token=self.access_token, api_version="v25.0")
+        FacebookAdsApi.init(access_token=self.access_token, api_version="v24.0")
     
     def _start_report_sync(
         self,
         account_id: str,
         level: str = "campaign",
         date_preset: str = "last_30d",
-        fields: List[str] = None
+        fields: List[str] = None,
+        breakdowns: List[str] = None
     ) -> Dict[str, Any]:
         """Start an async report job."""
         try:
@@ -53,6 +54,9 @@ class AsyncReportsService:
                 "level": level,
                 "date_preset": date_preset,
             }
+            
+            if breakdowns:
+                params["breakdowns"] = breakdowns
             
             job = account.get_insights(
                 fields=fields,
@@ -75,7 +79,8 @@ class AsyncReportsService:
         account_id: str,
         level: str = "campaign",
         date_preset: str = "last_30d",
-        fields: List[str] = None
+        fields: List[str] = None,
+        breakdowns: List[str] = None
     ) -> Dict[str, Any]:
         """Async wrapper to start report."""
         return await asyncio.to_thread(
@@ -83,7 +88,8 @@ class AsyncReportsService:
             account_id,
             level,
             date_preset,
-            fields
+            fields,
+            breakdowns
         )
     
     def _check_status_sync(self, report_run_id: str) -> Dict[str, Any]:

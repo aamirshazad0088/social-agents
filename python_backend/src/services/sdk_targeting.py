@@ -92,16 +92,26 @@ class TargetingService:
     
     def _browse_targeting_sync(
         self,
-        target_type: str = "adinterest"
+        target_type: str = "adinterest",
+        targeting_class: str = "interests"
     ) -> Dict[str, Any]:
-        """Browse targeting categories."""
+        """
+        Browse targeting categories.
+        
+        targeting_class options:
+        - interests
+        - behaviors
+        - demographics
+        - life_events
+        - industries
+        """
         try:
             self._init_api()
             
             results = TargetingSearch.search(
                 params={
                     "type": target_type,
-                    "class": "interests"
+                    "class": targeting_class
                 }
             )
             
@@ -111,7 +121,8 @@ class TargetingService:
                     "id": item.get("id"),
                     "name": item.get("name"),
                     "audience_size": item.get("audience_size"),
-                    "path": item.get("path", [])
+                    "path": item.get("path", []),
+                    "type": item.get("type")
                 })
             
             return {"success": True, "categories": categories}
@@ -125,12 +136,14 @@ class TargetingService:
     
     async def browse_targeting(
         self,
-        target_type: str = "adinterest"
+        target_type: str = "adinterest",
+        targeting_class: str = "interests"
     ) -> Dict[str, Any]:
         """Async wrapper."""
         return await asyncio.to_thread(
             self._browse_targeting_sync,
-            target_type
+            target_type,
+            targeting_class
         )
     
     def _get_geo_locations_sync(
