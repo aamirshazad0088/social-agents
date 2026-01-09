@@ -20,7 +20,7 @@ from ...services.token_refresh_service import (
     CredentialsResult,
     RefreshErrorType
 )
-from ...services.meta_credentials_service import MetaCredentialsService
+from ...services.meta_ads.meta_credentials_service import MetaCredentialsService
 from ...services import verify_jwt, get_supabase_client
 
 logger = logging.getLogger(__name__)

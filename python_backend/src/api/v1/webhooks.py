@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from src.config import settings
 from src.services import db_insert
-from src.services.meta_sdk_client import MetaSDKClient
+from src.services.meta_ads.meta_sdk_client import MetaSDKClient
 
 
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])

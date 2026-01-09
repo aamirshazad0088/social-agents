@@ -32,7 +32,7 @@ from facebook_business.adobjects.business import Business
 from facebook_business.adobjects.iguser import IGUser
 from facebook_business.exceptions import FacebookRequestError
 
-from ..config import settings
+from ...config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends
 
 from src.services.supabase_service import get_supabase_client, get_supabase_admin_client
-from src.services.meta_credentials_service import MetaCredentialsService
+from src.services.meta_ads.meta_credentials_service import MetaCredentialsService
 from src.middleware.auth import get_current_user
 
 

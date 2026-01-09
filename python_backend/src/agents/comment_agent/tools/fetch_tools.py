@@ -7,7 +7,7 @@ import logging
 from typing import Optional
 from langchain_core.tools import tool
 
-from ....services.meta_sdk_client import create_meta_sdk_client, MetaSDKError
+from ....services.meta_ads.meta_sdk_client import create_meta_sdk_client, MetaSDKError
 
 logger = logging.getLogger(__name__)
 

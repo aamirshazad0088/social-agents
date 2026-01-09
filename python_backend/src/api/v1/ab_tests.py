@@ -8,8 +8,8 @@ from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 import logging
 
-from ...services.meta_ads_service import get_meta_ads_service
-from ...services.meta_credentials_service import MetaCredentialsService
+from ...services.meta_ads.meta_ads_service import get_meta_ads_service
+from ...services.meta_ads.meta_credentials_service import MetaCredentialsService
 from ...services.supabase_service import ensure_user_workspace
 
 router = APIRouter()

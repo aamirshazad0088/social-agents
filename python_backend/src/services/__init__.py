@@ -51,7 +51,7 @@ from .canva_service import (
     export_design as canva_export_design,
     CanvaServiceError,
 )
-from .meta_sdk_client import (
+from .meta_ads.meta_sdk_client import (
     MetaSDKClient,
     MetaSDKError,
     get_meta_sdk_client,

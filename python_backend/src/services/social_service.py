@@ -16,7 +16,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from ..config import settings
-from .meta_sdk_client import create_meta_sdk_client, MetaSDKError
+from .meta_ads.meta_sdk_client import create_meta_sdk_client, MetaSDKError
 import logging
 
 logger = logging.getLogger(__name__)

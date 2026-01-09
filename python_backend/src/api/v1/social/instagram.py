@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from ....services.social_service import social_service
 from ....services.supabase_service import verify_jwt, db_select, db_update
-from ....services.meta_credentials_service import MetaCredentialsService
+from ....services.meta_ads.meta_credentials_service import MetaCredentialsService
 from ....services.storage_service import storage_service
 from ....services.rate_limit_service import get_rate_limit_service
 from ....config import settings

@@ -19,9 +19,9 @@ from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timezone, timedelta
 from cryptography.fernet import Fernet
 
-from ..services.supabase_service import get_supabase_admin_client
-from ..services.meta_sdk_client import create_meta_sdk_client, MetaSDKError
-from ..config import settings
+from ..supabase_service import get_supabase_admin_client
+from .meta_sdk_client import create_meta_sdk_client, MetaSDKError
+from ...config import settings
 
 logger = logging.getLogger(__name__)
 

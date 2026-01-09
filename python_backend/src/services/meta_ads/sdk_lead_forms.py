@@ -1,9 +1,9 @@
 """
 SDK Lead Forms Service
-Meta Business SDK - LeadGenForm
+Meta Business SDK - LeadgenForm
 
 Uses:
-- facebook_business.adobjects.leadgenform
+- facebook_business.adobjects.LeadgenForm
 - Create and manage lead generation forms
 """
 import asyncio
@@ -11,7 +11,7 @@ import logging
 from typing import Optional, Dict, Any, List
 
 from facebook_business.adobjects.page import Page
-from facebook_business.adobjects.leadgenform import LeadGenForm
+from facebook_business.adobjects.leadgenform import LeadgenForm
 from facebook_business.exceptions import FacebookRequestError
 
 logger = logging.getLogger(__name__)
@@ -39,14 +39,14 @@ class LeadFormsService:
             
             forms = page.get_lead_gen_forms(
                 fields=[
-                    LeadGenForm.Field.id,
-                    LeadGenForm.Field.name,
-                    LeadGenForm.Field.status,
-                    LeadGenForm.Field.leads_count,
-                    LeadGenForm.Field.created_time,
-                    LeadGenForm.Field.expired_leads_count,
-                    LeadGenForm.Field.follow_up_action_url,
-                    LeadGenForm.Field.privacy_policy_url,
+                    LeadgenForm.Field.id,
+                    LeadgenForm.Field.name,
+                    LeadgenForm.Field.status,
+                    LeadgenForm.Field.leads_count,
+                    LeadgenForm.Field.created_time,
+                    LeadgenForm.Field.expired_leads_count,
+                    LeadgenForm.Field.follow_up_action_url,
+                    LeadgenForm.Field.privacy_policy_url,
                 ],
                 params={"limit": limit}
             )
@@ -157,7 +157,7 @@ class LeadFormsService:
         """Get leads from a form with cursor pagination."""
         try:
             self._init_api()
-            form = LeadGenForm(form_id)
+            form = LeadgenForm(form_id)
             
             params = {"limit": limit}
             if after:

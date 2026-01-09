@@ -17,7 +17,7 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 
-from ..config import settings
+from ...config import settings
 from .meta_sdk_client import create_meta_sdk_client, MetaSDKError
 
 logger = logging.getLogger(__name__)
