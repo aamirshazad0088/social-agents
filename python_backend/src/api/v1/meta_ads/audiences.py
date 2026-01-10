@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from ._helpers import get_user_context, get_verified_credentials
 from ....services.supabase_service import log_activity
 from ....services.meta_ads.meta_ads_service import get_meta_ads_service
-from ....services.meta_ads.meta_sdk_client import create_meta_sdk_client
+from ....services.meta_ads.sdk_custom_audiences import CustomAudiencesService
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +73,8 @@ async def create_custom_audience(request: Request):
                 detail=f"rule parameter is required for {subtype} custom audiences"
             )
         
-        client = create_meta_sdk_client(credentials["access_token"])
-        result = await client.create_custom_audience(
+        service = CustomAudiencesService(credentials["access_token"])
+        result = await service.create_custom_audience(
             account_id=credentials["account_id"],
             name=body.get("name"),
             subtype=subtype,
@@ -110,8 +110,8 @@ async def get_audience_details(request: Request, audience_id: str = Path(...)):
         user_id, workspace_id = await get_user_context(request)
         credentials = await get_verified_credentials(workspace_id, user_id)
         
-        client = create_meta_sdk_client(credentials["access_token"])
-        result = await client.get_audience_details(audience_id)
+        service = CustomAudiencesService(credentials["access_token"])
+        result = await service.get_audience_details(audience_id)
         
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error"))
@@ -136,8 +136,8 @@ async def delete_audience(request: Request, audience_id: str = Path(...)):
         user_id, workspace_id = await get_user_context(request)
         credentials = await get_verified_credentials(workspace_id, user_id)
         
-        client = create_meta_sdk_client(credentials["access_token"])
-        result = await client.delete_custom_audience(audience_id)
+        service = CustomAudiencesService(credentials["access_token"])
+        result = await service.delete_custom_audience(audience_id)
         
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error"))
@@ -180,8 +180,8 @@ async def update_audience(request: Request, audience_id: str = Path(...)):
         if not name and not description:
             raise HTTPException(status_code=400, detail="At least one of 'name' or 'description' is required")
         
-        client = create_meta_sdk_client(credentials["access_token"])
-        result = await client.update_audience(
+        service = CustomAudiencesService(credentials["access_token"])
+        result = await service.update_audience(
             audience_id=audience_id,
             name=name,
             description=description
@@ -230,8 +230,8 @@ async def remove_audience_users(request: Request, audience_id: str = Path(...)):
                     detail=f"Invalid schema field: {field}. Valid fields: {valid_fields}"
                 )
         
-        client = create_meta_sdk_client(credentials["access_token"])
-        result = await client.remove_audience_users(
+        service = CustomAudiencesService(credentials["access_token"])
+        result = await service.remove_audience_users(
             audience_id=audience_id,
             schema=schema,
             data=data
@@ -286,8 +286,8 @@ async def share_audience(request: Request, audience_id: str = Path(...)):
         if not recipient_ad_account_id:
             raise HTTPException(status_code=400, detail="recipient_ad_account_id is required")
         
-        client = create_meta_sdk_client(credentials["access_token"])
-        result = await client.share_audience(
+        service = CustomAudiencesService(credentials["access_token"])
+        result = await service.share_audience(
             audience_id=audience_id,
             recipient_ad_account_id=recipient_ad_account_id
         )
@@ -349,8 +349,8 @@ async def upload_audience_users(audience_id: str, request: Request):
                     detail=f"Invalid schema field: {field}. Valid fields: {valid_fields}"
                 )
         
-        client = create_meta_sdk_client(credentials["access_token"])
-        result = await client.upload_audience_users(
+        service = CustomAudiencesService(credentials["access_token"])
+        result = await service.upload_audience_users(
             audience_id=audience_id,
             schema=schema,
             data=data
@@ -432,8 +432,8 @@ async def get_audience_size(
         user_id, workspace_id = await get_user_context(request)
         credentials = await get_verified_credentials(workspace_id, user_id)
         
-        client = create_meta_sdk_client(credentials["access_token"])
-        result = await client.get_audience_size(audience_id=audience_id)
+        service = CustomAudiencesService(credentials["access_token"])
+        result = await service.get_audience_size(audience_id=audience_id)
         
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("error"))

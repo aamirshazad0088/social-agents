@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { formatAudienceSize, formatAudienceDate, formatRetentionDays, getOperationStatusInfo, getOperationStatusClass } from '@/lib/meta-ads-formatters';
 import type { CustomAudience, AudienceSubtype, LookalikeSpec } from '@/types/metaAds';
 
 interface AudienceManagerProps {
@@ -448,11 +449,7 @@ function AudienceCard({
 
           <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50 mb-3">
             <div>
-              <p className="text-lg font-bold">
-                {audience.approximate_count
-                  ? formatNumber(audience.approximate_count)
-                  : '-'}
-              </p>
+              <p className="text-lg font-bold">{formatAudienceSize(audience)}</p>
               <p className="text-xs text-muted-foreground">Estimated Size</p>
             </div>
             {isLookalike && audience.lookalike_spec && (
@@ -768,7 +765,11 @@ function CreateAudienceModal({
             operator: "or",
             rules: [{
               event_sources: [{ type: "page", id: selectedPage }],
-              retention_seconds: formData.retention_days * 86400
+              retention_seconds: formData.retention_days * 86400,
+              filter: {
+                operator: "and",
+                filters: [{ field: "event", operator: "eq", value: formData.engagement_event }]
+              }
             }]
           }
         };
@@ -785,7 +786,11 @@ function CreateAudienceModal({
             operator: "or",
             rules: [{
               event_sources: [{ type: "lead", id: selectedPage }],
-              retention_seconds: formData.retention_days * 86400
+              retention_seconds: formData.retention_days * 86400,
+              filter: {
+                operator: "and",
+                filters: [{ field: "event", operator: "eq", value: formData.lead_event }]
+              }
             }]
           }
         };
@@ -837,6 +842,7 @@ function CreateAudienceModal({
       });
 
       if (response.ok) {
+        alert('Audience created successfully!');
         onClose();
         onRefresh();
       } else {
@@ -1209,7 +1215,7 @@ function CreateAudienceModal({
                           <div className="flex-1">
                             <p className="font-medium">{audience.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {audience.approximate_count ? formatNumber(audience.approximate_count) : '-'} people
+                              {formatAudienceSize(audience)} people
                             </p>
                           </div>
                         </button>
@@ -1746,11 +1752,11 @@ function AudienceDetailsModal({
               </div>
               <div>
                 <Label className="text-muted-foreground text-xs">Estimated Size</Label>
-                <p className="font-medium">{formatNumber(audience.approximate_count || 0)}</p>
+                <p className="font-medium">{formatAudienceSize(audience)}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground text-xs">Retention Days</Label>
-                <p className="font-medium">{audience.retention_days || 'N/A'}</p>
+                <p className="font-medium">{formatRetentionDays(audience.retention_days)}</p>
               </div>
               {audience.time_created && (
                 <div>

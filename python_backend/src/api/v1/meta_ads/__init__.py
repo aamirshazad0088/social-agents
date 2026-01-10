@@ -32,6 +32,8 @@ from .reports import router as reports_router
 from .competitors import router as competitors_router
 from .settings import router as settings_router
 from .pixels import router as pixels_router
+from .pages import router as pages_router
+from .apps import router as apps_router
 
 # SDK Feature routers
 from .sdk_reach import router as sdk_reach_router
@@ -68,6 +70,8 @@ router.include_router(reports_router)
 router.include_router(competitors_router)
 router.include_router(settings_router)
 router.include_router(pixels_router)
+router.include_router(pages_router)
+router.include_router(apps_router)
 
 # Include SDK feature routers (they already have /sdk prefix)
 router.include_router(sdk_reach_router)

@@ -288,13 +288,606 @@ class MetaSDKClient:
         return await self._get_business_ad_accounts_sync(business_id)
     
     def create_batch(self):
-        """
-        Create a batch request object for multiple API calls.
-        
-        Per Meta docs: https://developers.facebook.com/docs/business-sdk/batch-requests
-        """
+        """Create a batch request object for multiple API calls."""
         self._ensure_initialized()
         return self._api.new_batch()
+    
+    # =========================================================================
+    # CAMPAIGN OPERATIONS
+    # =========================================================================
+    
+    async def get_campaigns(self, account_id: str) -> List[Dict[str, Any]]:
+        """Fetch all campaigns for an ad account"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_campaigns_sync, account_id)
+    
+    def _serialize_sdk_object(self, obj) -> Any:
+        """Recursively serialize SDK objects to JSON-safe types"""
+        import json
+        if obj is None:
+            return None
+        if isinstance(obj, (str, int, float, bool)):
+            return obj
+        if isinstance(obj, dict):
+            return {k: self._serialize_sdk_object(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [self._serialize_sdk_object(item) for item in obj]
+        # Handle SDK objects that have export_all_data or similar
+        if hasattr(obj, 'export_all_data'):
+            return self._serialize_sdk_object(obj.export_all_data())
+        if hasattr(obj, '__dict__'):
+            return self._serialize_sdk_object(obj.__dict__)
+        # Fallback to string representation
+        try:
+            return str(obj)
+        except:
+            return None
+    
+    def _get_campaigns_sync(self, account_id: str) -> List[Dict[str, Any]]:
+        account = AdAccount(f'act_{account_id}')
+        campaigns = account.get_campaigns(fields=[
+            'id', 'name', 'objective', 'status', 'effective_status',
+            'daily_budget', 'lifetime_budget', 'special_ad_categories',
+            'created_time', 'updated_time', 'configured_status'
+        ])
+        return [self._serialize_sdk_object(dict(c)) for c in campaigns]
+    
+    async def create_advantage_plus_campaign(
+        self, ad_account_id: str, name: str, objective: str, status: str,
+        special_ad_categories: List[str] = None, daily_budget: int = None,
+        lifetime_budget: int = None, bid_strategy: str = None
+    ) -> Dict[str, Any]:
+        """Create an Advantage+ campaign"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._create_advantage_plus_campaign_sync,
+            ad_account_id, name, objective, status, special_ad_categories,
+            daily_budget, lifetime_budget, bid_strategy
+        )
+    
+    def _create_advantage_plus_campaign_sync(
+        self, ad_account_id: str, name: str, objective: str, status: str,
+        special_ad_categories: List[str] = None, daily_budget: int = None,
+        lifetime_budget: int = None, bid_strategy: str = None
+    ) -> Dict[str, Any]:
+        from facebook_business.adobjects.campaign import Campaign
+        account = AdAccount(f'act_{ad_account_id}')
+        params = {
+            'name': name,
+            'objective': objective,
+            'status': status,
+            'special_ad_categories': special_ad_categories or [],
+        }
+        if daily_budget:
+            params['daily_budget'] = daily_budget
+        if lifetime_budget:
+            params['lifetime_budget'] = lifetime_budget
+        if bid_strategy:
+            params['bid_strategy'] = bid_strategy
+        result = account.create_campaign(params=params)
+        return {'id': result.get('id'), 'campaign_id': result.get('id')}
+    
+    async def update_campaign(self, campaign_id: str, **updates) -> Dict[str, Any]:
+        """Update a campaign"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._update_campaign_sync, campaign_id, **updates)
+    
+    def _update_campaign_sync(self, campaign_id: str, **updates) -> Dict[str, Any]:
+        from facebook_business.adobjects.campaign import Campaign
+        campaign = Campaign(fbid=campaign_id)
+        params = {k: v for k, v in updates.items() if v is not None}
+        campaign.api_update(params=params)
+        return {'success': True, 'id': campaign_id}
+    
+    async def delete_campaign(self, campaign_id: str) -> Dict[str, Any]:
+        """Delete a campaign"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._delete_campaign_sync, campaign_id)
+    
+    def _delete_campaign_sync(self, campaign_id: str) -> Dict[str, Any]:
+        from facebook_business.adobjects.campaign import Campaign
+        campaign = Campaign(fbid=campaign_id)
+        campaign.api_delete()
+        return {'success': True}
+    
+    async def duplicate_campaign(self, campaign_id: str, new_name: str = None) -> Dict[str, Any]:
+        """Duplicate a campaign"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._duplicate_campaign_sync, campaign_id, new_name)
+    
+    def _duplicate_campaign_sync(self, campaign_id: str, new_name: str = None) -> Dict[str, Any]:
+        from facebook_business.adobjects.campaign import Campaign
+        campaign = Campaign(fbid=campaign_id)
+        params = {}
+        if new_name:
+            params['rename_options'] = {'rename_suffix': ' - Copy'}
+        result = campaign.create_copy(params=params)
+        return {'success': True, 'copied_campaign_id': result.get('copied_campaign_id')}
+    
+    # =========================================================================
+    # AD SET OPERATIONS
+    # =========================================================================
+    
+    async def get_adsets(self, account_id: str) -> List[Dict[str, Any]]:
+        """Fetch all ad sets for an ad account"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_adsets_sync, account_id)
+    
+    def _get_adsets_sync(self, account_id: str) -> List[Dict[str, Any]]:
+        account = AdAccount(f'act_{account_id}')
+        adsets = account.get_ad_sets(fields=[
+            'id', 'name', 'campaign_id', 'status', 'effective_status',
+            'daily_budget', 'lifetime_budget', 'targeting', 'optimization_goal',
+            'billing_event', 'start_time', 'end_time', 'created_time'
+        ])
+        return [self._serialize_sdk_object(dict(a)) for a in adsets]
+    
+    async def create_adset(
+        self, ad_account_id: str, name: str, campaign_id: str,
+        optimization_goal: str, billing_event: str = 'IMPRESSIONS',
+        targeting: Dict = None, status: str = 'PAUSED',
+        daily_budget: int = None, lifetime_budget: int = None,
+        start_time: str = None, end_time: str = None, bid_amount: int = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create an ad set"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._create_adset_sync, ad_account_id, name, campaign_id,
+            optimization_goal, billing_event, targeting, status,
+            daily_budget, lifetime_budget, start_time, end_time, bid_amount
+        )
+    
+    def _create_adset_sync(
+        self, ad_account_id: str, name: str, campaign_id: str,
+        optimization_goal: str, billing_event: str = 'IMPRESSIONS',
+        targeting: Dict = None, status: str = 'PAUSED',
+        daily_budget: int = None, lifetime_budget: int = None,
+        start_time: str = None, end_time: str = None, bid_amount: int = None
+    ) -> Dict[str, Any]:
+        account = AdAccount(f'act_{ad_account_id}')
+        params = {
+            'name': name,
+            'campaign_id': campaign_id,
+            'optimization_goal': optimization_goal,
+            'billing_event': billing_event,
+            'targeting': targeting or {'geo_locations': {'countries': ['US']}},
+            'status': status,
+        }
+        if daily_budget:
+            params['daily_budget'] = daily_budget
+        if lifetime_budget:
+            params['lifetime_budget'] = lifetime_budget
+        if start_time:
+            params['start_time'] = start_time
+        if end_time:
+            params['end_time'] = end_time
+        if bid_amount:
+            params['bid_amount'] = bid_amount
+        result = account.create_ad_set(params=params)
+        return {'id': result.get('id'), 'adset_id': result.get('id')}
+    
+    async def update_adset(self, adset_id: str, **updates) -> Dict[str, Any]:
+        """Update an ad set"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._update_adset_sync, adset_id, **updates)
+    
+    def _update_adset_sync(self, adset_id: str, **updates) -> Dict[str, Any]:
+        from facebook_business.adobjects.adset import AdSet
+        adset = AdSet(fbid=adset_id)
+        params = {k: v for k, v in updates.items() if v is not None}
+        adset.api_update(params=params)
+        return {'success': True, 'id': adset_id}
+    
+    async def delete_adset(self, adset_id: str) -> Dict[str, Any]:
+        """Delete an ad set"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._delete_adset_sync, adset_id)
+    
+    def _delete_adset_sync(self, adset_id: str) -> Dict[str, Any]:
+        from facebook_business.adobjects.adset import AdSet
+        adset = AdSet(fbid=adset_id)
+        adset.api_delete()
+        return {'success': True}
+    
+    async def duplicate_adset(self, adset_id: str, new_name: str = None, campaign_id: str = None) -> Dict[str, Any]:
+        """Duplicate an ad set"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._duplicate_adset_sync, adset_id, new_name, campaign_id)
+    
+    def _duplicate_adset_sync(self, adset_id: str, new_name: str = None, campaign_id: str = None) -> Dict[str, Any]:
+        from facebook_business.adobjects.adset import AdSet
+        adset = AdSet(fbid=adset_id)
+        params = {}
+        if campaign_id:
+            params['campaign_id'] = campaign_id
+        result = adset.create_copy(params=params)
+        return {'success': True, 'copied_adset_id': result.get('copied_adset_id')}
+    
+    # =========================================================================
+    # AD OPERATIONS
+    # =========================================================================
+    
+    async def get_ads(self, account_id: str) -> List[Dict[str, Any]]:
+        """Fetch all ads for an ad account"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_ads_sync, account_id)
+    
+    def _get_ads_sync(self, account_id: str) -> List[Dict[str, Any]]:
+        account = AdAccount(f'act_{account_id}')
+        ads = account.get_ads(fields=[
+            'id', 'name', 'adset_id', 'campaign_id', 'status', 'effective_status',
+            'creative', 'created_time', 'updated_time'
+        ])
+        return [self._serialize_sdk_object(dict(a)) for a in ads]
+    
+    async def create_ad_creative(
+        self, ad_account_id: str, name: str, page_id: str,
+        image_hash: str = None, video_id: str = None,
+        message: str = None, link: str = None,
+        call_to_action_type: str = 'LEARN_MORE', **kwargs
+    ) -> Dict[str, Any]:
+        """Create an ad creative"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._create_ad_creative_sync, ad_account_id, name, page_id,
+            image_hash, video_id, message, link, call_to_action_type
+        )
+    
+    def _create_ad_creative_sync(
+        self, ad_account_id: str, name: str, page_id: str,
+        image_hash: str = None, video_id: str = None,
+        message: str = None, link: str = None,
+        call_to_action_type: str = 'LEARN_MORE'
+    ) -> Dict[str, Any]:
+        account = AdAccount(f'act_{ad_account_id}')
+        object_story_spec = {
+            'page_id': page_id,
+            'link_data': {
+                'message': message or '',
+                'link': link or 'https://example.com',
+                'call_to_action': {'type': call_to_action_type}
+            }
+        }
+        if image_hash:
+            object_story_spec['link_data']['image_hash'] = image_hash
+        if video_id:
+            object_story_spec['video_data'] = {
+                'video_id': video_id,
+                'message': message or '',
+                'call_to_action': {'type': call_to_action_type, 'value': {'link': link or ''}}
+            }
+            del object_story_spec['link_data']
+        params = {'name': name, 'object_story_spec': object_story_spec}
+        result = account.create_ad_creative(params=params)
+        return {'id': result.get('id'), 'creative_id': result.get('id')}
+    
+    async def create_ad(
+        self, ad_account_id: str, name: str, adset_id: str,
+        creative_id: str, status: str = 'PAUSED'
+    ) -> Dict[str, Any]:
+        """Create an ad"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._create_ad_sync, ad_account_id, name, adset_id, creative_id, status
+        )
+    
+    def _create_ad_sync(
+        self, ad_account_id: str, name: str, adset_id: str,
+        creative_id: str, status: str = 'PAUSED'
+    ) -> Dict[str, Any]:
+        account = AdAccount(f'act_{ad_account_id}')
+        params = {
+            'name': name,
+            'adset_id': adset_id,
+            'creative': {'creative_id': creative_id},
+            'status': status
+        }
+        result = account.create_ad(params=params)
+        return {'id': result.get('id'), 'ad_id': result.get('id')}
+    
+    async def update_ad(self, ad_id: str, **updates) -> Dict[str, Any]:
+        """Update an ad"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._update_ad_sync, ad_id, **updates)
+    
+    def _update_ad_sync(self, ad_id: str, **updates) -> Dict[str, Any]:
+        from facebook_business.adobjects.ad import Ad
+        ad = Ad(fbid=ad_id)
+        params = {k: v for k, v in updates.items() if v is not None}
+        ad.api_update(params=params)
+        return {'success': True, 'id': ad_id}
+    
+    async def delete_ad(self, ad_id: str) -> Dict[str, Any]:
+        """Delete an ad"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._delete_ad_sync, ad_id)
+    
+    def _delete_ad_sync(self, ad_id: str) -> Dict[str, Any]:
+        from facebook_business.adobjects.ad import Ad
+        ad = Ad(fbid=ad_id)
+        ad.api_delete()
+        return {'success': True}
+    
+    async def duplicate_ad(self, ad_id: str, new_name: str = None, adset_id: str = None) -> Dict[str, Any]:
+        """Duplicate an ad"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._duplicate_ad_sync, ad_id, new_name, adset_id)
+    
+    def _duplicate_ad_sync(self, ad_id: str, new_name: str = None, adset_id: str = None) -> Dict[str, Any]:
+        from facebook_business.adobjects.ad import Ad
+        ad = Ad(fbid=ad_id)
+        params = {}
+        if adset_id:
+            params['adset_id'] = adset_id
+        result = ad.create_copy(params=params)
+        return {'success': True, 'copied_ad_id': result.get('copied_ad_id')}
+    
+    # =========================================================================
+    # AD PREVIEW
+    # =========================================================================
+    
+    async def get_ad_preview(self, ad_id: str, ad_format: str = 'DESKTOP_FEED_STANDARD') -> Dict[str, Any]:
+        """Get ad preview"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_ad_preview_sync, ad_id, ad_format)
+    
+    def _get_ad_preview_sync(self, ad_id: str, ad_format: str) -> Dict[str, Any]:
+        from facebook_business.adobjects.ad import Ad
+        ad = Ad(fbid=ad_id)
+        previews = ad.get_previews(params={'ad_format': ad_format})
+        return {'previews': [dict(p) for p in previews]}
+    
+    async def generate_ad_preview(self, account_id: str, creative: Dict, ad_format: str = 'DESKTOP_FEED_STANDARD') -> Dict[str, Any]:
+        """Generate ad preview from creative spec"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._generate_ad_preview_sync, account_id, creative, ad_format)
+    
+    def _generate_ad_preview_sync(self, account_id: str, creative: Dict, ad_format: str) -> Dict[str, Any]:
+        account = AdAccount(f'act_{account_id}')
+        params = {'creative': creative, 'ad_format': ad_format}
+        previews = account.get_generate_previews(params=params)
+        return {'previews': [dict(p) for p in previews]}
+    
+    # =========================================================================
+    # AUDIENCES (kept for MetaAdsService compatibility)
+    # =========================================================================
+    
+    async def get_custom_audiences(self, account_id: str) -> List[Dict[str, Any]]:
+        """Fetch custom audiences"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_custom_audiences_sync, account_id)
+    
+    def _get_custom_audiences_sync(self, account_id: str) -> List[Dict[str, Any]]:
+        account = AdAccount(f'act_{account_id}')
+        audiences = account.get_custom_audiences(fields=[
+            'id', 'name', 'subtype', 'description',
+            'approximate_count_lower_bound', 'approximate_count_upper_bound',
+            'data_source', 'delivery_status', 'time_created', 'time_updated',
+            'operation_status', 'retention_days', 'rule', 'lookalike_spec',
+            'is_value_based', 'sharing_status', 'permission_for_actions'
+        ])
+        return [self._serialize_sdk_object(dict(a)) for a in audiences]
+    
+    # =========================================================================
+    # AD ACCOUNT INFO
+    # =========================================================================
+    
+    async def get_ad_account_info(self, account_id: str) -> Dict[str, Any]:
+        """Get ad account details"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_ad_account_info_sync, account_id)
+    
+    def _get_ad_account_info_sync(self, account_id: str) -> Dict[str, Any]:
+        account = AdAccount(f'act_{account_id}')
+        account.api_get(fields=[
+            'id', 'account_id', 'name', 'currency', 'timezone_name',
+            'account_status', 'amount_spent', 'balance', 'business', 'spend_cap'
+        ])
+        return {'adAccount': dict(account)}
+    
+    async def get_campaign_advantage_state(self, campaign_id: str) -> Dict[str, Any]:
+        """Get Advantage+ state for a campaign"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_campaign_advantage_state_sync, campaign_id)
+    
+    def _get_campaign_advantage_state_sync(self, campaign_id: str) -> Dict[str, Any]:
+        from facebook_business.adobjects.campaign import Campaign
+        campaign = Campaign(fbid=campaign_id)
+        campaign.api_get(fields=['id', 'name', 'smart_promotion_type'])
+        return {
+            'campaign_id': campaign_id,
+            'advantage_state': campaign.get('smart_promotion_type', 'DISABLED')
+        }
+    
+    # =========================================================================
+    # PIXEL OPERATIONS
+    # =========================================================================
+    
+    async def get_pixels(self, account_id: str) -> Dict[str, Any]:
+        """Fetch pixels for an ad account"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_pixels_sync, account_id)
+    
+    def _get_pixels_sync(self, account_id: str) -> Dict[str, Any]:
+        account = AdAccount(f'act_{account_id}')
+        pixels = account.get_ads_pixels(fields=[
+            'id', 'name', 'code', 'creation_time', 'is_created_by_business',
+            'last_fired_time', 'owner_business'
+        ])
+        return {'success': True, 'pixels': [self._serialize_sdk_object(dict(p)) for p in pixels]}
+    
+    # =========================================================================
+    # USER PAGES
+    # =========================================================================
+    
+    async def get_user_pages(self) -> List[Dict[str, Any]]:
+        """Fetch pages accessible to the user"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_user_pages_sync)
+    
+    def _get_user_pages_sync(self) -> List[Dict[str, Any]]:
+        from facebook_business.adobjects.user import User
+        me = User(fbid='me')
+        pages = me.get_accounts(fields=[
+            'id', 'name', 'access_token', 'category'
+        ])
+        return [self._serialize_sdk_object(dict(p)) for p in pages]
+    
+    async def get_page_details(self, page_id: str) -> Dict[str, Any]:
+        """Get details for a specific page"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_page_details_sync, page_id)
+    
+    def _get_page_details_sync(self, page_id: str) -> Dict[str, Any]:
+        from facebook_business.adobjects.page import Page
+        page = Page(fbid=page_id)
+        page.api_get(fields=[
+            'id', 'name', 'category', 'picture', 'fan_count', 
+            'followers_count', 'about', 'website'
+        ])
+        return self._serialize_sdk_object(dict(page))
+    
+    # =========================================================================
+    # USER APPS
+    # =========================================================================
+    
+    async def get_user_apps(self) -> List[Dict[str, Any]]:
+        """Fetch apps accessible to the user for app promotion campaigns"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_user_apps_sync)
+    
+    def _get_user_apps_sync(self) -> List[Dict[str, Any]]:
+        from facebook_business.adobjects.user import User
+        try:
+            me = User(fbid='me')
+            apps = me.get_developer_applications(fields=[
+                'id', 'name', 'app_type', 'created_time'
+            ])
+            return [self._serialize_sdk_object(dict(a)) for a in apps]
+        except Exception as e:
+            # User may not have developer access
+            logger.warning(f"Could not fetch apps: {e}")
+            return []
+    
+    # =========================================================================
+    # INSIGHTS / ANALYTICS
+    # =========================================================================
+    
+    async def get_account_insights(
+        self, account_id: str, date_preset: str = 'last_7d',
+        fields: List[str] = None, breakdowns: List[str] = None
+    ) -> Dict[str, Any]:
+        """Get account-level insights"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._get_account_insights_sync, account_id, date_preset, fields, breakdowns
+        )
+    
+    def _get_account_insights_sync(
+        self, account_id: str, date_preset: str = 'last_7d',
+        fields: List[str] = None, breakdowns: List[str] = None
+    ) -> Dict[str, Any]:
+        account = AdAccount(f'act_{account_id}')
+        default_fields = [
+            'impressions', 'clicks', 'spend', 'reach', 'ctr', 'cpm', 'cpc',
+            'actions', 'conversions', 'cost_per_action_type'
+        ]
+        params = {
+            'date_preset': date_preset,
+            'level': 'account'
+        }
+        if breakdowns:
+            params['breakdowns'] = breakdowns
+        insights = account.get_insights(
+            fields=fields or default_fields,
+            params=params
+        )
+        return {'data': [self._serialize_sdk_object(dict(i)) for i in insights]}
+    
+    async def get_insights_breakdown(
+        self, account_id: str, breakdown: str = 'age',
+        date_preset: str = 'last_7d', level: str = 'account'
+    ) -> Dict[str, Any]:
+        """Get insights with breakdown"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._get_insights_breakdown_sync, account_id, breakdown, date_preset, level
+        )
+    
+    def _get_insights_breakdown_sync(
+        self, account_id: str, breakdown: str = 'age',
+        date_preset: str = 'last_7d', level: str = 'account'
+    ) -> Dict[str, Any]:
+        account = AdAccount(f'act_{account_id}')
+        fields = [
+            'impressions', 'clicks', 'spend', 'reach', 'ctr', 'cpm', 'cpc',
+            'actions', 'conversions'
+        ]
+        params = {
+            'date_preset': date_preset,
+            'level': level,
+            'breakdowns': [breakdown]
+        }
+        insights = account.get_insights(fields=fields, params=params)
+        return {'data': [self._serialize_sdk_object(dict(i)) for i in insights]}
+    
+    async def get_campaign_insights(
+        self, campaign_id: str, date_preset: str = 'last_7d'
+    ) -> Dict[str, Any]:
+        """Get campaign-level insights"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._get_campaign_insights_sync, campaign_id, date_preset
+        )
+    
+    def _get_campaign_insights_sync(self, campaign_id: str, date_preset: str = 'last_7d') -> Dict[str, Any]:
+        from facebook_business.adobjects.campaign import Campaign
+        campaign = Campaign(fbid=campaign_id)
+        fields = [
+            'impressions', 'clicks', 'spend', 'reach', 'ctr', 'cpm', 'cpc',
+            'actions', 'conversions', 'cost_per_action_type'
+        ]
+        insights = campaign.get_insights(fields=fields, params={'date_preset': date_preset})
+        return {'data': [self._serialize_sdk_object(dict(i)) for i in insights]}
+    
+    async def get_adset_insights(
+        self, adset_id: str, date_preset: str = 'last_7d'
+    ) -> Dict[str, Any]:
+        """Get ad set-level insights"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._get_adset_insights_sync, adset_id, date_preset
+        )
+    
+    def _get_adset_insights_sync(self, adset_id: str, date_preset: str = 'last_7d') -> Dict[str, Any]:
+        from facebook_business.adobjects.adset import AdSet
+        adset = AdSet(fbid=adset_id)
+        fields = [
+            'impressions', 'clicks', 'spend', 'reach', 'ctr', 'cpm', 'cpc',
+            'actions', 'conversions', 'cost_per_action_type'
+        ]
+        insights = adset.get_insights(fields=fields, params={'date_preset': date_preset})
+        return {'data': [self._serialize_sdk_object(dict(i)) for i in insights]}
+    
+    async def get_ad_insights(
+        self, ad_id: str, date_preset: str = 'last_7d'
+    ) -> Dict[str, Any]:
+        """Get ad-level insights"""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._get_ad_insights_sync, ad_id, date_preset
+        )
+    
+    def _get_ad_insights_sync(self, ad_id: str, date_preset: str = 'last_7d') -> Dict[str, Any]:
+        from facebook_business.adobjects.ad import Ad
+        ad = Ad(fbid=ad_id)
+        fields = [
+            'impressions', 'clicks', 'spend', 'reach', 'ctr', 'cpm', 'cpc',
+            'actions', 'conversions', 'cost_per_action_type'
+        ]
+        insights = ad.get_insights(fields=fields, params={'date_preset': date_preset})
+        return {'data': [self._serialize_sdk_object(dict(i)) for i in insights]}
 
 
 # =============================================================================

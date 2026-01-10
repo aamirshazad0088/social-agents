@@ -27,12 +27,15 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import { formatAudienceSize } from '@/lib/meta-ads-formatters';
 
 interface Audience {
     id: string;
     name: string;
     subtype: string;
     approximate_count?: number;
+    approximate_count_lower_bound?: number;
+    approximate_count_upper_bound?: number;
     description?: string;
     lookalike_spec?: any;
 }
@@ -208,13 +211,6 @@ export default function AudienceBuilder({ onRefresh }: AudienceBuilderProps) {
         }
     };
 
-    const formatCount = (count?: number) => {
-        if (!count) return 'Calculating...';
-        if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-        if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-        return count.toString();
-    };
-
     const SUBTYPES = [
         { value: 'WEBSITE', label: 'Website Visitors' },
         { value: 'ENGAGEMENT', label: 'Engagement' },
@@ -293,7 +289,7 @@ export default function AudienceBuilder({ onRefresh }: AudienceBuilderProps) {
                             <CardContent>
                                 <div className="flex items-center gap-2 text-2xl font-bold">
                                     <Users className="w-5 h-5 text-muted-foreground" />
-                                    {formatCount(audience.approximate_count)}
+                                    {formatAudienceSize(audience)}
                                 </div>
                                 {audience.lookalike_spec && (
                                     <div className="mt-2 text-xs text-muted-foreground">

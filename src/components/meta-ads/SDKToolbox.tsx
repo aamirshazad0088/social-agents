@@ -35,6 +35,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { formatAudienceSize } from '@/lib/meta-ads-formatters';
 
 interface SDKToolboxProps {
     onRefresh?: () => void;
@@ -628,7 +629,7 @@ function SavedAudiencesPanel() {
                             <div key={a.id} className="p-3 bg-muted rounded-lg">
                                 <div className="font-medium">{a.name}</div>
                                 <div className="text-sm text-muted-foreground">
-                                    ~{a.approximate_count?.toLocaleString() || 0} users
+                                    ~{formatAudienceSize(a)} users
                                 </div>
                             </div>
                         ))}

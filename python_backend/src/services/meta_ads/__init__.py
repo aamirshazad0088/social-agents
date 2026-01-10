@@ -22,6 +22,7 @@ from .sdk_ad_preview import AdPreviewService
 from .sdk_async_reports import AsyncReportsService
 from .sdk_business_assets import BusinessAssetsService
 from .sdk_custom_conversions import CustomConversionsService
+from .sdk_custom_audiences import CustomAudiencesService
 from .sdk_lead_forms import LeadFormsService
 from .sdk_offline_conversions import OfflineConversionsService
 from .sdk_pixels import PixelsService
@@ -51,6 +52,7 @@ __all__ = [
     "AsyncReportsService",
     "BusinessAssetsService",
     "CustomConversionsService",
+    "CustomAudiencesService",
     "LeadFormsService",
     "OfflineConversionsService",
     "PixelsService",
