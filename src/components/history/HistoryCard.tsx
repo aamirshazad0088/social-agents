@@ -1,14 +1,26 @@
 'use client'
 
 import React, { useState } from 'react';
-import { Post, Platform, PostType, MediaAsset } from '@/types';
-import { PLATFORMS, STATUS_CONFIG } from '@/constants';
-import { Send, Clock, X, Trash2, Loader2, AlertCircle, CheckCircle2, Edit3, Play, Image as ImageIcon, Layers, Film } from 'lucide-react';
+import { Post, Platform, MediaAsset } from '@/types';
+import { PLATFORMS } from '@/constants';
+import {
+    Send, Clock, X, Trash2, Loader2, AlertCircle, CheckCircle2,
+    Edit3, Play, Image as ImageIcon, Layers, Film,
+    CalendarDays
+} from 'lucide-react';
 import { PlatformTemplateRenderer } from '@/components/templates/PlatformTemplateRenderer';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/contexts/AuthContext';
 import { EditPostModal } from './EditPostModal';
 import { QuotaTooltip } from './QuotaTooltip';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface PublishedCardProps {
     post: Post;
@@ -17,16 +29,6 @@ interface PublishedCardProps {
     onPublishPost?: (post: Post) => Promise<void>;
     connectedAccounts: Record<Platform, boolean>;
 }
-
-// Platform-specific max widths for realistic preview sizing
-const PLATFORM_MAX_WIDTHS: Record<Platform, string> = {
-    instagram: 'max-w-[280px]',
-    facebook: 'max-w-[280px]',
-    twitter: 'max-w-[280px]',
-    linkedin: 'max-w-[280px]',
-    tiktok: 'max-w-[280px]',
-    youtube: 'max-w-[280px]',
-};
 
 const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDeletePost, onPublishPost, connectedAccounts }) => {
     const { isViewOnly } = usePermissions();
@@ -41,7 +43,6 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
     const [publishSuccess, setPublishSuccess] = useState(false);
 
     const handlePublish = async () => {
-        // Guard against double-click
         if (!onPublishPost || isPublishing) return;
 
         setIsPublishing(true);
@@ -75,7 +76,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
     const canPublish = unconnectedPlatforms.length === 0;
 
     // Get media URL
-    const mediaUrl = post.generatedImage || (post.carouselImages && post.carouselImages[0]) || null;
+    const mediaUrl = post.generatedImage || (post.carouselImages && post.carouselImages.length > 0 ? post.carouselImages[0] : null) || null;
     const videoUrl = post.generatedVideoUrl || null;
     const isVideo = !!videoUrl;
     const isCarousel = post.carouselImages && post.carouselImages.length > 1;
@@ -95,16 +96,6 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
     const platformInfo = PLATFORMS.find(p => p.id === activePlatform);
     const PlatformIcon = platformInfo?.icon;
 
-    // Platform colors
-    const platformBgColors: Record<Platform, string> = {
-        instagram: 'from-purple-500 to-pink-500',
-        facebook: 'bg-[#1877F2]',
-        twitter: 'bg-black',
-        linkedin: 'bg-[#0A66C2]',
-        tiktok: 'bg-black',
-        youtube: 'bg-[#FF0000]',
-    };
-
     // Helper to check video URL
     const isVideoUrl = (url: string): boolean => {
         return !!(url?.match(/\.(mp4|webm|mov|avi|mkv)(\?|$)/i) || url?.includes('video'));
@@ -121,7 +112,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                     type: isVideoUrl(url) ? 'video' : 'image',
                     url,
                     size: 0,
-                    tags: [],
+                    tags: [], // Added required property
                     createdAt: new Date().toISOString(),
                     source: 'ai-generated',
                     usedInPosts: [post.id]
@@ -134,7 +125,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                 type: 'image',
                 url: post.generatedImage,
                 size: 0,
-                tags: [],
+                tags: [], // Added required property
                 createdAt: new Date().toISOString(),
                 source: 'ai-generated',
                 usedInPosts: [post.id]
@@ -147,7 +138,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
                 type: 'video',
                 url: post.generatedVideoUrl,
                 size: 0,
-                tags: [],
+                tags: [], // Added required property
                 createdAt: new Date().toISOString(),
                 source: 'ai-generated',
                 usedInPosts: [post.id]
@@ -185,7 +176,7 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
         </div>
     );
 
-    // Preview Modal - Shows full platform template with caption
+    // Preview Modal
     const PreviewModal = () => {
         if (!isPreviewOpen) return null;
         const media = buildMediaArray();
@@ -213,174 +204,159 @@ const PublishedCard: React.FC<PublishedCardProps> = ({ post, onUpdatePost, onDel
 
     return (
         <>
-            <div className={`bg-card rounded-lg border border-border shadow-sm hover:shadow-md transition-shadow overflow-hidden ${PLATFORM_MAX_WIDTHS[activePlatform]} w-full mx-auto`}>
-                {/* Header - Platform & Post Type */}
-                <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 border-b border-border">
-                    {/* Platform Icon */}
-                    {PlatformIcon && (
-                        <div className={`p-1 rounded ${activePlatform === 'instagram' ? 'bg-gradient-to-r ' + platformBgColors[activePlatform] : platformBgColors[activePlatform]}`}>
-                            <PlatformIcon className="w-3 h-3 text-white" />
+            <div
+                className="group relative aspect-square bg-muted rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ease-out cursor-pointer border border-border/50"
+                onClick={() => setIsPreviewOpen(true)}
+            >
+                {/* Media Content */}
+                {videoUrl ? (
+                    <video src={videoUrl} className="w-full h-full object-cover" muted playsInline />
+                ) : mediaUrl ? (
+                    <img src={mediaUrl} alt="Post" className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <ImageIcon className="w-8 h-8 text-muted-foreground/50" />
+                    </div>
+                )}
+
+                {/* Video/Carousel Overlays */}
+                {isVideo && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
                         </div>
-                    )}
-                    {/* Post Type */}
-                    <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-0.5">
-                        <PostTypeIcon className="w-2.5 h-2.5" />
-                        {postTypeInfo.label}
-                    </span>
-                    {isCarousel && (
-                        <span className="text-[9px] text-muted-foreground">({post.carouselImages!.length})</span>
-                    )}
+                    </div>
+                )}
+
+                {/* Badges - Top Left: Platform */}
+                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
+                    <Badge className={`px-2 py-1 bg-black/60 hover:bg-black/70 backdrop-blur-sm border-0 text-white rounded-lg flex items-center gap-1.5`}>
+                        {PlatformIcon && <PlatformIcon className="w-3.5 h-3.5" />}
+                        <span className="capitalize text-[10px] sm:hidden md:inline">{activePlatform}</span>
+                    </Badge>
                 </div>
 
-                {/* Media Preview - Compact - Click to open full preview */}
-                <div className="relative aspect-square bg-black overflow-hidden cursor-pointer" onClick={() => setIsPreviewOpen(true)}>
-                    {videoUrl ? (
-                        <video src={videoUrl} className="w-full h-full object-cover" muted playsInline />
-                    ) : mediaUrl ? (
-                        <img src={mediaUrl} alt="Post" className="w-full h-full object-cover" />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                            <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                        </div>
-                    )}
-                    {/* Video Play Overlay */}
-                    {isVideo && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                            <Play className="w-8 h-8 text-white fill-white" />
-                        </div>
-                    )}
-                    {/* Carousel Indicator */}
-                    {isCarousel && (
-                        <div className="absolute top-1.5 right-1.5 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded">
-                            1/{post.carouselImages!.length}
-                        </div>
-                    )}
-                </div>
-
-                {/* Action Buttons - Compact */}
-                <div className="p-1.5 bg-muted/30 border-t border-border">
-                    {post.status === 'ready_to_publish' && (
-                        <div className="space-y-1.5">
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => !isViewOnly && setIsEditModalOpen(true)}
-                                    disabled={isViewOnly}
-                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm disabled:opacity-50"
-                                >
-                                    <Edit3 className="w-2.5 h-2.5" />
-                                    Edit
-                                </button>
-                                <QuotaTooltip platform={activePlatform} workspaceId={workspaceId || ''}>
-                                    <button
-                                        onClick={() => !isViewOnly && setIsScheduleModalOpen(true)}
-                                        disabled={isViewOnly}
-                                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-sky-400 hover:bg-sky-500 text-white shadow-sm disabled:opacity-50"
-                                    >
-                                        <Clock className="w-2.5 h-2.5" />
-                                        Schedule
-                                    </button>
-                                </QuotaTooltip>
-                                <QuotaTooltip platform={activePlatform} workspaceId={workspaceId || ''}>
-                                    <button
-                                        onClick={() => !isViewOnly && handlePublish()}
-                                        disabled={!canPublish || isPublishing || isViewOnly}
-                                        className="flex-1 flex items-center justify-center gap-1 py-1 px-2 text-[10px] font-medium rounded bg-teal-500 hover:bg-teal-600 text-white shadow-sm disabled:opacity-50"
-                                    >
-                                        {isPublishing ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Send className="w-2.5 h-2.5" />}
-                                        {isPublishing ? '...' : 'Publish'}
-                                    </button>
-                                </QuotaTooltip>
-                                <button
-                                    onClick={() => !isViewOnly && onDeletePost(post.id, post.topic)}
-                                    disabled={isViewOnly}
-                                    className="p-1 rounded bg-rose-500 hover:bg-rose-600 text-white shadow-sm disabled:opacity-50"
-                                >
-                                    <Trash2 className="w-2.5 h-2.5" />
-                                </button>
-                            </div>
-                            {!canPublish && (
-                                <p className="text-[9px] text-amber-600 dark:text-amber-400 truncate">
-                                    Connect {unconnectedPlatforms.join(', ')} to publish
-                                </p>
-                            )}
-                            {publishError && (
-                                <p className="text-[9px] text-red-500 flex items-center gap-0.5">
-                                    <AlertCircle className="w-2.5 h-2.5" />{publishError}
-                                </p>
-                            )}
-                            {publishSuccess && (
-                                <p className="text-[9px] text-green-500 flex items-center gap-0.5">
-                                    <CheckCircle2 className="w-2.5 h-2.5" />Published!
-                                </p>
-                            )}
-                        </div>
-                    )}
-
-                    {post.status === 'scheduled' && (
-                        <div className="flex items-center justify-between gap-1">
-                            <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400">
-                                <Clock className="w-2.5 h-2.5" />
-                                <span className="font-medium">{new Date(post.scheduledAt!).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => !isViewOnly && setIsEditModalOpen(true)}
-                                    disabled={isViewOnly}
-                                    className="py-0.5 px-1.5 text-[9px] font-medium rounded bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm disabled:opacity-50"
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={() => !isViewOnly && handleUnschedule()}
-                                    disabled={isViewOnly}
-                                    className="py-0.5 px-1.5 text-[9px] font-medium rounded text-muted-foreground hover:text-foreground"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
+                {/* Badges - Top Right: Status */}
+                <div className="absolute top-2 right-2 z-10">
                     {post.status === 'published' && (
-                        <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-green-600 flex items-center gap-0.5">
-                                <CheckCircle2 className="w-2.5 h-2.5" />
-                                {new Date(post.publishedAt!).toLocaleDateString()}
-                            </span>
-                            <a href="#" className="text-primary hover:underline text-[9px]">View Live</a>
-                        </div>
+                        <Badge className="bg-emerald-500/90 hover:bg-emerald-600/90 text-white border-0 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span className="hidden md:inline text-[10px]">Published</span>
+                        </Badge>
                     )}
-
+                    {post.status === 'scheduled' && (
+                        <Badge className="bg-blue-500/90 hover:bg-blue-600/90 text-white border-0 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5">
+                            <Clock className="w-3 h-3" />
+                            <span className="hidden md:inline text-[10px]">Scheduled</span>
+                        </Badge>
+                    )}
                     {post.status === 'failed' && (
-                        <div className="space-y-1">
-                            <p className="text-[9px] text-red-500 flex items-center gap-0.5">
-                                <AlertCircle className="w-2.5 h-2.5" />Failed to publish
-                            </p>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => !isViewOnly && setIsEditModalOpen(true)}
-                                    disabled={isViewOnly}
-                                    className="flex-1 py-0.5 px-1.5 text-[9px] font-medium rounded bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm disabled:opacity-50"
+                        <Badge className="bg-red-500/90 hover:bg-red-600/90 text-white border-0 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5">
+                            <AlertCircle className="w-3 h-3" />
+                            <span className="hidden md:inline text-[10px]">Failed</span>
+                        </Badge>
+                    )}
+                </div>
+
+                {/* Badges - Bottom Left: Post Type */}
+                <div className="absolute bottom-2 left-2 z-10 opacity-100 group-hover:opacity-0 transition-opacity duration-200">
+                    <Badge className="bg-black/50 hover:bg-black/60 text-white border-0 backdrop-blur-sm flex items-center gap-1.5 rounded-lg">
+                        <PostTypeIcon className="w-3 h-3" />
+                        <span className="text-[10px] capitalize">{postTypeInfo.label}</span>
+                        {isCarousel && <span className="text-[9px] opacity-80">({post.carouselImages!.length})</span>}
+                    </Badge>
+                </div>
+
+                {/* Hover Overlay with Actions */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3">
+                    <div className="flex items-center gap-2 justify-end" onClick={e => e.stopPropagation()}>
+                        {/* Edit Button */}
+                        {!isViewOnly && post.status !== 'published' && (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-8 w-8 p-0 rounded-lg bg-white/10 hover:bg-white/20 text-white border-0 backdrop-blur-sm hover:scale-110 transition-all"
+                                onClick={() => setIsEditModalOpen(true)}
+                                title="Edit Post"
+                            >
+                                <Edit3 className="w-4 h-4" />
+                            </Button>
+                        )}
+
+                        {/* Schedule Button */}
+                        {!isViewOnly && post.status !== 'published' && post.status !== 'scheduled' && (
+                            <QuotaTooltip platform={activePlatform} workspaceId={workspaceId || ''}>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-8 w-8 p-0 rounded-lg bg-white/10 hover:bg-white/20 text-white border-0 backdrop-blur-sm hover:scale-110 transition-all"
+                                    onClick={() => setIsScheduleModalOpen(true)}
+                                    title="Schedule"
                                 >
-                                    Edit
-                                </button>
-                                <QuotaTooltip platform={activePlatform} workspaceId={workspaceId || ''}>
-                                    <button
-                                        onClick={() => !isViewOnly && handlePublish()}
-                                        disabled={isPublishing || isViewOnly}
-                                        className="flex-1 py-0.5 px-1.5 text-[9px] font-medium rounded bg-orange-600 text-white disabled:opacity-50"
+                                    <Clock className="w-4 h-4" />
+                                </Button>
+                            </QuotaTooltip>
+                        )}
+
+                        {/* Unschedule Button */}
+                        {!isViewOnly && post.status === 'scheduled' && (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-8 w-8 p-0 rounded-lg bg-orange-500/80 hover:bg-orange-600/80 text-white border-0 backdrop-blur-sm hover:scale-110 transition-all"
+                                onClick={handleUnschedule}
+                                title="Unschedule"
+                            >
+                                <CalendarDays className="w-4 h-4" />
+                            </Button>
+                        )}
+
+                        {/* Publish Button */}
+                        {!isViewOnly && (post.status === 'ready_to_publish' || post.status === 'failed') && (
+                            <QuotaTooltip platform={activePlatform} workspaceId={workspaceId || ''}>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-8 w-8 p-0 rounded-lg bg-teal-500/80 hover:bg-teal-600/80 text-white border-0 backdrop-blur-sm hover:scale-110 transition-all"
+                                    onClick={handlePublish}
+                                    disabled={!canPublish || isPublishing}
+                                    title={!canPublish ? `Connect ${unconnectedPlatforms.join(', ')} to publish` : "Publish Now"}
+                                >
+                                    {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                </Button>
+                            </QuotaTooltip>
+                        )}
+
+                        {/* Delete/More Options */}
+                        {!isViewOnly && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-8 w-8 p-0 rounded-lg bg-red-500/80 hover:bg-red-600/80 text-white border-0 backdrop-blur-sm hover:scale-110 transition-all"
                                     >
-                                        Retry
-                                    </button>
-                                </QuotaTooltip>
-                                <button
-                                    onClick={() => !isViewOnly && onDeletePost(post.id)}
-                                    disabled={isViewOnly}
-                                    className="p-0.5 rounded bg-red-600 text-white disabled:opacity-50"
-                                >
-                                    <Trash2 className="w-2.5 h-2.5" />
-                                </button>
-                            </div>
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40 z-50">
+                                    <DropdownMenuItem
+                                        className="text-red-600 focus:text-red-600 cursor-pointer"
+                                        onClick={() => onDeletePost(post.id, post.topic)}
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete Post
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </div>
+
+                    {/* Error Message if Failed */}
+                    {publishError && (
+                        <div className="mt-2 text-[10px] text-white bg-red-500/80 p-1.5 rounded backdrop-blur-sm flex items-center gap-1.5 animate-in slide-in-from-bottom-1 fade-in">
+                            <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{publishError}</span>
                         </div>
                     )}
                 </div>
