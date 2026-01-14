@@ -1,8 +1,8 @@
 """Content Strategist Agent - Tools Package
 
-Simplified calendar tools - no IDs required!
-
 Available tools:
+
+Web & Research:
 - web_search: Search the web
 
 Calendar - View:
@@ -18,6 +18,9 @@ Calendar - Modify (no IDs needed):
 - find_and_update_entry: Find by title/date/platform and update
 - find_and_delete_entry: Find and delete
 - clear_day: Clear all entries for a day
+
+Skills (Dynamic Loading):
+- load_skill: Load platform-specific expertise (instagram, linkedin, twitter, tiktok, youtube, facebook)
 """
 from .tools import web_search
 from .calendar_tools import (
@@ -31,6 +34,7 @@ from .calendar_tools import (
     clear_day,
     set_workspace_id,
 )
+from .skill_tools import load_skill
 
 __all__ = [
     "web_search",
@@ -43,4 +47,6 @@ __all__ = [
     "find_and_delete_entry",
     "clear_day",
     "set_workspace_id",
+    "load_skill",
 ]
+

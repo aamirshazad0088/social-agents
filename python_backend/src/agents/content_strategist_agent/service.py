@@ -34,6 +34,7 @@ from .tools import (
     find_and_delete_entry,
     clear_day,
     set_workspace_id,
+    load_skill,
 )
 from .subagents import load_subagents
 from .checkpointer import init_checkpointer, close_checkpointer, get_checkpointer
@@ -57,8 +58,8 @@ async def get_agent():
     
     Uses deepagents create_deep_agent with:
     - memory: AGENTS.md loaded into system prompt
-    - skills: Platform-specific SKILL.md files loaded on demand
-    - tools: web_search, calendar tools (no IDs needed!)
+    - skills: Platform-specific skills loaded on-demand via load_skill tool
+    - tools: web_search, calendar tools, load_skill for platform expertise
     - subagents: researcher, media_prompt_expert, content_editor
     """
     global _agent
@@ -78,6 +79,8 @@ async def get_agent():
         skills=get_skills_dirs(),
         tools=[
             web_search,
+            # Skills - Dynamic platform expertise
+            load_skill,
             # Calendar - View
             get_today_entries,
             get_tomorrow_entries,
