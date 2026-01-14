@@ -105,18 +105,28 @@ export interface MediaGenerationResponse {
     error?: string;
 }
 
-/** Prompt improvement request */
+/** Prompt improvement request - matches backend ImprovePromptRequest */
 export interface PromptImprovementRequest {
+    /** Original prompt to improve */
     originalPrompt: string;
-    mediaType: 'image' | 'video' | 'audio';
-    style?: string;
+    /** Type of media being generated */
+    mediaType: 'image-generation' | 'image-editing' | 'video-generation' | 'video-editing';
+    /** Specific subtype (e.g., 'portrait', 'landscape') */
+    mediaSubType?: string;
+    /** Target AI provider */
+    provider?: 'openai' | 'google' | 'midjourney' | 'runway' | 'veo' | 'imagen' | 'stable-diffusion' | 'sora';
+    /** Specific model name */
+    model?: string;
+    /** User guidance for improvements */
+    userInstructions?: string;
+    /** LLM model ID to use for improvement */
+    modelId?: string;
 }
 
-/** Prompt improvement response */
+/** Prompt improvement response - matches backend ImprovePromptResponse */
 export interface PromptImprovementResponse {
     success: boolean;
     improvedPrompt: string;
-    suggestions?: string[];
 }
 
 // =============================================================================

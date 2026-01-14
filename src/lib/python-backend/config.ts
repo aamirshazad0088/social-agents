@@ -204,7 +204,7 @@ export const ENDPOINTS = {
     // Media Generation
     media: {
         generate: '/media-generating/generate',
-        improvePrompt: '/improve-media-prompts/improve',
+        improvePrompt: '/api/v1/improve/prompt',
     },
 
     // Comments

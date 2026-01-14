@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 MediaType = Literal["image-generation", "image-editing", "video-generation", "video-editing"]
-MediaProvider = Literal["openai", "google", "midjourney", "runway", "veo", "imagen", "stable-diffusion"]
+MediaProvider = Literal["openai", "google", "midjourney", "runway", "veo", "imagen", "stable-diffusion", "sora"]
 
 
 class ImprovePromptRequest(BaseModel):
