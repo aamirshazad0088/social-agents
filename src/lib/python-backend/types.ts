@@ -59,6 +59,7 @@ export interface ContentBlock {
 export interface ChatStrategistRequest {
     message: string;
     threadId: string;
+    workspaceId?: string;
     modelId?: string;
     contentBlocks?: ContentBlock[];
 }

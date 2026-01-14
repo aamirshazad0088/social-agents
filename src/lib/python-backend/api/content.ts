@@ -11,6 +11,7 @@ import { ContentBlock } from '@/lib/multimodal-utils';
 export interface ChatRequest {
     message: string;
     threadId: string;
+    workspaceId?: string;
     modelId?: string;
     /** Content blocks for multimodal input (images, PDFs) */
     contentBlocks?: ContentBlock[];

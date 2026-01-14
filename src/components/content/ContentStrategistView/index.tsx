@@ -250,6 +250,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                 {
                     message: currentMessage,
                     threadId: langThreadId ?? '',
+                    workspaceId: workspaceId ?? undefined,
                     contentBlocks: contentBlocks.length > 0 ? contentBlocks : undefined,
                     modelId: selectedModelId,
                 },
@@ -323,6 +324,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             const result = await sendMessage({
                 message: messageText,
                 threadId: langThreadId ?? '',
+                workspaceId: workspaceId ?? undefined,
             });
 
             handleMessageResult(result, setMessages);
@@ -385,6 +387,7 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
             const result = await sendMessage({
                 message: 'yes',
                 threadId: langThreadId ?? '',
+                workspaceId: workspaceId ?? undefined,
             });
 
             const aiResponse = result?.response;
@@ -484,15 +487,14 @@ const ContentStrategistView: React.FC<ContentStrategistViewProps> = ({ onPostCre
                                     ))}
                                 </Suspense>
                                 {isLoading && (
-                                    <div className="flex items-start gap-4 py-4">
-                                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                                            <Bot className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1 space-y-2">
-                                            <div className="flex items-center gap-2 text-muted-foreground">
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                                <span className="text-sm">Thinking...</span>
+                                    <div className="flex items-start gap-3 py-4">
+                                        <div className="flex-shrink-0">
+                                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                                                <Loader2 className="w-4 h-4 text-white animate-spin" />
                                             </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-muted-foreground pt-1">
+                                            <span className="text-sm">Thinking...</span>
                                         </div>
                                     </div>
                                 )}

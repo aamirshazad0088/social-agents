@@ -11,6 +11,7 @@ import { Message } from '../types';
 export interface SendMessageParams {
     message: string;
     threadId: string;
+    workspaceId?: string;
     contentBlocks?: ContentBlock[];
     modelId?: string;
 }
@@ -27,11 +28,12 @@ export interface MessageResult {
  * Supports multimodal input via contentBlocks.
  */
 export async function sendMessage(params: SendMessageParams): Promise<MessageResult> {
-    const { message, threadId, contentBlocks, modelId } = params;
+    const { message, threadId, workspaceId, contentBlocks, modelId } = params;
 
     const request: ChatRequest = {
         message,
         threadId: threadId || createThreadId(),
+        workspaceId,
         modelId,
         contentBlocks,
     };
@@ -66,11 +68,12 @@ export async function sendMessageStream(
     onComplete: (response: string) => void,
     onError: (error: Error) => void
 ): Promise<void> {
-    const { message, threadId, contentBlocks, modelId } = params;
+    const { message, threadId, workspaceId, contentBlocks, modelId } = params;
 
     const request: ChatRequest = {
         message,
         threadId: threadId || createThreadId(),
+        workspaceId,
         modelId,
         contentBlocks,
     };

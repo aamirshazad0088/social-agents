@@ -210,9 +210,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
     isLoading,
     onSuggestionClick
 }) => {
-    // Loading indicator for AI response
-    if (msg.role === 'model' && isLoading && !msg.content) {
-        return <AILoadingIndicator />;
+    // Don't render empty model messages - parent handles loading state
+    if (msg.role === 'model' && !msg.content && !msg.generatedImage && !msg.generatedVideo && !msg.isGeneratingMedia) {
+        return null;
     }
 
     // Human message

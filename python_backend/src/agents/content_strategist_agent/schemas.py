@@ -19,6 +19,7 @@ class ChatStrategistRequest(BaseModel):
     """Request to chat with the content strategist agent"""
     message: str = Field(..., description="User message")
     threadId: str = Field(default="", description="Thread ID for conversation")
+    workspaceId: Optional[str] = Field(default=None, description="Workspace ID for calendar tools")
     modelId: Optional[str] = Field(default=None, description="Model ID to use")
     contentBlocks: Optional[List[ContentBlock]] = Field(default=None, description="Multimodal content")
 

@@ -16,6 +16,7 @@ import {
     Video,
     Palette,
     Send,
+    Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,6 +33,7 @@ import NotificationBell from '@/components/ui/NotificationBell';
 const sidebarItems = [
     { icon: Edit3, label: 'Create Content', href: '/dashboard/create' },
     { icon: Video, label: 'Media Studio', href: '/dashboard/media-studio' },
+    { icon: Calendar, label: 'Content Calendar', href: '/dashboard/content-calendar' },
     { icon: Palette, label: 'Canva Editor', href: '/dashboard/canva-editor' },
     { icon: FolderOpen, label: 'Library', href: '/dashboard/library' },
     { icon: Send, label: 'Publish', href: '/dashboard/history' },

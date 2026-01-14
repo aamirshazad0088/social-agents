@@ -139,7 +139,8 @@ from .api import (
     rate_limits_router,
     businesses_router,
     ab_tests_router,
-    voice_live_router
+    voice_live_router,
+    calendar_router
 )
 app.include_router(content_router)
 app.include_router(content_improvement_router)
@@ -168,6 +169,7 @@ app.include_router(rate_limits_router)
 app.include_router(businesses_router, prefix="/api/v1/meta-ads", tags=["Meta Ads - Business"])
 app.include_router(ab_tests_router, prefix="/api/v1/meta-ads", tags=["Meta Ads - A/B Testing"])
 app.include_router(voice_live_router)
+app.include_router(calendar_router, prefix="/api/v1", tags=["Content Calendar"])
 
 
 @app.exception_handler(Exception)

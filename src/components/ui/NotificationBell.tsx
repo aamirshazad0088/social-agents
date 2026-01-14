@@ -31,6 +31,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className, side = '
     <Popover>
       <PopoverTrigger asChild>
         <button
+          suppressHydrationWarning
           className={cn(
             "relative p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 outline-none",
             className
