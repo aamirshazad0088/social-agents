@@ -17,6 +17,9 @@ import { ContentThread } from '@/services/database/threadService.client';
 import { ChatInterface } from './components/ChatInterface';
 import { ThreadHistory } from './components/ThreadHistory';
 import { TasksFilesSidebar } from './components/TasksFilesSidebar';
+import { FileViewDialog, FileItem } from './components/FileViewDialog';
+import { ConfigDialog } from './components/ConfigDialog';
+
 
 export default function ContentStrategistView({ onPostCreated }: ContentStrategistViewProps) {
     // Store state
@@ -31,6 +34,9 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     const [workspaceId, setWorkspaceId] = useState<string | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
     const [isHistoryVisible] = useState(true); // History panel is visible by default
+    const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+    const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
+    const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
 
     // Get workspace ID and user ID from localStorage
     useEffect(() => {
@@ -160,10 +166,41 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
                 <TasksFilesSidebar
                     files={filesRecord}
                     onFileClick={(path) => {
-                        console.log('File clicked:', path);
+                        // Find file content from messages
+                        const fileData = messages
+                            .flatMap(m => m.files || [])
+                            .find(f => f.path === path);
+                        if (fileData) {
+                            setSelectedFile({
+                                path: fileData.path,
+                                content: '', // Content would come from backend state
+                            });
+                            setIsFileDialogOpen(true);
+                        }
                     }}
                 />
             </div>
+
+            {/* File View Dialog */}
+            <FileViewDialog
+                file={selectedFile}
+                isOpen={isFileDialogOpen}
+                onClose={() => {
+                    setIsFileDialogOpen(false);
+                    setSelectedFile(null);
+                }}
+                editDisabled={true}
+            />
+
+            {/* Config Dialog */}
+            <ConfigDialog
+                isOpen={isConfigDialogOpen}
+                onClose={() => setIsConfigDialogOpen(false)}
+                threadId={langThreadId}
+                workspaceId={workspaceId}
+                onReset={handleNewChat}
+            />
         </div>
     );
 }
+

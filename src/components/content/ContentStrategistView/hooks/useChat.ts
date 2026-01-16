@@ -295,9 +295,72 @@ export function useChat(options: UseChatOptions) {
         isSubmittingRef.current = false;
     }, []);
 
+    /**
+     * Resume from an interrupt (tool approval)
+     * Sends approval/denial to continue the agent
+     */
+    const resumeInterrupt = useCallback(async (
+        decision: 'approve' | 'deny',
+        actionId: string,
+        reason?: string
+    ): Promise<void> => {
+        if (!threadId) return;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/v1/deep-agents/threads/${threadId}/resume`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    decision,
+                    actionId,
+                    reason,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Resume failed: ${response.status}`);
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to resume';
+            setError(errorMessage);
+        }
+    }, [threadId, setError]);
+
+    /**
+     * Stop the current stream
+     */
+    const stopStream = useCallback(() => {
+        abort();
+    }, [abort]);
+
+    /**
+     * Get current thread state (todos, files)
+     */
+    const getThreadState = useCallback(async (): Promise<{
+        todos: Array<{ id: string; content: string; status: string }>;
+        files: Record<string, string>;
+    } | null> => {
+        if (!threadId) return null;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/v1/deep-agents/threads/${threadId}/state`);
+            if (!response.ok) return null;
+            return await response.json();
+        } catch {
+            return null;
+        }
+    }, [threadId]);
+
     return {
         submit,
         abort,
+        stopStream,
+        resumeInterrupt,
+        getThreadState,
         isSubmitting: isSubmittingRef.current,
+        isLoading: isSubmittingRef.current,
     };
 }
+

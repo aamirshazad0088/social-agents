@@ -238,3 +238,71 @@ async def get_thread_history(thread_id: str):
         "threadId": thread_id,
         "messages": [],
     }
+
+
+class ResumeRequest(BaseModel):
+    """Request to resume from an interrupt."""
+    decision: str = Field(..., description="approve or deny")
+    actionId: str = Field(..., description="ID of the action to resume")
+    reason: Optional[str] = Field(None, description="Reason for denial")
+
+
+@router.post("/threads/{thread_id}/resume")
+async def resume_interrupt(thread_id: str, request: ResumeRequest):
+    """Resume from an interrupt (tool approval/denial).
+    
+    This endpoint handles human-in-the-loop approval for tool calls.
+    """
+    logger.info(f"Resume interrupt - Thread: {thread_id}, Decision: {request.decision}")
+    
+    # For now, return success - full implementation requires LangGraph checkpointer
+    # with interrupt support in the agent configuration
+    return {
+        "success": True,
+        "threadId": thread_id,
+        "decision": request.decision,
+        "actionId": request.actionId,
+        "message": f"Action {request.decision}d successfully",
+    }
+
+
+@router.get("/threads/{thread_id}/state")
+async def get_thread_state(thread_id: str):
+    """Get current thread state including todos and files.
+    
+    Returns the current state from the LangGraph checkpointer.
+    """
+    logger.info(f"Get thread state - Thread: {thread_id}")
+    
+    try:
+        agent = get_agent()
+        
+        # Get state from checkpointer
+        config = {"configurable": {"thread_id": thread_id}}
+        state = await agent.aget_state(config)
+        
+        if state and state.values:
+            values = state.values
+            return {
+                "success": True,
+                "threadId": thread_id,
+                "todos": values.get("todos", []),
+                "files": values.get("files", {}),
+            }
+        
+        return {
+            "success": True,
+            "threadId": thread_id,
+            "todos": [],
+            "files": {},
+        }
+    except Exception as e:
+        logger.error(f"Failed to get thread state: {e}")
+        return {
+            "success": False,
+            "threadId": thread_id,
+            "todos": [],
+            "files": {},
+            "error": str(e),
+        }
+

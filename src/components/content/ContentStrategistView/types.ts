@@ -102,11 +102,66 @@ export interface ThreadInfo {
  * Streaming event types from deep-agents backend
  */
 export interface StreamEvent {
-    step: 'thinking' | 'streaming' | 'tool_call' | 'tool_result' | 'sub_agent' | 'done' | 'error';
+    step: 'thinking' | 'streaming' | 'tool_call' | 'tool_result' | 'sub_agent' | 'done' | 'error' | 'interrupt';
     content?: string;
     id?: string;
     name?: string;
     args?: Record<string, unknown>;
     result?: string;
     status?: string;
+    interrupt_data?: ToolApprovalInterruptData;
 }
+
+/**
+ * Interrupt data from LangGraph human-in-the-loop
+ */
+export interface InterruptData {
+    value: unknown;
+    ns?: string[];
+    scope?: string;
+}
+
+/**
+ * Action request for tool approval
+ */
+export interface ActionRequest {
+    id: string;
+    name: string;
+    args: Record<string, unknown>;
+    description?: string;
+}
+
+/**
+ * Review configuration for tool approval
+ */
+export interface ReviewConfig {
+    actionName: string;
+    allowedDecisions?: string[];
+}
+
+/**
+ * Tool approval interrupt data
+ */
+export interface ToolApprovalInterruptData {
+    action_requests: ActionRequest[];
+    review_configs?: ReviewConfig[];
+}
+
+/**
+ * File item from agent file operations
+ */
+export interface FileItem {
+    path: string;
+    content: string;
+}
+
+/**
+ * Todo item from agent task management
+ */
+export interface TodoItem {
+    id: string;
+    content: string;
+    status: 'pending' | 'in_progress' | 'completed';
+    updatedAt?: Date;
+}
+
