@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Literal
 
 from langchain_core.tools import tool
+from langgraph.checkpoint.memory import MemorySaver
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
 
@@ -171,6 +172,7 @@ def create_content_writer():
         tools=[generate_cover, generate_social_image],  # Image generation
         subagents=load_subagents(AGENT_DIR / "subagents.yaml"),  # Custom helper
         backend=FilesystemBackend(root_dir=AGENT_DIR, virtual_mode=True),  # virtual_mode for Windows
+        checkpointer=MemorySaver(),  # In-memory short-term persistence
     )
 
 

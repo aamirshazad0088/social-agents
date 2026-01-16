@@ -1,8 +1,3 @@
----
-name: blog-post
-description: Use this skill when writing long-form blog posts, tutorials, or educational articles that require structure, depth, and SEO considerations
----
-
 # Blog Post Writing Skill
 
 This skill provides a structured workflow for creating high-quality blog posts that educate and engage readers.
@@ -20,7 +15,7 @@ Use this skill when asked to:
 1. Use the `task` tool with `subagent_type: "researcher"`
 2. In the description, specify BOTH the topic AND where to save:
 
-```
+```python
 task(
     subagent_type="researcher",
     description="Research [TOPIC]. Save findings to research/[slug].md"
@@ -28,7 +23,7 @@ task(
 ```
 
 Example:
-```
+```python
 task(
     subagent_type="researcher",
     description="Research the current state of AI agents in 2025. Save findings to research/ai-agents-2025.md"
@@ -51,7 +46,7 @@ Example: A post about "AI Agents in 2025" → `blogs/ai-agents-2025/`
 
 **You MUST complete both steps:**
 1. Write the post to `blogs/<slug>/post.md`
-2. Generate a cover image using `generate_image` and save to `blogs/<slug>/hero.png`
+2. Generate a cover image using `generate_cover` and save to `blogs/<slug>/hero.png`
 
 **A blog post is NOT complete without its cover image.**
 
@@ -87,7 +82,7 @@ Every blog post should follow this structure:
 ## Cover Image Generation
 After writing the post, generate a cover image using the `generate_cover` tool:
 
-```
+```python
 generate_cover(prompt="A detailed description of the image...", slug="your-blog-slug")
 ```
 

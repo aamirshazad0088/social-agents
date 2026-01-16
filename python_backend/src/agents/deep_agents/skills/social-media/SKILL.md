@@ -1,8 +1,3 @@
----
-name: social-media
-description: Use this skill when creating short-form social media content for LinkedIn, Twitter/X, or other platforms
----
-
 # Social Media Content Skill
 
 This skill provides guidelines for creating engaging social media content that drives engagement and shares.
@@ -20,7 +15,7 @@ Use this skill when asked to:
 1. Use the `task` tool with `subagent_type: "researcher"`
 2. In the description, specify BOTH the topic AND where to save:
 
-```
+```python
 task(
     subagent_type="researcher",
     description="Research [TOPIC]. Save findings to research/[slug].md"
@@ -28,7 +23,7 @@ task(
 ```
 
 Example:
-```
+```python
 task(
     subagent_type="researcher",
     description="Research renewable energy trends in 2025. Save findings to research/renewable-energy.md"
@@ -60,7 +55,7 @@ Example: A LinkedIn post about "prompt engineering" → `linkedin/prompt-enginee
 
 **You MUST complete both steps:**
 1. Write the content to the appropriate path
-2. Generate an image using `generate_image` and save alongside the post
+2. Generate an image using `generate_social_image` and save alongside the post
 
 **A social media post is NOT complete without its image.**
 
@@ -120,7 +115,7 @@ Example: A LinkedIn post about "prompt engineering" → `linkedin/prompt-enginee
 ## Image Generation
 Every social media post needs an eye-catching image. Use the `generate_social_image` tool:
 
-```
+```python
 generate_social_image(prompt="A detailed description...", platform="linkedin", slug="your-post-slug")
 ```
 
