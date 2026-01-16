@@ -36,7 +36,7 @@ async def search_targeting(
         
         result = await service.search_targeting(
             query=q,
-            targeting_type=type,
+            target_type=type,
             limit=limit
         )
         
@@ -64,7 +64,7 @@ async def browse_targeting(
         from ....services.meta_ads.sdk_targeting import TargetingService
         service = TargetingService(creds["access_token"])
         
-        result = await service.browse_targeting(browse_class=class_)
+        result = await service.browse_targeting(targeting_class=class_)
         
         return JSONResponse(content=result)
         

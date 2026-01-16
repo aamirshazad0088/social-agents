@@ -28,7 +28,7 @@ async def get_videos(request: Request):
         from ....services.meta_ads.sdk_videos import VideosService
         service = VideosService(creds["access_token"])
         
-        result = await service.get_videos(
+        result = await service.get_ad_videos(
             account_id=creds["account_id"].replace("act_", "")
         )
         

@@ -380,9 +380,17 @@ function ReachEstimationPanel() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                                {/* Valid delivery_estimate goals per Meta API */}
                                 <SelectItem value="REACH">Reach</SelectItem>
-                                <SelectItem value="IMPRESSIONS">Impressions</SelectItem>
                                 <SelectItem value="LINK_CLICKS">Link Clicks</SelectItem>
+                                <SelectItem value="IMPRESSIONS">Impressions</SelectItem>
+                                <SelectItem value="OFFSITE_CONVERSIONS">Conversions</SelectItem>
+                                <SelectItem value="LEAD_GENERATION">Lead Generation</SelectItem>
+                                <SelectItem value="POST_ENGAGEMENT">Post Engagement</SelectItem>
+                                <SelectItem value="PAGE_LIKES">Page Likes</SelectItem>
+                                <SelectItem value="THRUPLAY">Video ThruPlay</SelectItem>
+                                <SelectItem value="APP_INSTALLS">App Installs</SelectItem>
+                                <SelectItem value="LANDING_PAGE_VIEWS">Landing Page Views</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -401,32 +409,55 @@ function ReachEstimationPanel() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Results</CardTitle>
+                    <CardTitle>Audience Estimate</CardTitle>
+                    <CardDescription>Estimated audience size based on targeting</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {result ? (
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-muted rounded-lg text-center">
-                                    <div className="text-2xl font-bold text-blue-500">
-                                        {result.reach_estimate?.toLocaleString() || 0}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">Estimated Reach</div>
-                                </div>
-                                <div className="p-4 bg-muted rounded-lg text-center">
-                                    <div className="text-2xl font-bold text-green-500">
-                                        {result.impressions?.toLocaleString() || 0}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">Impressions</div>
+                        result.success === false ? (
+                            <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-lg text-center">
+                                <div className="text-sm text-red-600 dark:text-red-400">
+                                    {result.error || 'Failed to estimate audience'}
                                 </div>
                             </div>
-
-                            {result.budget > 0 && (
-                                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md text-sm text-center">
-                                    Based on daily budget of <strong>{currency} {(result.budget / 100).toFixed(2)}</strong>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-muted rounded-lg text-center">
+                                        <div className="text-2xl font-bold text-blue-500">
+                                            {(result.estimate_dau || 0).toLocaleString()}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Daily Active Users</div>
+                                    </div>
+                                    <div className="p-4 bg-muted rounded-lg text-center">
+                                        <div className="text-2xl font-bold text-green-500">
+                                            {(result.estimate_mau || 0).toLocaleString()}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Monthly Active Users</div>
+                                    </div>
                                 </div>
-                            )}
-                        </div>
+
+                                {result.estimate_ready === false && (
+                                    <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-md text-sm text-center text-yellow-600">
+                                        Estimate is still being calculated...
+                                    </div>
+                                )}
+
+                                {result.daily_outcomes_curve && result.daily_outcomes_curve.length > 0 && (
+                                    <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                                        <div className="text-xs text-muted-foreground mb-2">Daily Outcomes Preview</div>
+                                        <div className="text-sm">
+                                            {result.daily_outcomes_curve.slice(0, 3).map((item: any, i: number) => (
+                                                <div key={i} className="flex justify-between">
+                                                    <span>{item.spend ? `$${(item.spend / 100).toFixed(0)}` : 'N/A'}</span>
+                                                    <span className="text-muted-foreground">{item.reach?.toLocaleString() || 0} reach</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )
                     ) : (
                         <div className="text-center py-8 text-muted-foreground">
                             Configure targeting and click estimate
@@ -473,15 +504,15 @@ function TargetingPanel() {
     const browseTargeting = async () => {
         setIsSearching(true);
         try {
-            // Map class to type automatically for common cases
-            let searchType = 'adinterest';
-            if (targetClass === 'behaviors') searchType = 'adbehavior';
-            if (targetClass === 'demographics') searchType = 'addemographic';
-
-            const response = await fetch(`/api/v1/meta-ads/sdk/targeting/browse?type=${searchType}&target_class=${targetClass}`);
+            // Backend now uses adTargetingCategory for browsing, just pass the class
+            const response = await fetch(`/api/v1/meta-ads/sdk/targeting/browse?class=${targetClass}`);
             if (response.ok) {
                 const data = await response.json();
                 setResults(data.categories || []);
+                // Show note if browse returned empty with a message
+                if (data.note && data.categories?.length === 0) {
+                    console.info('Browse note:', data.note);
+                }
             }
         } catch (err) {
             console.error('Targeting browse failed:', err);
@@ -490,12 +521,24 @@ function TargetingPanel() {
         }
     };
 
+    // All Meta API targeting categories per official documentation
     const CLASSES = [
-        { value: 'interests', label: 'Interests' },
-        { value: 'behaviors', label: 'Behaviors' },
-        { value: 'demographics', label: 'Demographics' },
-        { value: 'life_events', label: 'Life Events' },
-        { value: 'industries', label: 'Industries' },
+        // Audience Categories
+        { value: 'interests', label: 'Interests', group: 'Audience' },
+        { value: 'behaviors', label: 'Behaviors', group: 'Audience' },
+        { value: 'demographics', label: 'Demographics', group: 'Audience' },
+        { value: 'life_events', label: 'Life Events', group: 'Audience' },
+        { value: 'industries', label: 'Industries', group: 'Audience' },
+        { value: 'income', label: 'Income', group: 'Audience' },
+        { value: 'family_statuses', label: 'Family Status', group: 'Audience' },
+        // Education & Work
+        { value: 'education_schools', label: 'Schools', group: 'Education & Work' },
+        { value: 'work_employers', label: 'Employers', group: 'Education & Work' },
+        { value: 'work_positions', label: 'Job Titles', group: 'Education & Work' },
+        { value: 'colleges', label: 'Colleges', group: 'Education & Work' },
+        // Device Categories
+        { value: 'user_device', label: 'Device Types', group: 'Device' },
+        { value: 'user_os', label: 'Operating Systems', group: 'Device' },
     ];
 
     return (
@@ -551,24 +594,128 @@ function TargetingPanel() {
                 </Tabs>
 
                 {results.length > 0 && (
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                        <div className="text-xs text-muted-foreground mb-2">{results.length} results found</div>
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2 sticky top-0 bg-card py-1">
+                            <span>{results.length} results found</span>
+                            <span className="text-blue-600">Click ID to copy</span>
+                        </div>
                         {results.map((r, i) => (
-                            <div key={i} className="p-3 bg-muted rounded-lg flex items-center justify-between hover:bg-muted/80 transition-colors">
-                                <div>
-                                    <div className="font-medium text-sm flex items-center gap-2">
-                                        {r.name}
-                                        {r.type && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded capitalize">{r.type}</span>}
+                            <div key={i} className="p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors border border-transparent hover:border-blue-200">
+                                {/* Header with name, type badge, and validity indicator */}
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
+                                            {r.name}
+                                            {r.type && (
+                                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded capitalize shrink-0">
+                                                    {r.type}
+                                                </span>
+                                            )}
+                                            {r.valid_for_targeting === false && (
+                                                <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded shrink-0">
+                                                    ⚠ Not Valid
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Description */}
+                                        {r.description && (
+                                            <p className="text-xs text-muted-foreground mt-1">{r.description}</p>
+                                        )}
+
+                                        {/* Topic / Disambiguation */}
+                                        {(r.topic || r.disambiguation_category) && (
+                                            <p className="text-[11px] text-purple-600 mt-1">
+                                                {r.topic && <span>📌 {r.topic}</span>}
+                                                {r.disambiguation_category && <span className="ml-2">({r.disambiguation_category})</span>}
+                                            </p>
+                                        )}
+
+                                        {/* Path breadcrumb */}
+                                        {r.path?.length > 0 && (
+                                            <div className="text-[11px] text-blue-600/70 mt-1.5 flex items-center gap-1 overflow-hidden">
+                                                <span className="opacity-60 shrink-0">📁</span>
+                                                <span className="truncate">{r.path.join(' › ')}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Metadata row */}
+                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                            {r.country_code && (
+                                                <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                                                    🌍 {r.country_code}
+                                                </span>
+                                            )}
+                                            {r.mobile_platform && (
+                                                <span className="text-[9px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">
+                                                    📱 {r.mobile_platform}
+                                                </span>
+                                            )}
+                                            {r.supports_city && (
+                                                <span className="text-[9px] bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded">
+                                                    🏙️ City
+                                                </span>
+                                            )}
+                                            {r.supports_region && (
+                                                <span className="text-[9px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">
+                                                    🗺️ Region
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    {r.path?.length > 0 && (
-                                        <div className="text-xs text-muted-foreground mt-0.5">{r.path.join(' > ')}</div>
+
+                                    {/* Audience Size */}
+                                    {(r.audience_size_lower_bound || r.audience_size_upper_bound || r.audience_size) && (
+                                        <div className="text-right shrink-0">
+                                            <div className="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
+                                                {r.audience_size_lower_bound && r.audience_size_upper_bound ? (
+                                                    <>
+                                                        {r.audience_size_lower_bound >= 1000000
+                                                            ? `${(r.audience_size_lower_bound / 1000000).toFixed(1)}M`
+                                                            : r.audience_size_lower_bound >= 1000
+                                                                ? `${(r.audience_size_lower_bound / 1000).toFixed(0)}K`
+                                                                : r.audience_size_lower_bound
+                                                        }
+                                                        {' - '}
+                                                        {r.audience_size_upper_bound >= 1000000
+                                                            ? `${(r.audience_size_upper_bound / 1000000).toFixed(1)}M`
+                                                            : r.audience_size_upper_bound >= 1000
+                                                                ? `${(r.audience_size_upper_bound / 1000).toFixed(0)}K`
+                                                                : r.audience_size_upper_bound
+                                                        }
+                                                    </>
+                                                ) : r.audience_size ? (
+                                                    typeof r.audience_size === 'number'
+                                                        ? r.audience_size >= 1000000
+                                                            ? `${(r.audience_size / 1000000).toFixed(1)}M`
+                                                            : r.audience_size >= 1000
+                                                                ? `${(r.audience_size / 1000).toFixed(0)}K`
+                                                                : r.audience_size
+                                                        : r.audience_size
+                                                ) : 'N/A'}
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground mt-0.5">users</div>
+                                        </div>
                                     )}
                                 </div>
-                                {r.audience_size && (
-                                    <div className="text-sm text-muted-foreground bg-background px-2 py-1 rounded border">
-                                        {typeof r.audience_size === 'number'
-                                            ? r.audience_size.toLocaleString()
-                                            : r.audience_size} users
+
+                                {/* ID row - clickable to copy */}
+                                {(r.id || r.key) && (
+                                    <div
+                                        className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between gap-2"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(r.id || r.key);
+                                        }}
+                                    >
+                                        <span className="text-[10px] text-muted-foreground shrink-0">
+                                            {r.key ? 'Key:' : 'ID:'}
+                                        </span>
+                                        <code
+                                            className="text-[10px] font-mono bg-background px-2 py-0.5 rounded border cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors truncate"
+                                            title="Click to copy"
+                                        >
+                                            {r.id || r.key}
+                                        </code>
                                     </div>
                                 )}
                             </div>
@@ -1252,7 +1399,7 @@ function AsyncReportsPanel() {
     const pollStatus = async (runId: string) => {
         const interval = setInterval(async () => {
             try {
-                const response = await fetch(`/api/v1/meta-ads/sdk/reports/async/${runId}/status`);
+                const response = await fetch(`/api/v1/meta-ads/sdk/reports/${runId}/status`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
@@ -1276,11 +1423,15 @@ function AsyncReportsPanel() {
 
     const fetchResults = async (runId: string) => {
         try {
-            const response = await fetch(`/api/v1/meta-ads/sdk/reports/async/${runId}/results`);
+            const response = await fetch(`/api/v1/meta-ads/sdk/reports/${runId}/results`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
                     setResults(data.data || []);
+                    // Log message if no data
+                    if (data.message) {
+                        console.info('Report info:', data.message);
+                    }
                 }
             }
         } catch (err) {

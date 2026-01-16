@@ -3,21 +3,19 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+// Professional React Icons - using Phosphor (Pi), Remix (Ri), and Heroicons (Hi)
 import {
-    Edit3,
-    History,
-    BarChart3,
-    Settings,
-    User,
-    Sparkles,
-    FolderOpen,
-    Megaphone,
-    MessageSquare,
-    Video,
-    Palette,
-    Send,
-    Calendar,
-} from 'lucide-react';
+    PiPenNibDuotone,
+    PiCalendarCheckDuotone,
+    PiVideoFill,
+    PiSlidersHorizontalDuotone,
+    PiFolderOpenDuotone,
+    PiPaperPlaneTiltFill,
+    PiChartLineUpDuotone,
+    PiChatCircleTextDuotone,
+    PiMegaphoneDuotone,
+    PiGearSixDuotone,
+} from 'react-icons/pi';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,15 +29,15 @@ import {
 import NotificationBell from '@/components/ui/NotificationBell';
 
 const sidebarItems = [
-    { icon: Edit3, label: 'Create Content', href: '/dashboard/create' },
-    { icon: Video, label: 'Media Studio', href: '/dashboard/media-studio' },
-    { icon: Calendar, label: 'Content Calendar', href: '/dashboard/content-calendar' },
-    { icon: Palette, label: 'Canva Editor', href: '/dashboard/canva-editor' },
-    { icon: FolderOpen, label: 'Library', href: '/dashboard/library' },
-    { icon: Send, label: 'Publish', href: '/dashboard/history' },
-    { icon: BarChart3, label: 'Analytics', href: '/dashboard/analytics' },
-    { icon: MessageSquare, label: 'Inbox', href: '/dashboard/comments' },
-    { icon: Megaphone, label: 'Meta Ads', href: '/dashboard/meta-ads' },
+    { icon: PiPenNibDuotone, label: 'Create Content', href: '/dashboard/create' },
+    { icon: PiCalendarCheckDuotone, label: 'Content Calendar', href: '/dashboard/content-calendar' },
+    { icon: PiVideoFill, label: 'Media Studio', href: '/dashboard/media-studio' },
+    { icon: PiSlidersHorizontalDuotone, label: 'Editing Studio', href: '/dashboard/canva-editor' },
+    { icon: PiFolderOpenDuotone, label: 'Assets', href: '/dashboard/library' },
+    { icon: PiPaperPlaneTiltFill, label: 'Publish', href: '/dashboard/history' },
+    { icon: PiChartLineUpDuotone, label: 'Analytics', href: '/dashboard/analytics' },
+    { icon: PiChatCircleTextDuotone, label: 'Inbox', href: '/dashboard/comments' },
+    { icon: PiMegaphoneDuotone, label: 'Meta Ads', href: '/dashboard/meta-ads' },
 ];
 
 
@@ -91,7 +89,7 @@ export function Sidebar() {
                                             "relative flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200",
                                             isActive
                                                 ? "bg-white/30 text-primary shadow-sm border border-white/40"
-                                                : "text-foreground/60 hover:text-primary hover:bg-white/20"
+                                                : "text-primary hover:text-primary hover:bg-white/20"
                                         )}
                                     >
                                         {/* Active indicator bar */}
@@ -139,7 +137,7 @@ export function Sidebar() {
                                         : "text-foreground/60 hover:text-primary hover:bg-white/20"
                                 )}
                             >
-                                <Settings className="h-5 w-5" />
+                                <PiGearSixDuotone className="h-5 w-5" />
                             </Link>
                         </TooltipTrigger>
                         <TooltipContent side="right" sideOffset={8} className="bg-slate-800 border-slate-700 text-white shadow-xl px-3 py-2">

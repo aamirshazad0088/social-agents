@@ -33,24 +33,32 @@ class ReachEstimationService:
         currency: str = "USD",
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        prediction_mode: int = 0
+        prediction_mode: int = 0,
+        destination_ids: List[str] = None
     ) -> Dict[str, Any]:
         """
         Get reach estimate for targeting spec.
         
-        Args:
+        Args per Meta API docs:
             account_id: Ad account ID
             targeting_spec: Targeting specification dict
-            optimization_goal: Campaign optimization goal
+            optimization_goal: Campaign optimization goal (REACH, BRAND_AWARENESS, etc)
             budget: Budget in cents (e.g. 1000 = $10.00)
             currency: Currency code
             start_time: Unix timestamp for start
             end_time: Unix timestamp for end
             prediction_mode: 0 = Reach, 1 = Impression
+            destination_ids: Array of Facebook Page/App IDs (REQUIRED)
         """
         try:
             from facebook_business.api import FacebookAdsApi
-            FacebookAdsApi.init(access_token=self.access_token)
+            from ...config import settings
+            FacebookAdsApi.init(
+                app_id=settings.FACEBOOK_APP_ID,
+                app_secret=settings.FACEBOOK_APP_SECRET,
+                access_token=self.access_token,
+                api_version="v24.0"
+            )
             
             account = AdAccount(f"act_{account_id}")
             
@@ -62,16 +70,34 @@ class ReachEstimationService:
                 # Default to 7 days duration
                 end_time = int((datetime.fromtimestamp(start_time) + timedelta(days=7)).timestamp())
             
+            # Valid objectives for Reach & Frequency per Meta API docs:
+            # BRAND_AWARENESS, LINK_CLICKS, POST_ENGAGEMENT, MOBILE_APP_INSTALLS,
+            # WEBSITE_CONVERSIONS, REACH (default), VIDEO_VIEWS
+            valid_objectives = [
+                "BRAND_AWARENESS", "LINK_CLICKS", "POST_ENGAGEMENT", 
+                "MOBILE_APP_INSTALLS", "WEBSITE_CONVERSIONS", "REACH", "VIDEO_VIEWS"
+            ]
+            
+            if optimization_goal not in valid_objectives:
+                optimization_goal = "REACH"  # Default to REACH
+            
             # Create prediction params per v24.0 spec
+            # frequency_cap and destination_ids are REQUIRED
             params = {
                 "targeting_spec": targeting_spec,
                 "objective": optimization_goal,
                 "prediction_mode": prediction_mode,
-                "budget_to_calculate_for": budget,  # Dynamic budget
+                "budget_to_calculate_for": budget,
                 "start_time": start_time,
                 "stop_time": end_time,
-                "currency": currency
+                "currency": currency,
+                "frequency_cap": 2,  # Required: max times user sees ad during campaign
+                "interval_frequency_cap_reset_period": 7 * 24,  # Reset every 7 days (in hours)
             }
+            
+            # destination_ids is REQUIRED per Meta API docs
+            if destination_ids:
+                params["destination_ids"] = destination_ids
             
             # Create prediction
             prediction = account.create_reach_frequency_prediction(params=params)
@@ -102,7 +128,8 @@ class ReachEstimationService:
         currency: str = "USD",
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        prediction_mode: int = 0
+        prediction_mode: int = 0,
+        destination_ids: List[str] = None
     ) -> Dict[str, Any]:
         """Async wrapper for reach estimation."""
         return await asyncio.to_thread(
@@ -114,7 +141,8 @@ class ReachEstimationService:
             currency,
             start_time,
             end_time,
-            prediction_mode
+            prediction_mode,
+            destination_ids
         )
     
     def _get_delivery_estimate_sync(
@@ -129,19 +157,29 @@ class ReachEstimationService:
         """
         try:
             from facebook_business.api import FacebookAdsApi
-            FacebookAdsApi.init(access_token=self.access_token)
+            from ...config import settings
+            FacebookAdsApi.init(
+                app_id=settings.FACEBOOK_APP_ID,
+                app_secret=settings.FACEBOOK_APP_SECRET,
+                access_token=self.access_token,
+                api_version="v24.0"
+            )
             
             account = AdAccount(f"act_{account_id}")
             
-            estimates = account.get_delivery_estimate(
+            # Returns a Cursor object, need to iterate
+            estimates_cursor = account.get_delivery_estimate(
                 params={
                     "targeting_spec": targeting_spec,
                     "optimization_goal": optimization_goal,
                 }
             )
             
-            if estimates:
-                est = estimates[0] if isinstance(estimates, list) else estimates
+            # Convert Cursor to list of dicts
+            estimates = [dict(est) for est in estimates_cursor]
+            
+            if estimates and len(estimates) > 0:
+                est = estimates[0]
                 return {
                     "success": True,
                     "daily_outcomes_curve": est.get("daily_outcomes_curve", []),
@@ -150,7 +188,7 @@ class ReachEstimationService:
                     "estimate_ready": est.get("estimate_ready", False)
                 }
             
-            return {"success": True, "estimate_dau": 0, "estimate_mau": 0}
+            return {"success": True, "estimate_dau": 0, "estimate_mau": 0, "message": "No estimates returned"}
             
         except FacebookRequestError as e:
             logger.error(f"Facebook API error: {e}")

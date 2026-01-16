@@ -35,22 +35,33 @@ def get_workspace_id() -> Optional[str]:
 
 
 # Content types and platforms matching the API
-PLATFORMS = ["instagram", "linkedin", "twitter", "tiktok", "youtube", "facebook"]
+PLATFORMS = ["instagram", "linkedin", "twitter", "tiktok", "youtube", "facebook", "pinterest"]
 CONTENT_TYPES = [
     "educational", "fun", "inspirational", "promotional",
     "interactive", "brand_related", "evergreen", "holiday_themed"
 ]
 
-# Color mapping for content types
+# Platform-specific post types
+POST_TYPES_BY_PLATFORM = {
+    "instagram": ["post", "reel", "story", "carousel", "live"],
+    "twitter": ["text", "image", "video", "thread", "poll"],
+    "linkedin": ["post", "article", "carousel", "document", "poll"],
+    "youtube": ["video", "short", "premiere", "live"],
+    "tiktok": ["video", "duet", "stitch", "live"],
+    "facebook": ["post", "reel", "story", "event", "live"],
+    "pinterest": ["pin", "idea_pin", "video_pin"],
+}
+
+# Color mapping for content types (modern, professional palette)
 COLORS = {
-    "educational": "#1E3A8A",
-    "fun": "#059669",
-    "inspirational": "#D97706",
-    "promotional": "#DC2626",
-    "interactive": "#7C3AED",
-    "brand_related": "#0891B2",
-    "evergreen": "#65A30D",
-    "holiday_themed": "#BE185D",
+    "educational": "#6366F1",    # Indigo
+    "fun": "#10B981",            # Emerald
+    "inspirational": "#F59E0B",  # Amber
+    "promotional": "#F97316",    # Orange
+    "interactive": "#8B5CF6",    # Violet
+    "brand_related": "#06B6D4",  # Cyan
+    "evergreen": "#22C55E",      # Green
+    "holiday_themed": "#EC4899", # Pink
 }
 
 
@@ -230,20 +241,24 @@ def add_calendar_entry(
     platform: str,
     content_type: str,
     title: str,
-    content: str = "",
+    content: str,
+    post_type: str = None,
     scheduled_time: str = None,
     hashtags: str = None,
 ) -> dict:
     """Add a new entry to the content calendar.
     
+    Auto-sets: color (based on content_type), status (scheduled), time (current time if not specified)
+    
     Args:
         scheduled_date: Date in YYYY-MM-DD format (e.g., "2026-01-20")
-        platform: Target platform (instagram, linkedin, twitter, tiktok, youtube, facebook)
+        platform: Target platform (instagram, linkedin, twitter, tiktok, youtube, facebook, pinterest)
         content_type: Type (educational, fun, inspirational, promotional, interactive, brand_related, evergreen, holiday_themed)
         title: Short title for the entry
-        content: Full post content/caption
-        scheduled_time: Optional time in HH:MM format (e.g., "09:00")
-        hashtags: Comma-separated hashtags (e.g., "fitness,health,workout")
+        content: Full post content/caption text
+        post_type: Optional - platform-specific type (e.g., "reel" for Instagram). Auto-defaults to platform's main type.
+        scheduled_time: Optional - time in HH:MM format. Defaults to current time.
+        hashtags: Optional - comma-separated hashtags (e.g., "fitness,health,workout")
         
     Returns:
         Created entry confirmation
@@ -260,10 +275,22 @@ def add_calendar_entry(
         if content_type not in CONTENT_TYPES:
             return {"error": f"Invalid content_type. Use: {CONTENT_TYPES}"}
         
+        # Validate and set post_type
+        available_post_types = POST_TYPES_BY_PLATFORM.get(platform, ["post"])
+        if post_type:
+            if post_type not in available_post_types:
+                return {"error": f"Invalid post_type for {platform}. Use: {available_post_types}"}
+        else:
+            post_type = available_post_types[0]  # Default to first type for platform
+        
         try:
             datetime.strptime(scheduled_date, "%Y-%m-%d")
         except ValueError:
             return {"error": "Invalid date format. Use YYYY-MM-DD"}
+        
+        # Auto-set time to current time if not provided
+        if not scheduled_time:
+            scheduled_time = datetime.now().strftime("%H:%M")
         
         hashtag_list = None
         if hashtags:
@@ -276,11 +303,12 @@ def add_calendar_entry(
             "scheduled_time": scheduled_time,
             "platform": platform,
             "content_type": content_type,
+            "post_type": post_type,
             "title": title[:200],
             "content": content,
             "hashtags": hashtag_list,
-            "status": "scheduled",
-            "color": COLORS.get(content_type, "#6B7280"),
+            "status": "scheduled",  # Auto-set to scheduled
+            "color": COLORS.get(content_type, "#6B7280"),  # Auto-set based on content_type
         }
         
         supabase = get_supabase_admin_client()
@@ -289,7 +317,7 @@ def add_calendar_entry(
         if result.data:
             return {
                 "success": True,
-                "message": f"Created: {title} on {scheduled_date} for {platform}",
+                "message": f"Created: {title} ({post_type}) on {scheduled_date} for {platform}",
             }
         
         return {"error": "Failed to create entry"}
@@ -313,12 +341,13 @@ def add_weekly_content_plan(
     """Add content for an entire week at once. Much easier than adding one by one!
     
     For each day, provide a pipe-separated list of posts in format:
-    "platform|content_type|title|time" (time is optional)
+    "platform|content_type|title|time|post_type" (time and post_type are optional)
     
     Multiple posts per day are separated by semicolons.
+    Color is auto-selected based on content_type.
     
     Args:
-        monday_posts: Posts for Monday, e.g., "instagram|fun|Morning vibes|09:00; twitter|promotional|New launch|14:00"
+        monday_posts: Posts for Monday, e.g., "instagram|fun|Morning vibes|09:00|reel; twitter|promotional|New launch|14:00|text"
         tuesday_posts: Posts for Tuesday
         wednesday_posts: Posts for Wednesday
         thursday_posts: Posts for Thursday
@@ -383,7 +412,8 @@ def add_weekly_content_plan(
                 platform = parts[0].lower()
                 content_type = parts[1].lower()
                 title = parts[2]
-                time = parts[3] if len(parts) > 3 else None
+                time = parts[3] if len(parts) > 3 and parts[3] else None
+                post_type = parts[4] if len(parts) > 4 and parts[4] else None
                 
                 if platform not in PLATFORMS:
                     errors.append(f"Invalid platform: {platform}")
@@ -392,6 +422,19 @@ def add_weekly_content_plan(
                     errors.append(f"Invalid content_type: {content_type}")
                     continue
                 
+                # Auto-set post_type if not provided
+                available_post_types = POST_TYPES_BY_PLATFORM.get(platform, ["post"])
+                if post_type:
+                    if post_type not in available_post_types:
+                        errors.append(f"Invalid post_type {post_type} for {platform}. Using default.")
+                        post_type = available_post_types[0]
+                else:
+                    post_type = available_post_types[0]
+                
+                # Auto-set time to current time if not provided
+                if not time:
+                    time = datetime.now().strftime("%H:%M")
+                
                 entry_data = {
                     "id": str(uuid4()),
                     "workspace_id": workspace_id,
@@ -399,10 +442,11 @@ def add_weekly_content_plan(
                     "scheduled_time": time,
                     "platform": platform,
                     "content_type": content_type,
+                    "post_type": post_type,
                     "title": title[:200],
                     "content": "",
-                    "status": "scheduled",
-                    "color": COLORS.get(content_type, "#6B7280"),
+                    "status": "scheduled",  # Auto-set
+                    "color": COLORS.get(content_type, "#6B7280"),  # Auto-set based on content_type
                 }
                 
                 result = supabase.table("content_calendar_entries").insert(entry_data).execute()

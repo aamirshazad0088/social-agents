@@ -30,6 +30,50 @@ class ContentType(str, Enum):
     HOLIDAY_THEMED = "holiday_themed"
 
 
+class PostType(str, Enum):
+    """Platform-specific post types."""
+    # Common
+    POST = "post"
+    VIDEO = "video"
+    LIVE = "live"
+    POLL = "poll"
+    # Instagram
+    REEL = "reel"
+    STORY = "story"
+    CAROUSEL = "carousel"
+    # Twitter/X
+    TEXT = "text"
+    IMAGE = "image"
+    THREAD = "thread"
+    # LinkedIn
+    ARTICLE = "article"
+    DOCUMENT = "document"
+    # YouTube
+    SHORT = "short"
+    PREMIERE = "premiere"
+    # TikTok
+    DUET = "duet"
+    STITCH = "stitch"
+    # Facebook
+    EVENT = "event"
+    # Pinterest
+    PIN = "pin"
+    IDEA_PIN = "idea_pin"
+    VIDEO_PIN = "video_pin"
+
+
+# Platform-specific post types mapping
+POST_TYPES_BY_PLATFORM = {
+    "instagram": ["post", "reel", "story", "carousel", "live"],
+    "twitter": ["text", "image", "video", "thread", "poll"],
+    "linkedin": ["post", "article", "carousel", "document", "poll"],
+    "youtube": ["video", "short", "premiere", "live"],
+    "tiktok": ["video", "duet", "stitch", "live"],
+    "facebook": ["post", "reel", "story", "event", "live"],
+    "pinterest": ["pin", "idea_pin", "video_pin"],
+}
+
+
 class EntryStatus(str, Enum):
     """Calendar entry status."""
     DRAFT = "draft"
@@ -38,16 +82,16 @@ class EntryStatus(str, Enum):
     ARCHIVED = "archived"
 
 
-# Color mapping for content types
+# Color mapping for content types (modern, professional palette)
 CONTENT_TYPE_COLORS = {
-    ContentType.EDUCATIONAL: "#1E3A8A",
-    ContentType.FUN: "#059669",
-    ContentType.INSPIRATIONAL: "#D97706",
-    ContentType.PROMOTIONAL: "#DC2626",
-    ContentType.INTERACTIVE: "#7C3AED",
-    ContentType.BRAND_RELATED: "#0891B2",
-    ContentType.EVERGREEN: "#65A30D",
-    ContentType.HOLIDAY_THEMED: "#BE185D",
+    ContentType.EDUCATIONAL: "#6366F1",    # Indigo
+    ContentType.FUN: "#10B981",            # Emerald
+    ContentType.INSPIRATIONAL: "#F59E0B",  # Amber
+    ContentType.PROMOTIONAL: "#F97316",    # Orange
+    ContentType.INTERACTIVE: "#8B5CF6",    # Violet
+    ContentType.BRAND_RELATED: "#06B6D4",  # Cyan
+    ContentType.EVERGREEN: "#22C55E",      # Green
+    ContentType.HOLIDAY_THEMED: "#EC4899", # Pink
 }
 
 
@@ -57,6 +101,7 @@ class CalendarEntryBase(BaseModel):
     scheduled_time: Optional[time] = None
     platform: Platform
     content_type: ContentType
+    post_type: Optional[str] = Field(default="post", description="Platform-specific post type")
     title: str = Field(..., max_length=200)
     content: Optional[str] = None
     hashtags: Optional[List[str]] = None
@@ -79,6 +124,7 @@ class CalendarEntryUpdate(BaseModel):
     scheduled_time: Optional[time] = None
     platform: Optional[Platform] = None
     content_type: Optional[ContentType] = None
+    post_type: Optional[str] = None
     title: Optional[str] = None
     content: Optional[str] = None
     hashtags: Optional[List[str]] = None

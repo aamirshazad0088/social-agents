@@ -26,7 +26,15 @@ class TargetingService:
     
     def _init_api(self):
         from facebook_business.api import FacebookAdsApi
-        FacebookAdsApi.init(access_token=self.access_token, api_version="v24.0")
+        from ...config import settings
+        
+        # Initialize with app credentials for appsecret_proof support
+        FacebookAdsApi.init(
+            app_id=settings.FACEBOOK_APP_ID,
+            app_secret=settings.FACEBOOK_APP_SECRET,
+            access_token=self.access_token, 
+            api_version="v24.0"
+        )
     
     def _search_targeting_sync(
         self,
@@ -59,12 +67,32 @@ class TargetingService:
             options = []
             for item in results:
                 options.append({
+                    # Core fields
                     "id": item.get("id"),
                     "name": item.get("name"),
                     "type": item.get("type"),
+                    "key": item.get("key"),  # Used for geo locations
+                    
+                    # Audience size metrics
                     "audience_size": item.get("audience_size"),
+                    "audience_size_lower_bound": item.get("audience_size_lower_bound"),
+                    "audience_size_upper_bound": item.get("audience_size_upper_bound"),
+                    
+                    # Descriptive fields
                     "path": item.get("path", []),
-                    "description": item.get("description")
+                    "description": item.get("description"),
+                    "topic": item.get("topic"),
+                    "disambiguation_category": item.get("disambiguation_category"),
+                    
+                    # Targeting validity
+                    "valid_for_targeting": item.get("valid_for_targeting", True),
+                    "country_access": item.get("country_access"),
+                    
+                    # Device/Platform specific
+                    "mobile_platform": item.get("mobile_platform"),
+                    "supports_city": item.get("supports_city"),
+                    "supports_region": item.get("supports_region"),
+                    "country_code": item.get("country_code"),
                 })
             
             return {"success": True, "options": options}
@@ -96,7 +124,12 @@ class TargetingService:
         targeting_class: str = "interests"
     ) -> Dict[str, Any]:
         """
-        Browse targeting categories.
+        Browse targeting categories using Meta's Targeting Search API.
+        
+        Per Meta API documentation:
+        - Use 'adTargetingCategory' type for browsing categories
+        - Supported classes: behaviors, demographics, interests, life_events,
+          industries, income, family_statuses, user_os, user_device
         
         targeting_class options:
         - interests
@@ -108,9 +141,14 @@ class TargetingService:
         try:
             self._init_api()
             
+            # Map to correct API type for browsing
+            # adTargetingCategory is the correct type for browsing categories
+            # adinterest is for searching specific interests with a query
+            browse_type = "adTargetingCategory"
+            
             results = TargetingSearch.search(
                 params={
-                    "type": target_type,
+                    "type": browse_type,
                     "class": targeting_class
                 }
             )
@@ -121,18 +159,30 @@ class TargetingService:
                     "id": item.get("id"),
                     "name": item.get("name"),
                     "audience_size": item.get("audience_size"),
+                    "audience_size_lower_bound": item.get("audience_size_lower_bound"),
+                    "audience_size_upper_bound": item.get("audience_size_upper_bound"),
                     "path": item.get("path", []),
-                    "type": item.get("type")
+                    "type": item.get("type"),
+                    "description": item.get("description")
                 })
             
             return {"success": True, "categories": categories}
             
         except FacebookRequestError as e:
             logger.error(f"Facebook API error: {e}")
-            return {"success": False, "error": str(e)}
+            # Return empty result with a note instead of error
+            return {
+                "success": True, 
+                "categories": [],
+                "note": f"Browse not available for this category. Try using Search instead."
+            }
         except Exception as e:
             logger.error(f"Targeting browse error: {e}")
-            return {"success": False, "error": str(e)}
+            return {
+                "success": True, 
+                "categories": [],
+                "note": "Browse not available. Try using Search instead."
+            }
     
     async def browse_targeting(
         self,
@@ -198,7 +248,7 @@ class TargetingService:
         )
 
 
-# Targeting type constants
+# Targeting type constants for search
 TARGETING_TYPES = {
     "interests": "adinterest",
     "behaviors": "adbehavior",
@@ -209,3 +259,24 @@ TARGETING_TYPES = {
     "job_titles": "adworkposition",
     "languages": "adlocale"
 }
+
+# Browse classes for adTargetingCategory per Meta API documentation
+# https://developers.facebook.com/docs/marketing-api/audiences/reference/targeting-search
+BROWSE_CLASSES = [
+    # Audience Categories
+    "interests",           # Interests and hobbies
+    "behaviors",           # Purchase behaviors, activities
+    "demographics",        # Demographics details
+    "life_events",         # Major life events
+    "industries",          # Industry interests
+    "income",              # Income ranges
+    "family_statuses",     # Family and relationship status
+    # Education & Work
+    "education_schools",   # Schools and universities
+    "work_employers",      # Employers and companies
+    "work_positions",      # Job titles and positions
+    "colleges",            # Colleges
+    # Device Categories
+    "user_device",         # Device types (iPhone, Android, etc.)
+    "user_os",             # Operating systems (iOS, Android, Windows)
+]

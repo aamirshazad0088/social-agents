@@ -15,6 +15,7 @@ router = APIRouter(prefix="/sdk", tags=["SDK Features - Async Reports"])
 
 
 @router.post("/reports/start")
+@router.post("/reports/async")  # Alias for frontend compatibility
 async def start_async_report(request: Request):
     """
     POST /api/v1/meta-ads/sdk/reports/start

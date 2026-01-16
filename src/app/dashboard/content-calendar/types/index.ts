@@ -12,7 +12,39 @@ export type ContentType =
     | 'evergreen'
     | 'holiday_themed';
 
+export type PostType =
+    | 'post'
+    | 'reel'
+    | 'story'
+    | 'carousel'
+    | 'live'
+    | 'text'
+    | 'image'
+    | 'video'
+    | 'thread'
+    | 'poll'
+    | 'article'
+    | 'document'
+    | 'short'
+    | 'premiere'
+    | 'duet'
+    | 'stitch'
+    | 'event'
+    | 'pin'
+    | 'idea_pin'
+    | 'video_pin';
+
 export type EntryStatus = 'draft' | 'scheduled' | 'published' | 'archived';
+
+// Platform-specific post types
+export const POST_TYPES_BY_PLATFORM: Record<Platform, PostType[]> = {
+    instagram: ['post', 'reel', 'story', 'carousel', 'live'],
+    twitter: ['text', 'image', 'video', 'thread', 'poll'],
+    linkedin: ['post', 'article', 'carousel', 'document', 'poll'],
+    youtube: ['video', 'short', 'premiere', 'live'],
+    tiktok: ['video', 'duet', 'stitch', 'live'],
+    facebook: ['post', 'reel', 'story', 'event', 'live'],
+};
 
 export interface CalendarEntry {
     id: string;
@@ -22,6 +54,7 @@ export interface CalendarEntry {
     scheduled_time?: string;
     platform: Platform;
     content_type: ContentType;
+    post_type?: PostType;
     title: string;
     content?: string;
     hashtags?: string[];
@@ -39,18 +72,19 @@ export interface CalendarEntry {
 export interface CalendarFilters {
     platform?: Platform;
     content_type?: ContentType;
+    post_type?: PostType;
     status?: EntryStatus;
 }
 
 export const CONTENT_TYPE_COLORS: Record<ContentType, string> = {
-    educational: '#1E3A8A',
-    fun: '#059669',
-    inspirational: '#D97706',
-    promotional: '#DC2626',
-    interactive: '#7C3AED',
-    brand_related: '#0891B2',
-    evergreen: '#65A30D',
-    holiday_themed: '#BE185D',
+    educational: '#6366F1',    // Indigo - calm, professional
+    fun: '#10B981',            // Emerald - fresh, lively
+    inspirational: '#F59E0B',  // Amber - warm, motivating
+    promotional: '#F97316',    // Orange - attention-grabbing, warm
+    interactive: '#8B5CF6',    // Violet - creative, engaging
+    brand_related: '#06B6D4',  // Cyan - modern, tech-savvy
+    evergreen: '#22C55E',      // Green - nature, growth
+    holiday_themed: '#EC4899', // Pink - festive, cheerful
 };
 
 export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
@@ -71,6 +105,29 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
     tiktok: 'TikTok',
     youtube: 'YouTube',
     facebook: 'Facebook',
+};
+
+export const POST_TYPE_LABELS: Record<PostType, string> = {
+    post: 'Post',
+    reel: 'Reel',
+    story: 'Story',
+    carousel: 'Carousel',
+    live: 'Live',
+    text: 'Text',
+    image: 'Image',
+    video: 'Video',
+    thread: 'Thread',
+    poll: 'Poll',
+    article: 'Article',
+    document: 'Document',
+    short: 'Short',
+    premiere: 'Premiere',
+    duet: 'Duet',
+    stitch: 'Stitch',
+    event: 'Event',
+    pin: 'Pin',
+    idea_pin: 'Idea Pin',
+    video_pin: 'Video Pin',
 };
 
 export const STATUS_LABELS: Record<EntryStatus, string> = {

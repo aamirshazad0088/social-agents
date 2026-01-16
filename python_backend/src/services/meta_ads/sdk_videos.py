@@ -25,7 +25,13 @@ class VideosService:
     
     def _init_api(self):
         from facebook_business.api import FacebookAdsApi
-        FacebookAdsApi.init(access_token=self.access_token)
+        from ...config import settings
+        FacebookAdsApi.init(
+            app_id=settings.FACEBOOK_APP_ID,
+            app_secret=settings.FACEBOOK_APP_SECRET,
+            access_token=self.access_token,
+            api_version="v24.0"
+        )
     
     def _get_ad_videos_sync(
         self,
@@ -37,6 +43,7 @@ class VideosService:
             self._init_api()
             account = AdAccount(f"act_{account_id}")
             
+            # Fields per Meta API documentation for AdVideo
             videos = account.get_ad_videos(
                 fields=[
                     AdVideo.Field.id,
@@ -46,24 +53,26 @@ class VideosService:
                     AdVideo.Field.updated_time,
                     AdVideo.Field.length,
                     AdVideo.Field.status,
-                    AdVideo.Field.thumbnails,
+                    AdVideo.Field.permalink_url,
+                    "picture",  # Thumbnail/cover image
+                    "description",
                 ],
                 params={"limit": limit}
             )
             
             result = []
             for video in videos:
-                thumbnails = video.get("thumbnails", {}).get("data", [])
-                thumbnail_url = thumbnails[0].get("uri") if thumbnails else None
-                
                 result.append({
                     "id": video.get("id"),
                     "title": video.get("title"),
+                    "description": video.get("description"),
                     "source": video.get("source"),
                     "length": video.get("length"),
                     "created_time": video.get("created_time"),
-                    "status": video.get("status", {}).get("video_status"),
-                    "thumbnail_url": thumbnail_url
+                    "updated_time": video.get("updated_time"),
+                    "status": video.get("status", {}).get("video_status") if video.get("status") else None,
+                    "permalink_url": video.get("permalink_url"),
+                    "thumbnail_url": video.get("picture")
                 })
             
             return {"success": True, "videos": result}

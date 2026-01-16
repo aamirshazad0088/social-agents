@@ -25,7 +25,15 @@ class PixelsService:
     
     def _init_api(self):
         from facebook_business.api import FacebookAdsApi
-        FacebookAdsApi.init(access_token=self.access_token, api_version="v24.0")
+        from ...config import settings
+        
+        # Initialize with app credentials for appsecret_proof support
+        FacebookAdsApi.init(
+            app_id=settings.FACEBOOK_APP_ID,
+            app_secret=settings.FACEBOOK_APP_SECRET,
+            access_token=self.access_token,
+            api_version="v24.0"
+        )
     
     def _get_pixels_sync(
         self,

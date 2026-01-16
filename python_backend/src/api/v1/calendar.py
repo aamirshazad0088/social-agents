@@ -194,6 +194,9 @@ async def delete_calendar_entry(
 ):
     """Delete a calendar entry."""
     try:
+        auth_header = request.headers.get("authorization")
+        logger.info(f"Delete request for entry {entry_id}, auth header present: {bool(auth_header)}")
+        
         workspace_id, _ = await get_workspace_id(request)
         supabase = get_supabase_admin_client()
         

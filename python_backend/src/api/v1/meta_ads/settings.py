@@ -252,3 +252,52 @@ async def get_invoices(
     except Exception as e:
         logger.error(f"Error getting invoices: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# ALIAS ROUTES - Match frontend expected paths
+# ============================================================================
+
+@router.get("/accounts/settings")
+async def get_accounts_settings(request: Request):
+    """
+    GET /api/v1/meta-ads/accounts/settings
+    
+    Alias for /settings/ad-account to match frontend expectations.
+    """
+    return await get_ad_account_settings(request)
+
+
+@router.get("/accounts/activities")
+async def get_accounts_activities(
+    request: Request,
+    since: Optional[str] = Query(None, description="ISO date string"),
+    until: Optional[str] = Query(None, description="ISO date string"),
+    limit: int = Query(50, le=100)
+):
+    """
+    GET /api/v1/meta-ads/accounts/activities
+    
+    Alias for /activities to match frontend expectations.
+    """
+    return await get_activities(request, since, until, limit)
+
+
+@router.get("/team/access")
+async def get_team_access_alias(request: Request):
+    """
+    GET /api/v1/meta-ads/team/access
+    
+    Alias for /settings/team to match frontend expectations.
+    """
+    return await get_team_access(request)
+
+
+@router.get("/notifications/settings")
+async def get_notifications_settings_alias(request: Request):
+    """
+    GET /api/v1/meta-ads/notifications/settings
+    
+    Alias for /settings/notifications to match frontend expectations.
+    """
+    return await get_notification_settings(request)

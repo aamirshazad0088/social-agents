@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Calendar,
     ChevronLeft,
@@ -21,7 +21,8 @@ import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarMonthView } from './CalendarMonthView';
 import { EntryModal } from './EntryModal';
 import { CalendarFilters } from './CalendarFilters';
-import type { CalendarEntry, CalendarFilters as FilterType } from '../types';
+import type { CalendarEntry, CalendarFilters as FilterType, Platform } from '../types';
+
 
 export function ContentCalendarDashboard() {
     const { session } = useAuth();
@@ -33,6 +34,7 @@ export function ContentCalendarDashboard() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [filters, setFilters] = useState<FilterType>({});
     const [showFilters, setShowFilters] = useState(false);
+    const [platformFilter, setPlatformFilter] = useState<Platform | undefined>(undefined);
 
     const fetchEntries = useCallback(async () => {
         if (!session?.access_token) return;
@@ -85,6 +87,8 @@ export function ContentCalendarDashboard() {
         fetchEntries();
     }, [fetchEntries]);
 
+
+
     const navigateDate = (direction: 'prev' | 'next') => {
         setCurrentDate(prev => {
             const newDate = new Date(prev);
@@ -132,33 +136,49 @@ export function ContentCalendarDashboard() {
         }
     };
 
+    const hasActiveFilters = filters.platform || filters.content_type || filters.status;
+
     return (
-        <div className="flex flex-col h-full gap-4 p-4 md:p-6">
-            {/* Header */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500">
+        <div className="flex flex-col h-full gap-6 p-4 md:p-6">
+            {/* Header Section */}
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-xl bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 shadow-lg shadow-purple-500/25">
                         <Calendar className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold">Content Calendar</h1>
-                        <p className="text-sm text-muted-foreground">Plan and schedule your content</p>
+                        <h1 className="text-lg font-bold text-foreground">
+                            Content Calendar
+                        </h1>
+                        <p className="text-muted-foreground mt-1">
+                            Plan, schedule, and manage your social media content
+                        </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
-                        <Filter className="w-4 h-4 mr-2" />
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                        variant={hasActiveFilters ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="gap-2"
+                    >
+                        <Filter className="w-4 h-4" />
                         Filters
+                        {hasActiveFilters && (
+                            <Badge variant="secondary" className="ml-1 bg-white/20">
+                                Active
+                            </Badge>
+                        )}
                     </Button>
-                    <Button onClick={handleNewEntry}>
-                        <Plus className="w-4 h-4 mr-2" />
+                    <Button onClick={handleNewEntry} className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg shadow-purple-500/25">
+                        <Plus className="w-4 h-4" />
                         New Entry
                     </Button>
                 </div>
             </div>
 
-            {/* Filters */}
+            {/* Filters Panel */}
             {showFilters && (
                 <CalendarFilters
                     filters={filters}
@@ -167,61 +187,93 @@ export function ContentCalendarDashboard() {
                 />
             )}
 
-            {/* Calendar Controls */}
-            <Card>
-                <CardHeader className="pb-3">
+            {/* Calendar Card */}
+            <Card className="flex-1 shadow-sm">
+                <CardHeader className="pb-4 border-b">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         {/* Date Navigation */}
                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => navigateDate('prev')}
+                                className="rounded-full h-9 w-9"
+                            >
                                 <ChevronLeft className="w-4 h-4" />
                             </Button>
-                            <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
+                            <Button
+                                variant="outline"
+                                onClick={() => setCurrentDate(new Date())}
+                                className="font-medium"
+                            >
                                 Today
                             </Button>
-                            <Button variant="outline" size="icon" onClick={() => navigateDate('next')}>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => navigateDate('next')}
+                                className="rounded-full h-9 w-9"
+                            >
                                 <ChevronRight className="w-4 h-4" />
                             </Button>
-                            <span className="ml-2 font-semibold text-lg">{formatDateRange()}</span>
+                            <div className="ml-3 px-4 py-1.5 bg-muted/50 rounded-full">
+                                <span className="font-semibold text-lg">{formatDateRange()}</span>
+                            </div>
                         </div>
 
                         {/* View Toggle & Refresh */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             <Tabs value={view} onValueChange={(v) => setView(v as 'week' | 'month')}>
-                                <TabsList>
-                                    <TabsTrigger value="week" className="flex items-center gap-1">
+                                <TabsList className="h-10">
+                                    <TabsTrigger value="week" className="flex items-center gap-2 px-4">
                                         <CalendarDays className="w-4 h-4" />
                                         Week
                                     </TabsTrigger>
-                                    <TabsTrigger value="month" className="flex items-center gap-1">
+                                    <TabsTrigger value="month" className="flex items-center gap-2 px-4">
                                         <Grid3X3 className="w-4 h-4" />
                                         Month
                                     </TabsTrigger>
                                 </TabsList>
                             </Tabs>
-                            <Button variant="ghost" size="icon" onClick={fetchEntries} disabled={loading}>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={fetchEntries}
+                                disabled={loading}
+                                className="rounded-full h-10 w-10"
+                            >
                                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                             </Button>
                         </div>
                     </div>
                 </CardHeader>
 
-                <CardContent>
+                <CardContent className="pt-6">
                     {loading ? (
-                        <div className="flex items-center justify-center h-[400px]">
-                            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <div className="flex flex-col items-center justify-center h-[450px] gap-3">
+                            <div className="relative">
+                                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                                <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse" />
+                            </div>
+                            <p className="text-muted-foreground">Loading your content...</p>
                         </div>
                     ) : view === 'week' ? (
                         <CalendarWeekView
-                            entries={entries}
+                            entries={platformFilter ? entries.filter(e => e.platform === platformFilter) : entries}
+                            allEntries={entries}
                             currentDate={currentDate}
                             onEntryClick={handleEntryClick}
+                            activeFilter={platformFilter}
+                            onFilterChange={setPlatformFilter}
                         />
                     ) : (
                         <CalendarMonthView
-                            entries={entries}
+                            entries={platformFilter ? entries.filter(e => e.platform === platformFilter) : entries}
+                            allEntries={entries}
                             currentDate={currentDate}
                             onEntryClick={handleEntryClick}
+                            activeFilter={platformFilter}
+                            onFilterChange={setPlatformFilter}
                         />
                     )}
                 </CardContent>

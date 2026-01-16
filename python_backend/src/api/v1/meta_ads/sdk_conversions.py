@@ -73,9 +73,11 @@ async def create_custom_conversion(request: Request):
 
 # Offline Conversions
 @router.get("/offline-conversions")
-async def get_offline_conversion_datasets(request: Request):
+@router.get("/offline-conversions/datasets")  # Alias for frontend compatibility
+async def get_offline_conversion_datasets(request: Request, business_id: str = None):
     """
     GET /api/v1/meta-ads/sdk/offline-conversions
+    GET /api/v1/meta-ads/sdk/offline-conversions/datasets
     
     Get offline conversion datasets.
     """
@@ -86,9 +88,12 @@ async def get_offline_conversion_datasets(request: Request):
         from ....services.meta_ads.sdk_offline_conversions import OfflineConversionsService
         service = OfflineConversionsService(creds["access_token"])
         
-        result = await service.get_datasets(
-            account_id=creds["account_id"].replace("act_", "")
-        )
+        # Use business_id if provided, otherwise return empty (requires business context)
+        if business_id and business_id != "me":
+            result = await service.get_offline_datasets(business_id=business_id)
+        else:
+            # Return empty list if no business_id provided
+            result = {"success": True, "datasets": [], "note": "Business ID required for offline datasets"}
         
         return JSONResponse(content=result)
         

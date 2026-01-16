@@ -25,7 +25,13 @@ class CustomConversionsService:
     
     def _init_api(self):
         from facebook_business.api import FacebookAdsApi
-        FacebookAdsApi.init(access_token=self.access_token)
+        from ...config import settings
+        FacebookAdsApi.init(
+            app_id=settings.FACEBOOK_APP_ID,
+            app_secret=settings.FACEBOOK_APP_SECRET,
+            access_token=self.access_token,
+            api_version="v24.0"
+        )
     
     def _get_custom_conversions_sync(
         self,

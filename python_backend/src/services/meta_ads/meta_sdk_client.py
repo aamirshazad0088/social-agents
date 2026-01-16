@@ -174,6 +174,23 @@ class MetaSDKClient:
             logger.error(f"Failed to initialize Meta SDK: {e}")
             self._initialized = False
     
+    def _get_appsecret_proof(self) -> str:
+        """
+        Calculate appsecret_proof = HMAC-SHA256(access_token, app_secret).
+        
+        Required for server-side API calls to Meta's Graph API.
+        """
+        import hmac
+        import hashlib
+        
+        if not self.app_secret or not self._access_token:
+            return ""
+        return hmac.new(
+            self.app_secret.encode('utf-8'),
+            self._access_token.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+    
     def switch_access_token(self, access_token: str) -> None:
         """
         Switch to a different access token.
@@ -1130,6 +1147,391 @@ class MetaSDKClient:
         ]
         insights = ad.get_insights(fields=fields, params={'date_preset': date_preset})
         return {'data': [self._serialize_sdk_object(dict(i)) for i in insights]}
+    
+    # =========================================================================
+    # SETTINGS OPERATIONS (for API routes)
+    # =========================================================================
+    
+    async def get_notification_settings(self, account_id: str) -> Dict[str, Any]:
+        """Get notification settings for an ad account."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_notification_settings_sync, account_id)
+    
+    def _get_notification_settings_sync(self, account_id: str) -> Dict[str, Any]:
+        """
+        Get notification settings for an ad account.
+        Note: Meta API doesn't have a direct notification settings endpoint.
+        This returns the ad rules configured for notifications, or empty settings if unavailable.
+        """
+        try:
+            if not account_id.startswith('act_'):
+                account_id = f'act_{account_id}'
+            
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{account_id}/adrules_library"
+            params = {
+                "access_token": self._access_token,
+                "fields": "id,name,status,execution_spec",
+            }
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.get(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                data = response.json()
+                # Extract notification rules
+                notification_rules = []
+                for rule in data.get("data", []):
+                    exec_spec = rule.get("execution_spec", {})
+                    if exec_spec.get("execution_type") == "NOTIFICATION":
+                        notification_rules.append(rule)
+                
+                return {
+                    "success": True,
+                    "settings": {
+                        "notification_rules": notification_rules,
+                        "total_count": len(notification_rules)
+                    }
+                }
+            else:
+                # Return empty settings gracefully instead of error
+                # Meta API may not support this endpoint for all account types
+                logger.warning(f"Could not fetch notification settings: {response.text}")
+                return {
+                    "success": True,
+                    "settings": {
+                        "notification_rules": [],
+                        "total_count": 0,
+                        "note": "Notification settings not available for this account"
+                    }
+                }
+                
+        except Exception as e:
+            logger.error(f"Get notification settings error: {e}")
+            # Return empty settings gracefully
+            return {
+                "success": True,
+                "settings": {
+                    "notification_rules": [],
+                    "total_count": 0,
+                    "note": "Could not retrieve notification settings"
+                }
+            }
+    
+    async def get_ad_account_users(self, account_id: str) -> Dict[str, Any]:
+        """Get users with access to an ad account (Team Access)."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_ad_account_users_sync, account_id)
+    
+    def _get_ad_account_users_sync(self, account_id: str) -> Dict[str, Any]:
+        """Get users with access to an ad account."""
+        try:
+            if not account_id.startswith('act_'):
+                account_id = f'act_{account_id}'
+            
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{account_id}/users"
+            params = {
+                "access_token": self._access_token,
+                "fields": "id,name,role,permissions"
+            }
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.get(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                data = response.json()
+                return {"success": True, "users": data.get("data", [])}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get users")
+                }
+                
+        except Exception as e:
+            logger.error(f"Get ad account users error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def get_funding_sources(self, account_id: str) -> Dict[str, Any]:
+        """Get funding sources (payment methods) for an ad account."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_funding_sources_sync, account_id)
+    
+    def _get_funding_sources_sync(self, account_id: str) -> Dict[str, Any]:
+        """Get funding sources for an ad account."""
+        try:
+            if not account_id.startswith('act_'):
+                account_id = f'act_{account_id}'
+            
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{account_id}"
+            params = {
+                "access_token": self._access_token,
+                "fields": "funding_source,funding_source_details"
+            }
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.get(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                return {"success": True, "funding_sources": [response.json()]}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get funding sources")
+                }
+                
+        except Exception as e:
+            logger.error(f"Get funding sources error: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def get_ad_account_activities(
+        self, account_id: str, since: str = None, until: str = None, limit: int = 50
+    ) -> Dict[str, Any]:
+        """Get activity log for an ad account."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(
+            self._get_ad_account_activities_sync, account_id, since, until, limit
+        )
+    
+    def _get_ad_account_activities_sync(
+        self, account_id: str, since: str = None, until: str = None, limit: int = 50
+    ) -> Dict[str, Any]:
+        """Get activity log for an ad account."""
+        try:
+            if not account_id.startswith('act_'):
+                account_id = f'act_{account_id}'
+            
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{account_id}/activities"
+            params = {
+                "access_token": self._access_token,
+                "fields": "actor_id,actor_name,application_name,date_time_in_timezone,event_time,event_type,object_id,object_name,translated_event_type,extra_data",
+                "limit": limit
+            }
+            if since:
+                params["since"] = since
+            if until:
+                params["until"] = until
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.get(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                data = response.json()
+                return {"success": True, "activities": data.get("data", []), "paging": data.get("paging")}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get activities")
+                }
+                
+        except Exception as e:
+            logger.error(f"Get ad account activities error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def get_ad_account_invoices(self, account_id: str, limit: int = 25) -> Dict[str, Any]:
+        """Get invoices for an ad account."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_ad_account_invoices_sync, account_id, limit)
+    
+    def _get_ad_account_invoices_sync(self, account_id: str, limit: int = 25) -> Dict[str, Any]:
+        """Get invoices for an ad account."""
+        try:
+            if not account_id.startswith('act_'):
+                account_id = f'act_{account_id}'
+            
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{account_id}"
+            params = {
+                "access_token": self._access_token,
+                "fields": "id,name,account_id"
+            }
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.get(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                # Note: Invoices are typically at business level, not account level
+                return {"success": True, "invoices": []}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get invoices")
+                }
+                
+        except Exception as e:
+            logger.error(f"Get ad account invoices error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def get_business_info(self, business_id: str) -> Dict[str, Any]:
+        """Get business information."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_business_info_sync, business_id)
+    
+    def _get_business_info_sync(self, business_id: str) -> Dict[str, Any]:
+        """Get business information."""
+        try:
+            if not business_id:
+                return {"success": False, "error": "Business ID is required"}
+            
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{business_id}"
+            params = {
+                "access_token": self._access_token,
+                "fields": "id,name,created_time,timezone,primary_page,profile_picture_uri,verification_status,vertical"
+            }
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.get(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                return {"success": True, "business": response.json()}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get business info")
+                }
+                
+        except Exception as e:
+            logger.error(f"Get business info error: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def get_pixel_details(self, pixel_id: str) -> Dict[str, Any]:
+        """Get details for a specific pixel."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_pixel_details_sync, pixel_id)
+    
+    def _get_pixel_details_sync(self, pixel_id: str) -> Dict[str, Any]:
+        """Get details for a specific pixel."""
+        try:
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{pixel_id}"
+            params = {
+                "access_token": self._access_token,
+                "fields": "id,name,code,creation_time,creator,is_created_by_business,owner_ad_account,owner_business,last_fired_time,data_use_setting,enable_automatic_matching,first_party_cookie_status"
+            }
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.get(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                return {"success": True, "pixel": response.json()}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get pixel details")
+                }
+                
+        except Exception as e:
+            logger.error(f"Get pixel details error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def get_pixel_users(self, pixel_id: str) -> Dict[str, Any]:
+        """Get users assigned to a pixel."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._get_pixel_users_sync, pixel_id)
+    
+    def _get_pixel_users_sync(self, pixel_id: str) -> Dict[str, Any]:
+        """Get users assigned to a pixel."""
+        try:
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{pixel_id}/assigned_users"
+            params = {
+                "access_token": self._access_token,
+                "fields": "id,name,tasks"
+            }
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.get(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                data = response.json()
+                return {"success": True, "users": data.get("data", [])}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to get pixel users")
+                }
+                
+        except Exception as e:
+            logger.error(f"Get pixel users error: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def update_pixel(self, pixel_id: str, updates: Dict) -> Dict[str, Any]:
+        """Update pixel settings."""
+        self._ensure_initialized()
+        return await asyncio.to_thread(self._update_pixel_sync, pixel_id, updates)
+    
+    def _update_pixel_sync(self, pixel_id: str, updates: Dict) -> Dict[str, Any]:
+        """Update pixel settings."""
+        try:
+            if not updates:
+                return {"success": False, "error": "No updates provided"}
+            
+            import httpx
+            url = f"https://graph.facebook.com/v24.0/{pixel_id}"
+            params = {"access_token": self._access_token}
+            params.update(updates)
+            
+            # Add appsecret_proof for server-side calls
+            appsecret_proof = self._get_appsecret_proof()
+            if appsecret_proof:
+                params["appsecret_proof"] = appsecret_proof
+            
+            response = httpx.post(url, params=params, timeout=30.0)
+            
+            if response.is_success:
+                return {"success": True, "pixel_id": pixel_id}
+            else:
+                error_data = response.json()
+                return {
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Failed to update pixel")
+                }
+                
+        except Exception as e:
+            logger.error(f"Update pixel error: {e}")
+            return {"success": False, "error": str(e)}
 
 
 # =============================================================================

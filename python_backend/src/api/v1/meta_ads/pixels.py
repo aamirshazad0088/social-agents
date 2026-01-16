@@ -138,3 +138,17 @@ async def update_pixel(request: Request, pixel_id: str = Path(...)):
     except Exception as e:
         logger.error(f"Error updating pixel: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# ALIAS ROUTES - Match frontend expected paths
+# ============================================================================
+
+@router.get("/accounts/pixels")
+async def get_accounts_pixels(request: Request):
+    """
+    GET /api/v1/meta-ads/accounts/pixels
+    
+    Alias for /pixels to match frontend expectations.
+    """
+    return await list_pixels(request)
