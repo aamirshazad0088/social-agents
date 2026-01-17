@@ -211,9 +211,9 @@ export const ThreadHistory: React.FC<ThreadHistoryProps> = ({
     );
 
     return (
-        <div className="flex flex-col h-full bg-card border-r border-border">
+        <div className="flex flex-col h-full bg-background/60 border-r border-border/60">
             {/* Header with New Chat button */}
-            <div className="p-3 border-b border-border">
+            <div className="p-3 border-b border-border/60">
                 <button
                     onClick={onNewChat}
                     disabled={isCreatingNewChat}
@@ -229,7 +229,7 @@ export const ThreadHistory: React.FC<ThreadHistoryProps> = ({
             </div>
 
             {/* Search */}
-            <div className="p-3 border-b border-border">
+            <div className="p-3 border-b border-border/60">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
@@ -237,7 +237,7 @@ export const ThreadHistory: React.FC<ThreadHistoryProps> = ({
                         placeholder="Search chats..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-sm bg-muted border-0 rounded-lg placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-muted/40 border border-border/60 rounded-lg placeholder:text-muted-foreground text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                 </div>
             </div>
@@ -289,7 +289,7 @@ export const ThreadHistory: React.FC<ThreadHistoryProps> = ({
 
             {/* Thread count footer */}
             {threads.length > 0 && (
-                <div className="p-3 border-t border-border">
+                <div className="p-3 border-t border-border/60">
                     <p className="text-xs text-center text-muted-foreground">
                         {filteredThreads.length} of {threads.length} chats
                     </p>

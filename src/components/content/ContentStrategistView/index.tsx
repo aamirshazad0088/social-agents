@@ -144,11 +144,12 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     }, {} as Record<string, string>);
 
     return (
-        <div className="flex h-full bg-white dark:bg-gray-900">
+        <div className="relative h-full bg-canva-gradient">
+            <div className="flex h-full rounded-2xl border border-border/60 bg-background/80 shadow-sm backdrop-blur">
             {/* Left Sidebar - Thread History */}
             {isHistoryVisible ? (
-                <div className="w-64 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 hidden md:block">
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                <div className="w-64 border-r border-border/60 bg-background/70 flex-shrink-0 hidden md:block">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
                         <span className="text-xs font-semibold text-muted-foreground">Chats</span>
                         <button
                             className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted"
@@ -171,7 +172,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
                     />
                 </div>
             ) : (
-                <div className="hidden md:flex w-12 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 items-start justify-center py-2">
+                <div className="hidden md:flex w-12 border-r border-border/60 bg-background/70 flex-shrink-0 items-start justify-center py-2">
                     <button
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
                         onClick={() => setIsHistoryVisible(true)}
@@ -197,7 +198,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
             </div>
 
             {/* Right Sidebar - Tasks & Files */}
-            <div className="w-72 border-l border-gray-200 dark:border-gray-700 flex-shrink-0 hidden lg:block mr-3 my-3 rounded-lg overflow-hidden bg-white/80 dark:bg-gray-900/80">
+            <div className="w-72 border-l border-border/60 bg-background/70 flex-shrink-0 hidden lg:block mr-3 my-3 rounded-lg overflow-hidden shadow-sm">
                 <TasksFilesSidebar
                     todos={storeTodos}
                     files={storeFiles}
@@ -240,6 +241,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
                 workspaceId={workspaceId}
                 onReset={handleNewChat}
             />
+            </div>
         </div>
     );
 }

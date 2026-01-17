@@ -5,18 +5,23 @@ import React, {
     useRef,
     useCallback,
     useMemo,
+    useEffect,
     FormEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Square,
-    ArrowUp,
     CheckCircle2,
     Circle,
     Clock,
     FileText,
 } from "lucide-react";
+import { FiSend } from "react-icons/fi";
 import { ChatMessage } from "./ChatMessage";
+import {
+    ContentPromptSuggestion,
+    getRandomPromptSuggestions,
+} from "../data/contentPrompts";
 import type {
     ToolCall,
     ActionRequest,
@@ -57,11 +62,26 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const [input, setInput] = useState("");
     const [metaOpen, setMetaOpen] = useState<"tasks" | "files" | null>(null);
+    const [promptSuggestions, setPromptSuggestions] = useState<ContentPromptSuggestion[]>(() =>
+        getRandomPromptSuggestions(6)
+    );
     const { scrollRef, contentRef } = useStickToBottom();
     const todos = useContentStrategistStore(state => state.todos);
     const files = useContentStrategistStore(state => state.files);
 
     const submitDisabled = isLoading;
+
+    const resizeTextarea = useCallback(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        textarea.style.height = "0px";
+        const nextHeight = Math.min(Math.max(textarea.scrollHeight, 44), 240);
+        textarea.style.height = `${nextHeight}px`;
+    }, []);
+
+    useEffect(() => {
+        resizeTextarea();
+    }, [input, resizeTextarea]);
 
     const handleSubmit = useCallback(
         (e?: FormEvent) => {
@@ -132,12 +152,52 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                 ref={scrollRef}
             >
                 <div
-                    className="w-full px-4 pb-6 pt-4"
+                    className="w-full px-6 pb-6 pt-4 md:px-8"
                     ref={contentRef}
                 >
                     {processedMessages.length === 0 ? (
-                        <div className="flex items-center justify-center p-8 h-[50vh]">
-                            <p className="text-muted-foreground text-sm">Start a conversation to see project updates.</p>
+                        <div className="flex h-[52vh] flex-col items-center justify-center px-6 text-center">
+                            <div className="w-full max-w-3xl rounded-[28px] p-6 sm:p-8">
+                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary shadow-sm">
+                                    ✨
+                                </div>
+                                <div className="mt-4">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/70">
+                                        Content strategist
+                                    </p>
+                                    <h2 className="mt-3 text-3xl font-semibold text-foreground sm:text-4xl">
+                                        What will you design today?
+                                    </h2>
+                                </div>
+                                <div className="mt-6 flex flex-col items-center gap-3">
+                                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                                        Quick starts
+                                        <span className="h-px w-12 bg-border" />
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-center gap-2">
+                                        {promptSuggestions.map((suggestion) => (
+                                            <button
+                                                key={suggestion.label}
+                                                type="button"
+                                                onClick={() => {
+                                                    setInput(suggestion.prompt);
+                                                    textareaRef.current?.focus();
+                                                }}
+                                                className="inline-flex items-center justify-center rounded-2xl border border-primary/40 px-4 py-2 text-xs font-medium text-foreground transition hover:-translate-y-0.5 hover:border-primary hover:text-primary"
+                                            >
+                                                {suggestion.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPromptSuggestions(getRandomPromptSuggestions(6))}
+                                        className="rounded-full px-4 py-1.5 text-xs font-semibold text-primary transition hover:text-primary/80"
+                                    >
+                                        Shuffle ideas
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className="space-y-4">
@@ -164,11 +224,11 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
             </div>
 
             {showInput && (
-                <div className="flex-shrink-0 bg-background border-t border-border p-4">
-                    <div className="w-full">
+                <div className="flex-shrink-0 bg-background px-4 pb-12 pt-4">
+                    <div className="mx-auto w-full max-w-3xl">
                         <form
                             onSubmit={handleSubmit}
-                            className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-muted/30 focus-within:ring-1 focus-within:ring-primary/20 transition-all"
+                            className="relative flex w-full flex-col overflow-hidden rounded-[18px] border border-border bg-muted/30 focus-within:ring-1 focus-within:ring-primary/20 transition-all"
                         >
                             {(hasTasks || hasFiles) && (
                                 <div className="border-b border-border bg-background">
@@ -286,43 +346,41 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                                     )}
                                 </div>
                             )}
-                            <textarea
-                                ref={textareaRef}
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder={isLoading ? "Agent is working..." : inputPlaceholder}
-                                className="resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground min-h-[50px] max-h-[200px]"
-                                rows={1}
-                            />
-                            <div className="flex justify-end p-2 gap-2">
+                            <div className="relative flex items-end px-4 py-2">
+                                <textarea
+                                    ref={textareaRef}
+                                    value={input}
+                                    onChange={(e) => {
+                                        setInput(e.target.value);
+                                        requestAnimationFrame(resizeTextarea);
+                                    }}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder={isLoading ? "Agent is working..." : inputPlaceholder}
+                                    className="scrollbar-hide flex-1 resize-none border-0 bg-transparent py-2 pr-12 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground min-h-[44px] max-h-[240px] overflow-y-auto"
+                                    rows={1}
+                                />
                                 {isLoading ? (
                                     <Button
                                         type="button"
-                                        size="sm"
+                                        size="icon"
                                         variant="destructive"
                                         onClick={onStopStream}
-                                        className="h-8 gap-2"
+                                        className="absolute bottom-2 right-3 h-9 w-9 rounded-full"
                                     >
                                         <Square size={14} />
-                                        <span>Stop</span>
                                     </Button>
                                 ) : (
                                     <Button
                                         type="submit"
-                                        size="sm"
+                                        size="icon"
                                         disabled={submitDisabled || !input.trim()}
-                                        className="h-8 gap-2"
+                                        className="absolute bottom-2 right-3 h-9 w-9 rounded-[12px] bg-blue-600 text-white shadow-[0_6px_16px_rgba(37,99,235,0.35)] hover:bg-blue-700"
                                     >
-                                        <ArrowUp size={16} />
-                                        <span>Send</span>
+                                        <FiSend className="h-4 w-4" />
                                     </Button>
                                 )}
                             </div>
                         </form>
-                        <p className="mt-2 text-[10px] text-center text-muted-foreground">
-                            Strategist will update the project files and tasks as it works.
-                        </p>
                     </div>
                 </div>
             )}

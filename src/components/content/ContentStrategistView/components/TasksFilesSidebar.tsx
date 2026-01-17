@@ -95,10 +95,10 @@ export const TasksFilesSidebar: React.FC<TasksFilesSidebarProps> = ({
     };
 
     return (
-        <div className="w-80 border-l border-border bg-muted/30 flex flex-col h-full overflow-hidden">
+        <div className="w-80 border-l border-border/60 bg-background/60 flex flex-col h-full overflow-hidden">
             {/* Header */}
-            <div className="p-4 border-b border-border bg-background">
-                <h2 className="text-sm font-semibold flex items-center gap-2">
+            <div className="p-4 border-b border-border/60 bg-background/70">
+                <h2 className="text-sm font-semibold flex items-center gap-2 text-foreground">
                     <Search size={14} className="text-muted-foreground" />
                     Project State
                 </h2>
@@ -177,7 +177,7 @@ export const TasksFilesSidebar: React.FC<TasksFilesSidebarProps> = ({
                                             placeholder="Search files..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full bg-background border border-border rounded-md py-1.5 pl-7 pr-3 text-[11px] outline-none focus:ring-1 focus:ring-primary/20"
+                                            className="w-full bg-background/80 border border-border/60 rounded-md py-1.5 pl-7 pr-3 text-[11px] text-foreground outline-none focus:ring-1 focus:ring-primary/20"
                                         />
                                     </div>
                                 </div>
@@ -191,7 +191,7 @@ export const TasksFilesSidebar: React.FC<TasksFilesSidebarProps> = ({
                                         <button
                                             key={path}
                                             onClick={() => onFileClick?.(path)}
-                                            className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-background border border-transparent hover:border-border transition-all group text-left"
+                                            className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-background/80 border border-transparent hover:border-border/60 transition-all group text-left"
                                         >
                                             <FileText size={14} className="text-muted-foreground shrink-0" />
                                             <span className="text-xs text-foreground truncate flex-1">{path}</span>
