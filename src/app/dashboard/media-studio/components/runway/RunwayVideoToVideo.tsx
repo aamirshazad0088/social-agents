@@ -1,17 +1,31 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Loader2, Clock, Upload, Wand2, ArrowUpCircle, X } from 'lucide-react';
+import { Loader2, Clock, Upload, Wand2, ArrowUpCircle, X, Video, RefreshCw, ChevronLeft, ImageIcon } from 'lucide-react';
 import type { GeneratedRunwayVideo, RunwayRatio } from '../../types/mediaStudio.types';
 import { RUNWAY_RATIO_OPTIONS } from '../../types/mediaStudio.types';
 
 // ============================================================================
 // Types
 // ============================================================================
+
+interface LibraryVideo {
+    id: string;
+    url: string;
+    prompt?: string;
+    thumbnail_url?: string;
+}
+
+interface LibraryImage {
+    id: string;
+    url: string;
+    prompt?: string;
+    thumbnail_url?: string;
+}
 
 interface RunwayVideoToVideoProps {
     onGenerationStarted: (video: GeneratedRunwayVideo, historyAction: string) => void;
@@ -31,18 +45,80 @@ export function RunwayVideoToVideo({
     onError,
     isGenerating,
     recentVideos,
+    workspaceId,
     isUpscaleMode = false,
 }: RunwayVideoToVideoProps) {
     // State
     const [prompt, setPrompt] = useState('');
     const [videoUrl, setVideoUrl] = useState('');
     const [videoPreview, setVideoPreview] = useState<string | null>(null);
+    const [videoSource, setVideoSource] = useState<'upload' | 'library' | null>(null);
     const [referenceImageUrl, setReferenceImageUrl] = useState('');
+    const [referenceImageSource, setReferenceImageSource] = useState<'upload' | 'library' | null>(null);
     const [ratio, setRatio] = useState<RunwayRatio>('1280:720');
     const [seed, setSeed] = useState<string>('');
 
+    // Library picker state for videos
+    const [showVideoLibraryPicker, setShowVideoLibraryPicker] = useState(false);
+    const [libraryVideos, setLibraryVideos] = useState<LibraryVideo[]>([]);
+    const [isLoadingVideoLibrary, setIsLoadingVideoLibrary] = useState(false);
+
+    // Library picker state for reference images
+    const [showImageLibraryPicker, setShowImageLibraryPicker] = useState(false);
+    const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
+    const [isLoadingImageLibrary, setIsLoadingImageLibrary] = useState(false);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
+
+    // Fetch library videos
+    const fetchLibraryVideos = useCallback(async () => {
+        if (!workspaceId) return;
+
+        setIsLoadingVideoLibrary(true);
+        try {
+            const response = await fetch(`/api/media-studio/library?workspace_id=${workspaceId}&type=video&limit=20`);
+            const data = await response.json();
+            if (data.items) {
+                setLibraryVideos(data.items);
+            }
+        } catch (err) {
+            console.error('Failed to fetch library videos:', err);
+        } finally {
+            setIsLoadingVideoLibrary(false);
+        }
+    }, [workspaceId]);
+
+    // Fetch library images
+    const fetchLibraryImages = useCallback(async () => {
+        if (!workspaceId) return;
+
+        setIsLoadingImageLibrary(true);
+        try {
+            const response = await fetch(`/api/media-studio/library?workspace_id=${workspaceId}&type=image&limit=20`);
+            const data = await response.json();
+            if (data.items) {
+                setLibraryImages(data.items);
+            }
+        } catch (err) {
+            console.error('Failed to fetch library images:', err);
+        } finally {
+            setIsLoadingImageLibrary(false);
+        }
+    }, [workspaceId]);
+
+    // Load libraries when pickers are opened
+    useEffect(() => {
+        if (showVideoLibraryPicker) {
+            fetchLibraryVideos();
+        }
+    }, [showVideoLibraryPicker, fetchLibraryVideos]);
+
+    useEffect(() => {
+        if (showImageLibraryPicker) {
+            fetchLibraryImages();
+        }
+    }, [showImageLibraryPicker, fetchLibraryImages]);
 
     // Handle video file upload
     const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,6 +129,7 @@ export function RunwayVideoToVideo({
                 const dataUrl = event.target?.result as string;
                 setVideoUrl(dataUrl);
                 setVideoPreview(dataUrl);
+                setVideoSource('upload');
             };
             reader.readAsDataURL(file);
         }
@@ -66,25 +143,43 @@ export function RunwayVideoToVideo({
             reader.onload = (event) => {
                 const dataUrl = event.target?.result as string;
                 setReferenceImageUrl(dataUrl);
+                setReferenceImageSource('upload');
             };
             reader.readAsDataURL(file);
         }
     };
 
-    // Select video from recent
-    const handleSelectFromRecent = (url: string) => {
-        if (url) {
-            setVideoUrl(url);
-            setVideoPreview(url);
-        }
+    // Select video from library
+    const handleSelectVideoFromLibrary = (url: string) => {
+        setVideoUrl(url);
+        setVideoPreview(url);
+        setVideoSource('library');
+        setShowVideoLibraryPicker(false);
+    };
+
+    // Select image from library
+    const handleSelectImageFromLibrary = (url: string) => {
+        setReferenceImageUrl(url);
+        setReferenceImageSource('library');
+        setShowImageLibraryPicker(false);
     };
 
     // Clear video
     const clearVideo = () => {
         setVideoUrl('');
         setVideoPreview(null);
+        setVideoSource(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
+        }
+    };
+
+    // Clear reference image
+    const clearReferenceImage = () => {
+        setReferenceImageUrl('');
+        setReferenceImageSource(null);
+        if (imageInputRef.current) {
+            imageInputRef.current.value = '';
         }
     };
 
@@ -155,65 +250,126 @@ export function RunwayVideoToVideo({
         }
     };
 
-    const completedVideos = recentVideos.filter(v => v.status === 'SUCCEEDED' && v.url);
-
     return (
         <div className="space-y-5">
-            {/* Video Upload */}
-            <div className="space-y-2.5">
+            {/* Video Upload Section */}
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
                 <label className="text-[13px] font-medium text-foreground">
                     {isUpscaleMode ? 'Video to Upscale' : 'Source Video'}
                 </label>
 
-                {videoPreview ? (
-                    <div className="relative">
-                        <video
-                            src={videoPreview}
-                            className="w-full h-40 object-cover rounded-lg border border-[var(--ms-border)]"
-                            controls
-                        />
-                        <button
-                            onClick={clearVideo}
-                            className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full hover:bg-black/70 transition-colors"
-                        >
-                            <X className="w-4 h-4 text-white" />
-                        </button>
-                    </div>
-                ) : (
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-[var(--ms-border)] rounded-lg p-6 text-center cursor-pointer hover:border-cyan-500/50 transition-colors"
-                    >
-                        <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-[13px] text-muted-foreground">Click to upload video</p>
-                        <p className="text-[11px] text-muted-foreground mt-1">MP4, WebM up to 100MB</p>
-                    </div>
-                )}
-
+                {/* Hidden file input */}
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept="video/*"
+                    accept="video/mp4,video/webm,video/quicktime"
                     onChange={handleVideoUpload}
                     className="hidden"
+                    disabled={isGenerating}
                 />
 
-                {/* Recent Videos */}
-                {completedVideos.length > 0 && !videoPreview && (
+                {/* Show selected video or picker */}
+                {videoPreview ? (
                     <div className="space-y-2">
-                        <p className="text-[11px] text-muted-foreground">Or select from recent videos:</p>
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                            {completedVideos.slice(0, 4).map((vid) => (
-                                <button
-                                    key={vid.id}
-                                    onClick={() => vid.url && handleSelectFromRecent(vid.url)}
-                                    className="flex-shrink-0 w-24 h-16 rounded-md overflow-hidden border-2 border-transparent hover:border-cyan-500 transition-colors bg-muted"
-                                >
-                                    <video src={vid.url} className="w-full h-full object-cover" muted />
-                                </button>
-                            ))}
+                        <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border">
+                            <video src={videoPreview} className="w-full h-full object-contain" controls />
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={clearVideo}
+                                disabled={isGenerating}
+                            >
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="text-green-500">✓</span>
+                            <span>{videoSource === 'upload' ? 'Uploaded video' : 'From library'} - Ready for {isUpscaleMode ? 'upscaling' : 'transformation'}</span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => setShowVideoLibraryPicker(true)}
+                            disabled={isGenerating}
+                        >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Change Video
+                        </Button>
+                    </div>
+                ) : showVideoLibraryPicker ? (
+                    /* Video Library Picker View */
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowVideoLibraryPicker(false)}
+                                className="h-8 px-2"
+                            >
+                                <ChevronLeft className="w-4 h-4 mr-1" />
+                                Back
+                            </Button>
+                            <span className="text-sm font-medium">Select from Library</span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={fetchLibraryVideos}
+                                className="h-8 px-2"
+                            >
+                                <RefreshCw className={`w-4 h-4 ${isLoadingVideoLibrary ? 'animate-spin' : ''}`} />
+                            </Button>
+                        </div>
+
+                        {isLoadingVideoLibrary ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : libraryVideos.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2 max-h-[250px] overflow-y-auto">
+                                {libraryVideos.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        className="aspect-video bg-muted rounded-md overflow-hidden transition-all hover:ring-2 hover:ring-cyan-500"
+                                        onClick={() => handleSelectVideoFromLibrary(item.url)}
+                                    >
+                                        <video src={item.url} className="w-full h-full object-cover" muted />
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 text-muted-foreground">
+                                <Video className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">No videos in library</p>
+                                <p className="text-xs">Generate some videos first</p>
+                            </div>
+                        )}
+
+                        {/* Upload button in library picker */}
+                        <div className="pt-2 border-t">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isGenerating}
+                            >
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload from PC
+                            </Button>
                         </div>
                     </div>
+                ) : (
+                    /* Initial Selection - Opens library */
+                    <Button
+                        variant="outline"
+                        className="w-full h-24 border-dashed flex items-center justify-center"
+                        onClick={() => setShowVideoLibraryPicker(true)}
+                        disabled={isGenerating}
+                    >
+                        <Upload className="w-6 h-6 text-muted-foreground" />
+                    </Button>
                 )}
             </div>
 
@@ -240,12 +396,12 @@ export function RunwayVideoToVideo({
 
             {/* Reference Image (for style transfer) */}
             {!isUpscaleMode && (
-                <div className="space-y-2.5">
+                <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
                     <div className="flex items-center justify-between">
                         <label className="text-[13px] font-medium text-foreground">Reference Image (Optional)</label>
                         {referenceImageUrl && (
                             <button
-                                onClick={() => setReferenceImageUrl('')}
+                                onClick={clearReferenceImage}
                                 className="text-[11px] text-muted-foreground hover:text-foreground"
                             >
                                 Remove
@@ -253,29 +409,112 @@ export function RunwayVideoToVideo({
                         )}
                     </div>
 
-                    {referenceImageUrl ? (
-                        <img
-                            src={referenceImageUrl}
-                            alt="Reference"
-                            className="w-20 h-20 object-cover rounded-md border border-[var(--ms-border)]"
-                        />
-                    ) : (
-                        <button
-                            onClick={() => imageInputRef.current?.click()}
-                            disabled={isGenerating}
-                            className="w-full h-16 border border-dashed border-[var(--ms-border)] rounded-lg flex items-center justify-center gap-2 text-[12px] text-muted-foreground hover:border-cyan-500/50 transition-colors"
-                        >
-                            <Upload className="w-4 h-4" />
-                            Add style reference
-                        </button>
-                    )}
+                    {/* Hidden file input for images */}
                     <input
                         ref={imageInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp"
                         onChange={handleImageUpload}
                         className="hidden"
+                        disabled={isGenerating}
                     />
+
+                    {referenceImageUrl ? (
+                        <div className="space-y-2">
+                            <div className="relative w-24 h-24">
+                                <img
+                                    src={referenceImageUrl}
+                                    alt="Reference"
+                                    className="w-full h-full object-cover rounded-md border border-[var(--ms-border)]"
+                                />
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                                    onClick={clearReferenceImage}
+                                    disabled={isGenerating}
+                                >
+                                    <X className="w-3 h-3" />
+                                </Button>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span className="text-green-500">✓</span>
+                                <span>{referenceImageSource === 'upload' ? 'Uploaded' : 'From library'} - Style reference</span>
+                            </div>
+                        </div>
+                    ) : showImageLibraryPicker ? (
+                        /* Image Library Picker View */
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowImageLibraryPicker(false)}
+                                    className="h-8 px-2"
+                                >
+                                    <ChevronLeft className="w-4 h-4 mr-1" />
+                                    Back
+                                </Button>
+                                <span className="text-sm font-medium">Select Reference</span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={fetchLibraryImages}
+                                    className="h-8 px-2"
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isLoadingImageLibrary ? 'animate-spin' : ''}`} />
+                                </Button>
+                            </div>
+
+                            {isLoadingImageLibrary ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : libraryImages.length > 0 ? (
+                                <div className="grid grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
+                                    {libraryImages.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            className="aspect-square bg-muted rounded-md overflow-hidden transition-all hover:ring-2 hover:ring-cyan-500"
+                                            onClick={() => handleSelectImageFromLibrary(item.url)}
+                                        >
+                                            <img src={item.url} alt={item.prompt || 'Library image'} className="w-full h-full object-cover" />
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-6 text-muted-foreground">
+                                    <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    <p className="text-sm">No images in library</p>
+                                    <p className="text-xs">Generate some images first</p>
+                                </div>
+                            )}
+
+                            {/* Upload button */}
+                            <div className="pt-2 border-t">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full"
+                                    onClick={() => imageInputRef.current?.click()}
+                                    disabled={isGenerating}
+                                >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    Upload from PC
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            className="w-full h-16 border-dashed flex items-center justify-center gap-2"
+                            onClick={() => setShowImageLibraryPicker(true)}
+                            disabled={isGenerating}
+                        >
+                            <Upload className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-[12px] text-muted-foreground">Add style reference</span>
+                        </Button>
+                    )}
                 </div>
             )}
 

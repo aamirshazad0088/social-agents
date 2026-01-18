@@ -98,14 +98,20 @@ export function RunwayVideoGenerator({
                     if (canSaveToDb && videoUrl && currentVideo) {
                         const genTime = generationStartTime > 0 ? Date.now() - generationStartTime : undefined;
 
-                        await saveGeneratedMedia({
-                            type: 'video',
-                            source: `runway-${mode}` as any,
-                            url: videoUrl,
-                            prompt: currentVideo.prompt,
-                            model: currentVideo.config.model,
-                            config: currentVideo.config,
-                        }, currentHistoryId, genTime);
+                        try {
+                            console.log('Saving Runway video to database...', { url: videoUrl.substring(0, 50) + '...' });
+                            const result = await saveGeneratedMedia({
+                                type: 'video',
+                                source: `runway-${mode}` as any,
+                                url: videoUrl,
+                                prompt: currentVideo.prompt,
+                                model: currentVideo.config.model,
+                                config: currentVideo.config,
+                            }, currentHistoryId, genTime);
+                            console.log('Runway video saved to database:', result);
+                        } catch (err) {
+                            console.error('Failed to save Runway video to database:', err);
+                        }
                     }
 
                     if (pollIntervalRef.current) {

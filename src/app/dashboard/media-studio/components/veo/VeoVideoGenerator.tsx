@@ -134,22 +134,28 @@ export function VeoVideoGenerator({
               // Can extend if under 20 extensions
               const isExtendable = extensionCount < 20;
 
-              await saveGeneratedMedia({
-                type: 'video',
-                source: `veo-${mode}` as any,
-                url: videoUrl,
-                prompt: currentVideo.prompt,
-                model: currentVideo.config.model,
-                config: {
-                  ...currentVideo.config,
-                  veo_video_id: data.video.veoVideoId,
-                  veo_operation_id: operationId,
-                  extension_count: extensionCount,
-                  is_extendable: isExtendable,
-                  total_duration: totalDuration,
-                  parent_video_id: currentVideo.config.parent_video_id,
-                },
-              }, currentHistoryId, genTime);
+              try {
+                console.log('Saving Veo video to database...', { url: videoUrl.substring(0, 50) + '...' });
+                const result = await saveGeneratedMedia({
+                  type: 'video',
+                  source: `veo-${mode}` as any,
+                  url: videoUrl,
+                  prompt: currentVideo.prompt,
+                  model: currentVideo.config.model,
+                  config: {
+                    ...currentVideo.config,
+                    veo_video_id: data.video.veoVideoId,
+                    veo_operation_id: operationId,
+                    extension_count: extensionCount,
+                    is_extendable: isExtendable,
+                    total_duration: totalDuration,
+                    parent_video_id: currentVideo.config.parent_video_id,
+                  },
+                }, currentHistoryId, genTime);
+                console.log('Veo video saved to database:', result);
+              } catch (err) {
+                console.error('Failed to save Veo video to database:', err);
+              }
             }
 
             if (pollIntervalRef.current) {

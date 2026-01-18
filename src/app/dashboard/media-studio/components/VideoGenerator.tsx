@@ -59,45 +59,40 @@ const SORA_MODELS: ModelConfig[] = [
   {
     value: 'sora-2',
     label: 'Sora 2',
-    description: 'Fast, flexible video generation',
+    description: 'Speed & flexibility for rapid iteration',
     estimatedTime: '1-3 minutes',
   },
   {
     value: 'sora-2-pro',
     label: 'Sora 2 Pro',
-    description: 'Higher quality production output',
+    description: 'Production-quality cinematic output',
     estimatedTime: '3-5 minutes',
   },
 ];
 
-// Size options per OpenAI docs
+// Size options per OpenAI docs - only 4 sizes are supported
 const SIZE_OPTIONS = [
-  { value: '1280x720', label: 'HD 16:9 (1280×720)', aspect: '16:9', description: 'Standard HD landscape' },
-  { value: '1920x1080', label: 'Full HD 16:9 (1920×1080)', aspect: '16:9', description: 'Full HD landscape' },
-  { value: '1024x576', label: 'Wide 16:9 (1024×576)', aspect: '16:9', description: 'Compact landscape' },
-  { value: '720x1280', label: 'HD 9:16 (720×1280)', aspect: '9:16', description: 'Standard HD portrait' },
-  { value: '1080x1920', label: 'Full HD 9:16 (1080×1920)', aspect: '9:16', description: 'Full HD portrait' },
-  { value: '480x480', label: 'Square (480×480)', aspect: '1:1', description: 'Square format' },
+  { value: '720x1280', label: 'HD Portrait 720×1280 (default)', aspect: '9:16', description: 'Standard HD portrait' },
+  { value: '1280x720', label: 'HD Landscape (1280×720)', aspect: '16:9', description: 'Standard HD landscape' },
+  { value: '1024x1792', label: 'Tall Portrait (1024×1792)', aspect: '9:16', description: 'Tall cinematic portrait' },
+  { value: '1792x1024', label: 'Wide Landscape (1792×1024)', aspect: '16:9', description: 'Wide cinematic landscape' },
 ];
 
-// Duration options per OpenAI docs
+// Duration options per OpenAI docs - only 4, 8, 12 seconds are supported
 const DURATION_OPTIONS = [
-  { value: 5, label: '5 seconds', description: 'Quick clip' },
+  { value: 4, label: '4 seconds (default)', description: 'Quick clip' },
   { value: 8, label: '8 seconds', description: 'Standard length' },
-  { value: 10, label: '10 seconds', description: 'Extended clip' },
-  { value: 15, label: '15 seconds', description: 'Long form' },
-  { value: 16, label: '16 seconds', description: 'YouTube Short max' },
-  { value: 20, label: '20 seconds', description: 'Maximum length' },
+  { value: 12, label: '12 seconds', description: 'Maximum length' },
 ];
 
-// Standard platform presets - using existing dimensions only
+// Standard platform presets - using valid Sora sizes only
 const PLATFORM_PRESETS = [
-  { id: 'instagram', name: 'Instagram', size: '1080x1920', seconds: 15, model: 'sora-2' },
-  { id: 'facebook', name: 'Facebook', size: '1080x1920', seconds: 15, model: 'sora-2' },
+  { id: 'instagram', name: 'Instagram', size: '720x1280', seconds: 12, model: 'sora-2' },
+  { id: 'facebook', name: 'Facebook', size: '720x1280', seconds: 12, model: 'sora-2' },
   { id: 'twitter', name: 'Twitter', size: '1280x720', seconds: 8, model: 'sora-2' },
-  { id: 'linkedin', name: 'LinkedIn', size: '1280x720', seconds: 10, model: 'sora-2' },
-  { id: 'youtube_short', name: 'y-short', size: '1080x1920', seconds: 16, model: 'sora-2-pro' },
-  { id: 'tiktok', name: 'TikTok', size: '1080x1920', seconds: 15, model: 'sora-2' },
+  { id: 'linkedin', name: 'LinkedIn', size: '1280x720', seconds: 8, model: 'sora-2' },
+  { id: 'youtube_short', name: 'y-short', size: '720x1280', seconds: 12, model: 'sora-2-pro' },
+  { id: 'tiktok', name: 'TikTok', size: '720x1280', seconds: 12, model: 'sora-2' },
 ];
 
 type GenerationMode = 'text' | 'image' | 'remix';
@@ -117,8 +112,8 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
   const [mode, setMode] = useState<GenerationMode>('text');
   const [model, setModel] = useState<SoraModel>('sora-2');
   const [prompt, setPrompt] = useState('');
-  const [size, setSize] = useState('1280x720');
-  const [seconds, setSeconds] = useState(8);
+  const [size, setSize] = useState('720x1280');
+  const [seconds, setSeconds] = useState(4);
 
   // Image-to-video state
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
@@ -392,6 +387,9 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
     };
   }, []);
 
+  // Track if we've already saved this video to prevent duplicates
+  const [hasSavedCurrentVideo, setHasSavedCurrentVideo] = useState(false);
+
   // Save completed video to database when status changes to completed
   useEffect(() => {
     const saveCompletedVideo = async () => {
@@ -399,11 +397,13 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
         currentVideo?.status === 'completed' &&
         currentVideo?.url &&
         canSaveToDb &&
-        currentHistoryId
+        !hasSavedCurrentVideo // Prevent duplicate saves
       ) {
+        setHasSavedCurrentVideo(true); // Mark as saved immediately to prevent race conditions
         const genTime = generationStartTime > 0 ? Date.now() - generationStartTime : undefined;
         try {
-          await saveGeneratedMedia({
+          console.log('Saving video to database...', { url: currentVideo.url.substring(0, 50) + '...' });
+          const result = await saveGeneratedMedia({
             type: 'video',
             source: mode === 'image' ? 'image-to-video' : mode === 'remix' ? 'remix' : 'generated',
             url: currentVideo.url,
@@ -411,15 +411,17 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
             model,
             config: { size, seconds, mode },
           }, currentHistoryId, genTime);
+          console.log('Video saved to database:', result);
         } catch (err) {
           console.error('Failed to save video to database:', err);
+          setHasSavedCurrentVideo(false); // Allow retry on error
         }
         setCurrentHistoryId(null);
       }
     };
 
     saveCompletedVideo();
-  }, [currentVideo?.status, currentVideo?.url]);
+  }, [currentVideo?.status, currentVideo?.url, hasSavedCurrentVideo]);
 
   // Mark failed generations in history
   useEffect(() => {
@@ -532,6 +534,7 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
     setIsGenerating(true);
     setError(null);
     setGenerationStartTime(Date.now());
+    setHasSavedCurrentVideo(false); // Reset for new generation
 
     // Create history entry for tracking
     const actionType = mode === 'remix' ? 'remix' : mode === 'image' ? 'image-to-video' : 'generate';
@@ -1147,7 +1150,7 @@ export function VideoGenerator({ onVideoStarted, onVideoUpdate, recentVideos, re
         </CardHeader>
         <CardContent className="pt-6">
           {/* Main Preview */}
-          <div className="aspect-video bg-gradient-to-br from-muted to-muted/50 rounded-xl overflow-hidden mb-4 relative border-2 border-dashed border-[var(--ms-border)]">
+          <div className="aspect-[1/1] bg-gradient-to-br from-muted to-muted/50 rounded-xl overflow-hidden mb-4 relative border-2 border-dashed border-[var(--ms-border)]">
             {isGenerating && currentVideo ? (
               <div className="w-full h-full flex flex-col items-center justify-center p-6" style={{ background: 'var(--ms-gradient-subtle)' }}>
                 {/* Cinematic Loading Animation */}

@@ -32,9 +32,13 @@ GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 def get_api_key() -> str:
     """Get Gemini API key from environment"""
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_AI_API_KEY")
+    api_key = (
+        os.environ.get("GEMINI_API_KEY") or 
+        os.environ.get("GOOGLE_AI_API_KEY") or 
+        os.environ.get("GOOGLE_API_KEY")
+    )
     if not api_key:
-        raise ValueError("GEMINI_API_KEY or GOOGLE_AI_API_KEY environment variable not set")
+        raise ValueError("GEMINI_API_KEY, GOOGLE_AI_API_KEY, or GOOGLE_API_KEY environment variable not set")
     return api_key
 
 

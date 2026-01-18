@@ -87,45 +87,41 @@ export function RunwayPreviewPanel({
     };
 
     return (
-        <Card className="border rounded-xl lg:col-span-2">
-            <CardHeader className="p-5 pb-4">
-                <CardTitle className="flex items-center justify-between text-[15px]">
-                    <div className="flex items-center gap-2">
-                        <PlayCircle className="w-[18px] h-[18px]" style={{ color: '#06b6d4' }} />
-                        <span className="font-semibold">Preview</span>
+        <Card className="overflow-hidden border rounded-xl lg:col-span-2">
+            <CardHeader className="p-5 pb-4" style={{ background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%)', borderBottom: '1px solid var(--ms-border)' }}>
+                <CardTitle className="flex items-center gap-2 text-[15px]">
+                    <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)' }}>
+                        <PlayCircle className="w-4 h-4 text-white" />
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onNewVideo}
-                        disabled={isGenerating}
-                        className="h-8 px-2.5 text-[12px]"
-                    >
-                        <Plus className="w-3.5 h-3.5 mr-1" />
-                        New
-                    </Button>
+                    <span className="ms-heading-md">Preview</span>
                 </CardTitle>
+                <CardDescription className="ms-body-sm">
+                    Video preview and generation progress
+                </CardDescription>
             </CardHeader>
-            <CardContent className="p-5 pt-0 space-y-5">
+            <CardContent className="p-5 pt-6 space-y-5">
                 {/* Current Video Preview */}
-                <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
+                <div className="aspect-[1/1] bg-gradient-to-br from-muted to-muted/50 rounded-xl overflow-hidden relative border-2 border-dashed border-muted-foreground/20">
                     {currentVideo?.url ? (
                         <video
                             src={currentVideo.url}
-                            className="w-full h-full object-contain"
+                            className="w-full h-full object-contain bg-black"
                             controls
                             autoPlay
                             loop
                         />
                     ) : currentVideo ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-cyan-500/5 to-blue-500/5">
                             {currentVideo.status === 'RUNNING' || currentVideo.status === 'PENDING' ? (
                                 <>
-                                    <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
+                                    <div className="relative mb-2">
+                                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 blur-xl opacity-50 animate-pulse" />
+                                        <Loader2 className="w-16 h-16 text-cyan-500 animate-spin relative" />
+                                    </div>
                                     <div className="text-center">
-                                        <p className="text-[13px] font-medium text-foreground">Generating video...</p>
-                                        <p className="text-[11px] text-muted-foreground mt-1">
-                                            {currentVideo.progress ? `${Math.round(currentVideo.progress)}%` : 'Starting...'}
+                                        <p className="text-sm font-medium text-muted-foreground">Generating video...</p>
+                                        <p className="text-xs text-muted-foreground/60 mt-1">
+                                            {currentVideo.progress ? `${Math.round(currentVideo.progress)}%` : 'This may take a few minutes'}
                                         </p>
                                     </div>
                                     {/* Progress Bar */}
@@ -138,21 +134,21 @@ export function RunwayPreviewPanel({
                                 </>
                             ) : currentVideo.status === 'FAILED' ? (
                                 <>
-                                    <XCircle className="w-10 h-10 text-red-500" />
+                                    <XCircle className="w-12 h-12 text-red-500" />
                                     <div className="text-center">
-                                        <p className="text-[13px] font-medium text-foreground">Generation Failed</p>
-                                        <p className="text-[11px] text-muted-foreground mt-1">{currentVideo.error || 'Please try again'}</p>
+                                        <p className="text-sm font-medium text-foreground">Generation Failed</p>
+                                        <p className="text-xs text-muted-foreground/60 mt-1">{currentVideo.error || 'Please try again'}</p>
                                     </div>
                                 </>
                             ) : null}
                         </div>
                     ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-center">
-                                <Video className="w-12 h-12 mx-auto text-muted-foreground/50 mb-2" />
-                                <p className="text-[13px] text-muted-foreground">No video selected</p>
-                                <p className="text-[11px] text-muted-foreground mt-1">Generate a video to preview</p>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <div className="p-6 rounded-full bg-gradient-to-br from-muted-foreground/5 to-muted-foreground/10 mb-4">
+                                <Video className="w-12 h-12 text-muted-foreground/40" />
                             </div>
+                            <p className="text-sm font-medium text-muted-foreground">No video generated yet</p>
+                            <p className="text-xs text-muted-foreground/60 mt-1 text-center px-8">Write a prompt and click generate to create your first video</p>
                         </div>
                     )}
                 </div>
@@ -209,8 +205,8 @@ export function RunwayPreviewPanel({
                                         key={video.id}
                                         onClick={() => onSelectVideo(video)}
                                         className={`w-full p-2.5 rounded-lg border text-left transition-all ${currentVideo?.id === video.id
-                                                ? 'border-cyan-500 bg-cyan-500/5'
-                                                : 'border-[var(--ms-border)] hover:border-cyan-500/50'
+                                            ? 'border-cyan-500 bg-cyan-500/5'
+                                            : 'border-[var(--ms-border)] hover:border-cyan-500/50'
                                             }`}
                                     >
                                         <div className="flex items-start gap-2.5">

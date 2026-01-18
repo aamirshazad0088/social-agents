@@ -652,6 +652,7 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
             ? 'base64-image'
             : selectedImage;
 
+          console.log('Saving edited image to database...', { url: editedImageUrl.substring(0, 50) + '...' });
           const savedResult = await saveGeneratedMedia({
             type: 'image',
             source: sourceType as any,
@@ -665,11 +666,10 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
               editType: editMode === 'inpaint' ? 'Inpaint (Mask)' : editMode === 'reference' ? 'Reference Style' : 'Gemini Edit',
             },
           }, historyId, Date.now() - startTime);
-          if (!savedResult.success) {
-          }
+          console.log('Edited image saved to database:', savedResult);
         } catch (saveError) {
+          console.error('Failed to save edited image to database:', saveError);
         }
-      } else {
       }
 
       setEditedImageUrl(editedImageUrl);
@@ -1465,25 +1465,31 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
       </Card>
 
       {/* Preview Panel */}
-      <Card className="lg:col-span-2">
-        <CardHeader>
+      <Card className="overflow-hidden lg:col-span-2">
+        <CardHeader style={{ background: 'var(--ms-gradient-subtle)', borderBottom: '1px solid var(--ms-border)' }}>
           <CardTitle className="flex items-center gap-2">
-            <ImageIcon className="w-5 h-5" />
-            Result
+            <div className="p-2 rounded-lg" style={{ background: 'var(--ms-gradient-primary)' }}>
+              <ImageIcon className="w-4 h-4 text-white" />
+            </div>
+            <span className="ms-heading-md">Preview</span>
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="ms-body-sm">
             Edited image preview
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {/* Result Preview */}
-          <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-4">
+          <div className="aspect-square bg-gradient-to-br from-muted to-muted/50 rounded-xl overflow-hidden mb-4 relative border-2 border-dashed border-muted-foreground/20">
             {isGenerating ? (
-              <div className="w-full h-full flex flex-col items-center justify-center">
-                <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  {editMode === 'inpaint' ? 'Applying inpainting...' : 'Processing edit...'}
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/5 to-pink-500/5">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 blur-xl opacity-50 animate-pulse" />
+                  <Loader2 className="w-16 h-16 animate-spin text-purple-500 relative" />
+                </div>
+                <p className="text-sm text-muted-foreground mt-6 font-medium">
+                  {editMode === 'inpaint' ? 'Applying inpainting...' : editMode === 'multi-turn' ? 'Generating...' : 'Processing edit...'}
                 </p>
+                <p className="text-xs text-muted-foreground/60 mt-1">This may take a few seconds</p>
               </div>
             ) : editedImageUrl ? (
               <img
@@ -1504,8 +1510,11 @@ export function ImageEditor({ onImageGenerated, recentImages }: ImageEditorProps
               </div>
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center">
-                <ImageIcon className="w-16 h-16 text-muted-foreground/30 mb-4" />
-                <p className="text-sm text-muted-foreground text-center px-4">
+                <div className="p-6 rounded-full bg-gradient-to-br from-muted-foreground/5 to-muted-foreground/10 mb-4">
+                  <ImageIcon className="w-12 h-12 text-muted-foreground/40" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">No image edited yet</p>
+                <p className="text-xs text-muted-foreground/60 mt-1 text-center px-8">
                   Select an image and apply an edit
                 </p>
               </div>

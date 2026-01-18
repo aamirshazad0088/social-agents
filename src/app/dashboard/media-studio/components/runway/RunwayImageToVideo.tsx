@@ -1,17 +1,24 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Loader2, Sparkles, Clock, Upload, ImageIcon, X } from 'lucide-react';
+import { Loader2, Sparkles, Clock, Upload, ImageIcon, X, FolderOpen, RefreshCw, ChevronLeft } from 'lucide-react';
 import type { GeneratedRunwayVideo, GeneratedImage, RunwayRatio, RunwayDuration } from '../../types/mediaStudio.types';
 import { RUNWAY_RATIO_OPTIONS, RUNWAY_DURATION_OPTIONS } from '../../types/mediaStudio.types';
 
 // ============================================================================
 // Types
 // ============================================================================
+
+interface LibraryImage {
+    id: string;
+    url: string;
+    prompt?: string;
+    thumbnail_url?: string;
+}
 
 interface RunwayImageToVideoProps {
     onGenerationStarted: (video: GeneratedRunwayVideo, historyAction: string) => void;
@@ -30,16 +37,48 @@ export function RunwayImageToVideo({
     onError,
     isGenerating,
     recentImages,
+    workspaceId,
 }: RunwayImageToVideoProps) {
     // State
     const [prompt, setPrompt] = useState('');
     const [imageUrl, setImageUrl] = useState('');
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageSource, setImageSource] = useState<'upload' | 'library' | null>(null);
     const [ratio, setRatio] = useState<RunwayRatio>('1280:720');
     const [duration, setDuration] = useState<RunwayDuration>(10);
     const [seed, setSeed] = useState<string>('');
 
+    // Library picker state
+    const [showLibraryPicker, setShowLibraryPicker] = useState(false);
+    const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
+    const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Fetch library images
+    const fetchLibraryImages = useCallback(async () => {
+        if (!workspaceId) return;
+
+        setIsLoadingLibrary(true);
+        try {
+            const response = await fetch(`/api/media-studio/library?workspace_id=${workspaceId}&type=image&limit=20`);
+            const data = await response.json();
+            if (data.items) {
+                setLibraryImages(data.items);
+            }
+        } catch (err) {
+            console.error('Failed to fetch library images:', err);
+        } finally {
+            setIsLoadingLibrary(false);
+        }
+    }, [workspaceId]);
+
+    // Load library when picker is opened
+    useEffect(() => {
+        if (showLibraryPicker) {
+            fetchLibraryImages();
+        }
+    }, [showLibraryPicker, fetchLibraryImages]);
 
     // Handle file upload
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,6 +89,7 @@ export function RunwayImageToVideo({
                 const dataUrl = event.target?.result as string;
                 setImageUrl(dataUrl);
                 setImagePreview(dataUrl);
+                setImageSource('upload');
             };
             reader.readAsDataURL(file);
         }
@@ -59,12 +99,15 @@ export function RunwayImageToVideo({
     const handleSelectFromLibrary = (url: string) => {
         setImageUrl(url);
         setImagePreview(url);
+        setImageSource('library');
+        setShowLibraryPicker(false);
     };
 
     // Clear image
     const clearImage = () => {
         setImageUrl('');
         setImagePreview(null);
+        setImageSource(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -128,59 +171,122 @@ export function RunwayImageToVideo({
 
     return (
         <div className="space-y-5">
-            {/* Image Upload */}
-            <div className="space-y-2.5">
+            {/* Image Upload Section */}
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
                 <label className="text-[13px] font-medium text-foreground">First Frame Image</label>
 
-                {imagePreview ? (
-                    <div className="relative">
-                        <img
-                            src={imagePreview}
-                            alt="Selected image"
-                            className="w-full h-40 object-cover rounded-lg border border-[var(--ms-border)]"
-                        />
-                        <button
-                            onClick={clearImage}
-                            className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full hover:bg-black/70 transition-colors"
-                        >
-                            <X className="w-4 h-4 text-white" />
-                        </button>
-                    </div>
-                ) : (
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-[var(--ms-border)] rounded-lg p-6 text-center cursor-pointer hover:border-cyan-500/50 transition-colors"
-                    >
-                        <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-[13px] text-muted-foreground">Click to upload or drag and drop</p>
-                        <p className="text-[11px] text-muted-foreground mt-1">PNG, JPG up to 10MB</p>
-                    </div>
-                )}
-
+                {/* Hidden file input */}
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={handleFileUpload}
                     className="hidden"
+                    disabled={isGenerating}
                 />
 
-                {/* Recent Images */}
-                {recentImages.length > 0 && !imagePreview && (
+                {/* Show selected image or picker */}
+                {imagePreview ? (
                     <div className="space-y-2">
-                        <p className="text-[11px] text-muted-foreground">Or select from recent images:</p>
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                            {recentImages.slice(0, 6).map((img) => (
-                                <button
-                                    key={img.id}
-                                    onClick={() => handleSelectFromLibrary(img.url)}
-                                    className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 border-transparent hover:border-cyan-500 transition-colors"
-                                >
-                                    <img src={img.url} alt="" className="w-full h-full object-cover" />
-                                </button>
-                            ))}
+                        <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border">
+                            <img src={imagePreview} alt="Selected" className="w-full h-full object-contain" />
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={clearImage}
+                                disabled={isGenerating}
+                            >
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="text-green-500">✓</span>
+                            <span>{imageSource === 'upload' ? 'Uploaded image' : 'From library'} - Will be used as first frame</span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => setShowLibraryPicker(true)}
+                            disabled={isGenerating}
+                        >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Change Image
+                        </Button>
+                    </div>
+                ) : showLibraryPicker ? (
+                    /* Library Picker View */
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowLibraryPicker(false)}
+                                className="h-8 px-2"
+                            >
+                                <ChevronLeft className="w-4 h-4 mr-1" />
+                                Back
+                            </Button>
+                            <span className="text-sm font-medium">Select from Library</span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={fetchLibraryImages}
+                                className="h-8 px-2"
+                            >
+                                <RefreshCw className={`w-4 h-4 ${isLoadingLibrary ? 'animate-spin' : ''}`} />
+                            </Button>
+                        </div>
+
+                        {isLoadingLibrary ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : libraryImages.length > 0 ? (
+                            <div className="grid grid-cols-3 gap-2 max-h-[250px] overflow-y-auto">
+                                {libraryImages.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        className="aspect-video bg-muted rounded-md overflow-hidden transition-all hover:ring-2 hover:ring-cyan-500"
+                                        onClick={() => handleSelectFromLibrary(item.url)}
+                                    >
+                                        <img src={item.url} alt={item.prompt || 'Library image'} className="w-full h-full object-cover" />
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 text-muted-foreground">
+                                <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm">No images in library</p>
+                                <p className="text-xs">Generate some images first</p>
+                            </div>
+                        )}
+
+                        {/* Upload button in library picker */}
+                        <div className="pt-2 border-t">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isGenerating}
+                            >
+                                <Upload className="w-4 h-4 mr-2" />
+                                Upload New Image
+                            </Button>
                         </div>
                     </div>
+                ) : (
+                    /* Initial Selection - Upload icon opens library */
+                    <Button
+                        variant="outline"
+                        className="w-full h-24 border-dashed flex items-center justify-center"
+                        onClick={() => setShowLibraryPicker(true)}
+                        disabled={isGenerating}
+                    >
+                        <Upload className="w-6 h-6 text-muted-foreground" />
+                    </Button>
                 )}
             </div>
 

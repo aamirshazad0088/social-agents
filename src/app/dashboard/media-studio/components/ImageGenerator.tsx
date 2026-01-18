@@ -411,15 +411,21 @@ export function ImageGenerator({ onImageGenerated, recentImages }: ImageGenerato
 
       // Save to database
       if (canSaveToDb) {
-        await saveGeneratedMedia({
-          type: 'image',
-          source: 'generated',
-          url: imageUrl,
-          prompt,
-          revisedPrompt,
-          model,
-          config: { size, quality, background, format },
-        }, historyId, Date.now() - startTime);
+        try {
+          console.log('Saving generated image to database...', { url: imageUrl.substring(0, 50) + '...' });
+          const result = await saveGeneratedMedia({
+            type: 'image',
+            source: 'generated',
+            url: imageUrl,
+            prompt,
+            revisedPrompt,
+            model,
+            config: { size, quality, background, format },
+          }, historyId, Date.now() - startTime);
+          console.log('Image saved to database:', result);
+        } catch (saveErr) {
+          console.error('Failed to save image to database:', saveErr);
+        }
       }
 
       onImageGenerated(generatedImage);

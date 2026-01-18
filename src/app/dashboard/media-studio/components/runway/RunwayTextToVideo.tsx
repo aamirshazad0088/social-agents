@@ -98,24 +98,6 @@ export function RunwayTextToVideo({
 
     return (
         <div className="space-y-5">
-            {/* Platform Presets */}
-            <div className="space-y-2.5">
-                <label className="text-[13px] font-medium text-foreground">Quick Presets</label>
-                <div className="flex flex-wrap gap-1.5">
-                    {RUNWAY_PLATFORM_PRESETS.slice(0, 6).map((preset) => (
-                        <button
-                            key={preset.id}
-                            onClick={() => applyPreset(preset.id)}
-                            disabled={isGenerating}
-                            className="px-2.5 py-1.5 text-[11px] rounded-md border border-[var(--ms-border)] hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all disabled:opacity-50"
-                        >
-                            <span className="mr-1">{preset.icon}</span>
-                            {preset.name}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
             {/* Prompt */}
             <div className="space-y-2">
                 <label className="text-[13px] font-medium text-foreground">

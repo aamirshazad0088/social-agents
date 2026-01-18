@@ -10,14 +10,12 @@ from pydantic import BaseModel, Field
 # Model options per OpenAI docs
 SoraModel = Literal["sora-2", "sora-2-pro"]
 
-# Size options per OpenAI docs
+# Size options per OpenAI docs - only 4 sizes supported
 SoraSize = Literal[
-    "1280x720",    # HD 16:9
-    "1920x1080",   # Full HD 16:9
-    "1024x576",    # Compact 16:9
+    "1280x720",    # HD 16:9 Landscape
     "720x1280",    # HD 9:16 Portrait
-    "1080x1920",   # Full HD 9:16 Portrait
-    "480x480",     # Square
+    "1792x1024",   # Wide 16:9 Landscape
+    "1024x1792",   # Tall 9:16 Portrait
 ]
 
 # Video job status per OpenAI docs
@@ -35,8 +33,8 @@ class SoraGenerateRequest(BaseModel):
     """
     prompt: str = Field(..., min_length=1, max_length=5000, description="Video description")
     model: Optional[SoraModel] = Field("sora-2", description="sora-2 (fast) or sora-2-pro (quality)")
-    size: Optional[SoraSize] = Field("1280x720", description="Video resolution")
-    seconds: Optional[str] = Field("8", description="Duration: 5-20 seconds as string")
+    size: Optional[SoraSize] = Field("720x1280", description="Video resolution")
+    seconds: Optional[str] = Field("4", description="Duration: 4 (default), 8, or 12 seconds")
 
 
 class SoraImageToVideoRequest(BaseModel):
@@ -47,8 +45,8 @@ class SoraImageToVideoRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=5000, description="Video description")
     imageUrl: str = Field(..., description="Image URL or base64 data URL (first frame)")
     model: Optional[SoraModel] = Field("sora-2", description="Model to use")
-    size: Optional[SoraSize] = Field("1280x720", description="Video resolution (must match image)")
-    seconds: Optional[str] = Field("8", description="Duration in seconds")
+    size: Optional[SoraSize] = Field("720x1280", description="Video resolution (must match image)")
+    seconds: Optional[str] = Field("4", description="Duration: 4 (default), 8, or 12 seconds")
 
 
 class SoraRemixRequest(BaseModel):
@@ -118,31 +116,26 @@ SORA_MODELS = [
     {
         "id": "sora-2",
         "name": "Sora 2",
-        "description": "Fast, flexible video generation for rapid iteration",
+        "description": "Speed & flexibility for rapid iteration",
         "estimatedTime": "1-3 minutes"
     },
     {
         "id": "sora-2-pro",
         "name": "Sora 2 Pro",
-        "description": "Higher quality production output for cinematic footage",
+        "description": "Production-quality cinematic output",
         "estimatedTime": "3-5 minutes"
     },
 ]
 
 SORA_SIZES = [
-    {"value": "1280x720", "label": "HD 16:9", "aspect": "16:9"},
-    {"value": "1920x1080", "label": "Full HD 16:9", "aspect": "16:9"},
-    {"value": "1024x576", "label": "Compact 16:9", "aspect": "16:9"},
-    {"value": "720x1280", "label": "HD 9:16 Portrait", "aspect": "9:16"},
-    {"value": "1080x1920", "label": "Full HD 9:16 Portrait", "aspect": "9:16"},
-    {"value": "480x480", "label": "Square", "aspect": "1:1"},
+    {"value": "1280x720", "label": "HD Landscape", "aspect": "16:9"},
+    {"value": "720x1280", "label": "HD Portrait", "aspect": "9:16"},
+    {"value": "1792x1024", "label": "Wide Landscape", "aspect": "16:9"},
+    {"value": "1024x1792", "label": "Tall Portrait", "aspect": "9:16"},
 ]
 
 SORA_DURATIONS = [
-    {"value": "5", "label": "5 seconds"},
+    {"value": "4", "label": "4 seconds (default)"},
     {"value": "8", "label": "8 seconds"},
-    {"value": "10", "label": "10 seconds"},
-    {"value": "15", "label": "15 seconds"},
-    {"value": "16", "label": "16 seconds (YouTube Short max)"},
-    {"value": "20", "label": "20 seconds (maximum)"},
+    {"value": "12", "label": "12 seconds (maximum)"},
 ]

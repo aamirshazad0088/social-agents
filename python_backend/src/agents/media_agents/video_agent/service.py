@@ -47,8 +47,14 @@ def get_genai_client() -> genai.Client:
     return _genai_client
 
 
-def _parse_image_input(image_url: str) -> types.Image:
-    """Parse image URL or base64 data URL into google-genai Image object"""
+async def _parse_image_input(image_url: str) -> types.Image:
+    """Parse image URL or base64 data URL into google-genai Image object.
+    
+    Per official Veo 3.1 docs, types.Image only accepts image_bytes and mime_type,
+    not image_uri. So we need to download HTTP URLs and convert to bytes.
+    """
+    import httpx
+    
     if image_url.startswith("data:"):
         # Parse data URL: data:image/png;base64,xxxxx
         header, b64_data = image_url.split(",", 1)
@@ -58,8 +64,18 @@ def _parse_image_input(image_url: str) -> types.Image:
         image_bytes = base64.b64decode(b64_data)
         return types.Image(image_bytes=image_bytes, mime_type=mime_type)
     else:
-        # URL reference
-        return types.Image(image_uri=image_url)
+        # HTTP URL - download the image and convert to bytes
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.get(image_url)
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "image/png")
+            # Handle cases where content-type might have charset or other params
+            mime_type = content_type.split(";")[0].strip()
+            # Ensure we have a valid image MIME type
+            if mime_type not in ["image/png", "image/jpeg", "image/jpg", "image/webp"]:
+                mime_type = "image/png"
+            logger.info(f"[Veo] Downloaded image: {len(response.content)} bytes, {mime_type}")
+            return types.Image(image_bytes=response.content, mime_type=mime_type)
 
 
 def _build_video_config(
@@ -222,7 +238,7 @@ async def generate_image_to_video(request: ImageToVideoRequest) -> VideoGenerati
         logger.info(f"[Veo] Image-to-video: model={model}, resolution={resolution}, duration={duration}")
         
         # Parse image
-        image = _parse_image_input(request.imageUrl)
+        image = await _parse_image_input(request.imageUrl)
         
         # Build config - all parameters from frontend request
         # personGeneration has Pydantic default "allow_adult" but use request value if provided
@@ -282,8 +298,8 @@ async def generate_frame_specific(request: FrameSpecificRequest) -> VideoGenerat
         logger.info(f"[Veo] Frame-specific (interpolation): model={model}")
         
         # Parse both frames
-        first_image = _parse_image_input(request.firstImageUrl)
-        last_image = _parse_image_input(request.lastImageUrl)
+        first_image = await _parse_image_input(request.firstImageUrl)
+        last_image = await _parse_image_input(request.lastImageUrl)
         
         # Config with last_frame for interpolation
         # Note: resolution and duration_seconds are API-required (720p, 8s)
@@ -353,7 +369,7 @@ async def generate_with_references(request: ReferenceImagesRequest) -> VideoGene
         # Build reference image objects
         ref_images = []
         for ref in request.referenceImages:
-            image = _parse_image_input(ref.imageUrl)
+            image = await _parse_image_input(ref.imageUrl)
             ref_images.append(
                 types.VideoGenerationReferenceImage(
                     image=image,

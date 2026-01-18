@@ -7,7 +7,9 @@ import logging
 import time
 import base64
 import httpx
+import io
 from typing import Optional
+from PIL import Image
 
 from openai import AsyncOpenAI
 
@@ -57,6 +59,68 @@ async def url_to_bytes(url: str) -> tuple[bytes, str]:
             return response.content, content_type
 
 
+def resize_image_to_match(image_bytes: bytes, target_size: str, mime_type: str) -> tuple[bytes, str]:
+    """
+    Resize image to match the target video dimensions.
+    OpenAI Sora requires input_reference image to match exact video dimensions.
+    
+    Args:
+        image_bytes: Original image bytes
+        target_size: Target size in format "WIDTHxHEIGHT" (e.g., "720x1280")
+        mime_type: Original MIME type
+        
+    Returns:
+        Tuple of (resized_bytes, mime_type)
+    """
+    try:
+        # Parse target dimensions
+        width, height = map(int, target_size.split("x"))
+        
+        # Open image with PIL
+        img = Image.open(io.BytesIO(image_bytes))
+        
+        # Convert to RGB if necessary (for JPEG compatibility)
+        if img.mode in ('RGBA', 'P'):
+            # Keep RGBA for PNG, convert for JPEG
+            if mime_type == "image/jpeg":
+                img = img.convert('RGB')
+        
+        # Resize to exact dimensions (may distort aspect ratio, but API requires exact match)
+        # Use LANCZOS for high quality downsampling
+        resized_img = img.resize((width, height), Image.Resampling.LANCZOS)
+        
+        # Save to bytes buffer
+        buffer = io.BytesIO()
+        
+        # Determine format from MIME type
+        format_map = {
+            "image/jpeg": "JPEG",
+            "image/jpg": "JPEG",
+            "image/png": "PNG",
+            "image/webp": "WEBP",
+        }
+        save_format = format_map.get(mime_type.split(";")[0], "PNG")
+        
+        # Handle RGBA for PNG
+        if save_format == "PNG" and resized_img.mode == 'RGBA':
+            resized_img.save(buffer, format=save_format)
+        elif save_format == "JPEG":
+            # JPEG doesn't support alpha, convert if needed
+            if resized_img.mode == 'RGBA':
+                resized_img = resized_img.convert('RGB')
+            resized_img.save(buffer, format=save_format, quality=95)
+        else:
+            resized_img.save(buffer, format=save_format)
+        
+        buffer.seek(0)
+        logger.info(f"Resized image from {img.size} to ({width}, {height})")
+        return buffer.read(), mime_type
+        
+    except Exception as e:
+        logger.warning(f"Failed to resize image: {e}, using original")
+        return image_bytes, mime_type
+
+
 async def generate_video(request: SoraGenerateRequest) -> SoraGenerateResponse:
     """
     Generate video from text prompt using OpenAI Sora
@@ -69,12 +133,13 @@ async def generate_video(request: SoraGenerateRequest) -> SoraGenerateResponse:
         
         logger.info(f"Starting Sora video generation: model={request.model}, size={request.size}")
         
-        # Build parameters per OpenAI Video API
+        # Build parameters per OpenAI Video API - use request values directly
+        # (Pydantic provides defaults if not sent from frontend)
         params = {
-            "model": request.model or "sora-2",
+            "model": request.model,
             "prompt": request.prompt,
-            "size": request.size or "1280x720",
-            "seconds": request.seconds or "8",
+            "size": request.size,
+            "seconds": request.seconds,
         }
         
         # Call OpenAI videos.create
@@ -124,18 +189,40 @@ async def generate_image_to_video(request: SoraImageToVideoRequest) -> SoraGener
     try:
         client = get_openai_client()
         
-        logger.info(f"Starting image-to-video: model={request.model}")
+        logger.info(f"Starting image-to-video: model={request.model}, size={request.size}")
         
-        # Get image bytes
+        # Get image bytes and MIME type
         image_bytes, mime_type = await url_to_bytes(request.imageUrl)
         
-        # Build parameters
+        # Resize image to match target video dimensions (required by OpenAI Sora API)
+        image_bytes, mime_type = resize_image_to_match(image_bytes, request.size, mime_type)
+        
+        # Determine file extension from MIME type
+        ext_map = {
+            "image/jpeg": "jpg",
+            "image/jpg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+        }
+        ext = ext_map.get(mime_type.split(";")[0], "png")  # Default to png
+        
+        # Ensure MIME type is one of the supported formats
+        if mime_type.split(";")[0] not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
+            mime_type = "image/png"  # Default fallback
+            
+        filename = f"input_image.{ext}"
+        
+        logger.info(f"Image-to-video: Using MIME type {mime_type}, file {filename}")
+        
+        # Build parameters - use request values directly
+        # (Pydantic provides defaults if not sent from frontend)
+        # Pass input_reference as tuple (filename, bytes, mimetype) for proper file upload
         params = {
-            "model": request.model or "sora-2",
+            "model": request.model,
             "prompt": request.prompt,
-            "size": request.size or "1280x720",
-            "seconds": request.seconds or "8",
-            "input_reference": image_bytes,
+            "size": request.size,
+            "seconds": request.seconds,
+            "input_reference": (filename, image_bytes, mime_type),
         }
         
         response = await client.videos.create(**params)
@@ -260,12 +347,29 @@ async def fetch_video_content(request: SoraFetchRequest) -> SoraFetchResponse:
         variant = request.variant or "video"
         logger.info(f"Fetching video content: {request.videoId}, variant={variant}")
         
-        # Download the video content
+        # Download the video content - returns bytes or has a read() method
         content = await client.videos.download_content(request.videoId, variant=variant)
+        
+        # Handle different return types from the SDK
+        if isinstance(content, bytes):
+            content_bytes = content
+        elif hasattr(content, 'read'):
+            # If it has a read method, call it (synchronously - it returns bytes)
+            read_result = content.read()
+            # Check if read() returned a coroutine (async) or bytes (sync)
+            if hasattr(read_result, '__await__'):
+                content_bytes = await read_result
+            else:
+                content_bytes = read_result
+        elif hasattr(content, 'content'):
+            # Some responses have a .content attribute
+            content_bytes = content.content
+        else:
+            # Fallback - try to get bytes somehow
+            content_bytes = bytes(content) if content else b''
         
         # Convert to base64 data URL for frontend
         if variant == "video":
-            content_bytes = await content.read() if hasattr(content, 'read') else content
             if isinstance(content_bytes, bytes):
                 video_b64 = base64.b64encode(content_bytes).decode("utf-8")
                 video_url = f"data:video/mp4;base64,{video_b64}"
@@ -274,13 +378,12 @@ async def fetch_video_content(request: SoraFetchRequest) -> SoraFetchResponse:
                 video_url = str(content_bytes)
         else:
             # Thumbnail or spritesheet
-            content_bytes = await content.read() if hasattr(content, 'read') else content
             if variant == "thumbnail":
                 video_url = f"data:image/webp;base64,{base64.b64encode(content_bytes).decode('utf-8')}"
             else:
                 video_url = f"data:image/jpeg;base64,{base64.b64encode(content_bytes).decode('utf-8')}"
         
-        logger.info(f"Video content fetched successfully")
+        logger.info(f"Video content fetched successfully, size={len(content_bytes)} bytes")
         
         return SoraFetchResponse(
             success=True,

@@ -122,12 +122,14 @@ export function VeoPreviewPanel({
   };
 
   return (
-    <Card className="flex flex-col h-[600px] lg:col-span-2">
-      <CardHeader className="pb-3">
+    <Card className="overflow-hidden flex flex-col h-[650px] lg:col-span-2">
+      <CardHeader style={{ background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%)', borderBottom: '1px solid var(--ms-border)' }}>
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <Video className="w-4 h-4" />
-            Preview
+            <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)' }}>
+              <Video className="w-4 h-4 text-white" />
+            </div>
+            <span className="ms-heading-md">Preview</span>
           </span>
           {currentVideo && (
             <Button variant="outline" size="sm" onClick={onNewVideo}>
@@ -136,23 +138,23 @@ export function VeoPreviewPanel({
             </Button>
           )}
         </CardTitle>
-        <CardDescription>
-          {isGenerating ? 'Generating video...' : 'Your generated videos'}
+        <CardDescription className="ms-body-sm">
+          {isGenerating ? 'Generating video...' : 'Video preview and generation progress'}
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden">
+      <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden pt-6">
         {/* Main Preview Area */}
         <div className="flex-shrink-0">
           {currentVideo ? (
             <div className="space-y-3">
               {/* Video Player or Loading State */}
-              <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+              <div className="relative aspect-[1/1] bg-gradient-to-br from-muted to-muted/50 rounded-xl overflow-hidden border-2 border-dashed border-muted-foreground/20">
                 {currentVideo.status === 'completed' && currentVideo.url ? (
                   <video
                     src={currentVideo.url}
                     controls
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-contain bg-black"
                     poster={currentVideo.thumbnailUrl}
                   />
                 ) : currentVideo.status === 'failed' ? (
@@ -161,7 +163,7 @@ export function VeoPreviewPanel({
                     <p className="text-sm">Generation failed</p>
                   </div>
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-purple-500/5 to-pink-500/5">
                     {currentVideo.thumbnailUrl && (
                       <img
                         src={currentVideo.thumbnailUrl}
@@ -169,11 +171,14 @@ export function VeoPreviewPanel({
                         className="absolute inset-0 w-full h-full object-cover opacity-30"
                       />
                     )}
-                    <Loader2 className="w-12 h-12 animate-spin text-purple-500 mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      {currentVideo.status === 'pending' ? 'Starting...' : 'Processing...'}
+                    <div className="relative mb-4">
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 blur-xl opacity-50 animate-pulse" />
+                      <Loader2 className="w-16 h-16 animate-spin text-purple-500 relative" />
+                    </div>
+                    <p className="text-sm text-muted-foreground font-medium">
+                      {currentVideo.status === 'pending' ? 'Starting...' : 'Processing video...'}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground/60 mt-1">
                       This may take 11s - 6 minutes
                     </p>
                     {currentVideo.progress !== undefined && currentVideo.progress > 0 && (
@@ -238,13 +243,15 @@ export function VeoPreviewPanel({
               </div>
             </div>
           ) : (
-            <div className="aspect-video bg-muted rounded-lg flex flex-col items-center justify-center">
-              <Video className="w-12 h-12 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                No video selected
+            <div className="aspect-[1/1] bg-gradient-to-br from-muted to-muted/50 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20">
+              <div className="p-6 rounded-full bg-gradient-to-br from-muted-foreground/5 to-muted-foreground/10 mb-4">
+                <Video className="w-12 h-12 text-muted-foreground/40" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">
+                No video generated yet
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Generate a new video or select from recent
+              <p className="text-xs text-muted-foreground/60 mt-1 text-center px-8">
+                Write a prompt and click generate to create your first video
               </p>
             </div>
           )}
@@ -268,8 +275,8 @@ export function VeoPreviewPanel({
                     key={video.id}
                     onClick={() => onSelectVideo(video)}
                     className={`w-full flex items-start gap-3 p-2 rounded-lg border transition-all text-left ${currentVideo?.id === video.id
-                        ? 'border-purple-500 bg-purple-500/10'
-                        : 'border-border hover:border-purple-500/50'
+                      ? 'border-purple-500 bg-purple-500/10'
+                      : 'border-border hover:border-purple-500/50'
                       }`}
                   >
                     {/* Thumbnail */}
