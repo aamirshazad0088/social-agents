@@ -90,6 +90,7 @@ export function useChat(options: UseChatOptions) {
                     message: content,
                     threadId: currentThreadId,
                     workspaceId,
+                    modelId,
                     contentBlocks: options?.contentBlocks,
                     enableReasoning,
                 }),

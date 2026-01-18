@@ -14,6 +14,7 @@ import { useChatHistory } from './hooks/useChatHistory';
 import { ContentStrategistViewProps, Message, FileItem } from './types';
 import { ContentThread } from '@/services/database/threadService.client';
 import type { ContentBlock } from '@/lib/multimodal-utils';
+import { DEFAULT_AI_MODEL_ID } from '@/constants/aiModels';
 
 // Components
 import { ChatInterface } from './components/ChatInterface';
@@ -41,6 +42,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
     const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
     const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+    const [selectedModelId, setSelectedModelId] = useState(DEFAULT_AI_MODEL_ID);
 
     // Get workspace ID and user ID from localStorage
     useEffect(() => {
@@ -69,6 +71,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     const { submit, abort, resumeInterrupt } = useChat({
         threadId: langThreadId,
         workspaceId: workspaceId || undefined,
+        modelId: selectedModelId,
         enableReasoning: true,
         onThreadCreated: (newThreadId) => {
             setLangThreadId(newThreadId);
@@ -197,6 +200,8 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
                         onSendMessage={handleSendMessage}
                         isLoading={isLoading}
                         error={error}
+                        selectedModelId={selectedModelId}
+                        onModelChange={setSelectedModelId}
                         showInput={true}
                         inputPlaceholder="What content would you like to create today?"
                         onStopStream={abort}

@@ -19,6 +19,9 @@ import {
     X,
     Image,
     File,
+    Sparkles,
+    ChevronDown,
+    Check,
 } from "lucide-react";
 import { FiSend } from "react-icons/fi";
 import { ChatMessage } from "./ChatMessage";
@@ -42,6 +45,7 @@ import { useFileUpload } from "../hooks/useFileUpload";
 import { cn } from "@/lib/utils";
 import { useStickToBottom } from "use-stick-to-bottom";
 import type { ContentBlock } from "@/lib/multimodal-utils";
+import { AI_MODELS } from "@/constants/aiModels";
 
 // Supported file types
 const SUPPORTED_IMAGE_TYPES = '.jpg,.jpeg,.png,.gif,.webp,.svg,.bmp,.ico,.tiff,.heic,.heif';
@@ -55,6 +59,8 @@ interface ChatInterfaceProps {
     }) => void;
     isLoading: boolean;
     error: string | null;
+    selectedModelId: string;
+    onModelChange: (modelId: string) => void;
     showInput?: boolean;
     inputPlaceholder?: string;
     onStopStream?: () => void;
@@ -67,6 +73,8 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
         onSendMessage,
         isLoading,
         error,
+        selectedModelId,
+        onModelChange,
         showInput = true,
         inputPlaceholder = "Ask the strategist anything...",
         onStopStream,
@@ -79,6 +87,7 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
     const [promptSuggestions, setPromptSuggestions] = useState<ContentPromptSuggestion[]>(() =>
         contentPromptSuggestions.slice(0, 6)
     );
+    const [showModelDropdown, setShowModelDropdown] = useState(false);
     const { scrollRef, contentRef } = useStickToBottom();
     const todos = useContentStrategistStore(state => state.todos);
     const files = useContentStrategistStore(state => state.files);
@@ -95,6 +104,7 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
     } = useFileUpload();
     const [localShowMenu, setLocalShowMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const modelMenuRef = useRef<HTMLDivElement>(null);
 
     const submitDisabled = isLoading;
 
@@ -112,6 +122,19 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
 
     useEffect(() => {
         setPromptSuggestions(getRandomPromptSuggestions(6));
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setLocalShowMenu(false);
+            }
+            if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+                setShowModelDropdown(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
     const handleSubmit = useCallback(
@@ -520,6 +543,50 @@ export const ChatInterface = React.memo((props: ChatInterfaceProps) => {
                                 )}
                             </div>
                         </form>
+                        <div className="mt-2 flex justify-end">
+                            <div className="relative" ref={modelMenuRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModelDropdown(!showModelDropdown)}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                                    title="Select AI Model"
+                                >
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                    <span className="max-w-[160px] truncate">
+                                        {AI_MODELS.find(m => m.id === selectedModelId)?.name || "Select Model"}
+                                    </span>
+                                    <ChevronDown className={`h-3 w-3 transition-transform ${showModelDropdown ? "rotate-180" : ""}`} />
+                                </button>
+
+                                {showModelDropdown && (
+                                    <div className="absolute bottom-full right-0 mb-2 max-h-72 min-w-[240px] overflow-y-auto rounded-2xl border border-border bg-card py-2 shadow-[0_8px_24px_rgba(0,0,0,0.12)] z-50">
+                                        <div className="border-b border-border px-4 py-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI Model</p>
+                                        </div>
+                                        {AI_MODELS.map((model) => (
+                                            <button
+                                                key={model.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    onModelChange(model.id);
+                                                    setShowModelDropdown(false);
+                                                }}
+                                                className={`flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-muted/60 ${selectedModelId === model.id ? "bg-primary/10" : ""}`}
+                                            >
+                                                <div>
+                                                    <span className="block text-sm font-medium text-foreground">{model.name}</span>
+                                                    <span className="text-xs text-muted-foreground">{model.providerLabel}</span>
+                                                </div>
+                                                {selectedModelId === model.id && (
+                                                    <Check className="h-4 w-4 text-primary" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
