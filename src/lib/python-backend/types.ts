@@ -830,8 +830,13 @@ export interface CanvaConnectionStatus {
     isExpired?: boolean;
     scopes?: string[];
     lastUpdated?: string;
+    connectedAt?: string;
+    accountName?: string;
+    accountEmail?: string;
+    accountId?: string;
     error?: string;
 }
+
 
 /** Canva auth URL response */
 export interface CanvaAuthResponse {

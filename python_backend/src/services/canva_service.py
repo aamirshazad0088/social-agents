@@ -376,7 +376,8 @@ async def save_canva_tokens(
     access_token: str,
     refresh_token: Optional[str],
     expires_in: int,
-    scopes: str = ""
+    scopes: str = "",
+    profile_info: Optional[Dict[str, Any]] = None
 ) -> bool:
     """
     Save Canva OAuth tokens to database.
@@ -387,6 +388,7 @@ async def save_canva_tokens(
         refresh_token: The refresh token
         expires_in: Token expiration in seconds
         scopes: OAuth scopes
+        profile_info: Optional Canva user profile info (display_name, email, etc.)
         
     Returns:
         True on success
@@ -395,18 +397,27 @@ async def save_canva_tokens(
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(seconds=expires_in)
         
+        data = {
+            "user_id": user_id,
+            "provider": "canva",
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_at": expires_at.isoformat(),
+            "scopes": scopes,
+            "updated_at": now.isoformat(),
+            "created_at": now.isoformat()
+        }
+        
+        # Add optional profile info if provided
+        if profile_info:
+            data["account_id"] = profile_info.get("id")
+            data["account_name"] = profile_info.get("display_name")
+            data["account_email"] = profile_info.get("email")
+            data["metadata"] = json.dumps(profile_info)
+        
         result = await db_upsert(
             table="user_integrations",
-            data={
-                "user_id": user_id,
-                "provider": "canva",
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "expires_at": expires_at.isoformat(),
-                "scopes": scopes,
-                "updated_at": now.isoformat(),
-                "created_at": now.isoformat()
-            },
+            data=data,
             on_conflict="user_id,provider"
         )
         
@@ -446,12 +457,12 @@ async def get_canva_connection_status(user_id: str) -> Dict[str, Any]:
         user_id: The user ID
         
     Returns:
-        Connection status dict
+        Connection status dict with profile info if available
     """
     try:
         result = await db_select(
             table="user_integrations",
-            columns="expires_at, scopes, updated_at",
+            columns="expires_at, scopes, updated_at, created_at, account_id, account_name, account_email, metadata",
             filters={"user_id": user_id, "provider": "canva"},
             limit=1
         )
@@ -473,13 +484,25 @@ async def get_canva_connection_status(user_id: str) -> Dict[str, Any]:
             is_expired = False
             expires_at = None
         
-        return {
+        # Build response with optional profile info
+        response = {
             "connected": True,
             "expiresAt": expires_at.isoformat() if expires_at else None,
             "isExpired": is_expired,
             "scopes": data.get("scopes", "").split(" ") if data.get("scopes") else [],
-            "lastUpdated": data.get("updated_at")
+            "lastUpdated": data.get("updated_at"),
+            "connectedAt": data.get("created_at")
         }
+        
+        # Add profile info if available (optional - works without it)
+        if data.get("account_name"):
+            response["accountName"] = data.get("account_name")
+        if data.get("account_email"):
+            response["accountEmail"] = data.get("account_email")
+        if data.get("account_id"):
+            response["accountId"] = data.get("account_id")
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error checking Canva connection: {e}")

@@ -671,8 +671,10 @@ async def _handle_linkedin_callback(code: str, workspace_id: str, callback_url: 
             account_id=user_data["sub"],
             account_name=user_data.get("name", "LinkedIn User"),
             credentials=credentials,
-            expires_at=expires_at
+            expires_at=expires_at,
+            username=user_data.get("name")  # Add username for display
         )
+
         
         logger.info(f"LinkedIn connected - workspace: {workspace_id}, expires: {expires_at.isoformat()}")
         return RedirectResponse(url=get_success_redirect("linkedin"))

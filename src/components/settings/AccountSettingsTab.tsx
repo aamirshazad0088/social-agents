@@ -48,6 +48,13 @@ const AccountSettingsTab: React.FC = () => {
   const [canvaConnecting, setCanvaConnecting] = useState(false)
   const [canvaError, setCanvaError] = useState<string | null>(null)
   const [canvaLoading, setCanvaLoading] = useState(true)
+  const [canvaInfo, setCanvaInfo] = useState<{
+    accountName?: string;
+    accountEmail?: string;
+    connectedAt?: string;
+    expiresAt?: string;
+    isExpired?: boolean;
+  }>({})
 
   const [connectingPlatform, setConnectingPlatform] = useState<Platform | null>(null)
   const [errors, setErrors] = useState<Record<Platform, string | undefined>>({
@@ -120,6 +127,14 @@ const AccountSettingsTab: React.FC = () => {
       if (response.ok) {
         const data = await response.json()
         setCanvaConnected(data.connected && !data.isExpired)
+        // Store profile info if available (optional - works without it)
+        setCanvaInfo({
+          accountName: data.accountName,
+          accountEmail: data.accountEmail,
+          connectedAt: data.connectedAt,
+          expiresAt: data.expiresAt,
+          isExpired: data.isExpired,
+        })
       } else {
         const data = await response.json()
         setCanvaConnected(!data.needsAuth)
@@ -568,7 +583,7 @@ const AccountSettingsTab: React.FC = () => {
           <p className="font-semibold mb-1 text-foreground">Production-Ready Integration</p>
           <p>
             Connect your social media accounts securely. Your credentials are encrypted and
-            stored on our servers. Never stored in your browser.
+            stored your servers. Never stored in your browser.
           </p>
         </div>
       </div>
@@ -761,9 +776,37 @@ const AccountSettingsTab: React.FC = () => {
                 <span className="text-lg font-medium text-gray-900 block">
                   Canva
                 </span>
-                <span className="text-sm text-gray-500">
-                  Edit media with Canva's design tools
-                </span>
+                {canvaConnected && canvaInfo.accountName ? (
+                  <div className="text-sm text-gray-500">
+                    <span>{canvaInfo.accountName}</span>
+                    {canvaInfo.accountEmail && (
+                      <span className="ml-1 text-gray-400">({canvaInfo.accountEmail})</span>
+                    )}
+                    {canvaInfo.isExpired && (
+                      <span className="ml-2 text-red-600 font-semibold">
+                        Token Expired
+                      </span>
+                    )}
+                  </div>
+                ) : canvaConnected ? (
+                  <span className="text-sm text-gray-500">
+                    Edit media with Canva's design tools
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-500">
+                    Edit media with Canva's design tools
+                  </span>
+                )}
+                {canvaConnected && canvaInfo.connectedAt && (
+                  <span className="text-xs text-gray-500 block">
+                    Connected: {formatDate(canvaInfo.connectedAt)}
+                  </span>
+                )}
+                {canvaConnected && canvaInfo.expiresAt && (
+                  <span className="text-xs text-gray-500">
+                    Expires: {formatDate(canvaInfo.expiresAt)}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -800,6 +843,7 @@ const AccountSettingsTab: React.FC = () => {
               </button>
             )}
           </div>
+
 
           {canvaError && (
             <div className="px-4 pb-4">

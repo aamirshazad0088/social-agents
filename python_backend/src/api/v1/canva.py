@@ -299,13 +299,29 @@ async def canva_oauth_callback(
         
         tokens = response.json()
         
-        # Save tokens
+        # Optionally fetch user profile (graceful failure - works without it)
+        profile_info = None
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as profile_client:
+                profile_response = await profile_client.get(
+                    "https://api.canva.com/rest/v1/users/me",
+                    headers={"Authorization": f"Bearer {tokens['access_token']}"}
+                )
+                if profile_response.status_code == 200:
+                    profile_data = profile_response.json()
+                    profile_info = profile_data.get("user", profile_data)
+                    logger.info(f"Fetched Canva profile for user {user_id}: {profile_info.get('display_name', 'N/A')}")
+        except Exception as profile_error:
+            logger.warning(f"Could not fetch Canva profile (non-critical): {profile_error}")
+        
+        # Save tokens with optional profile info
         success = await save_canva_tokens(
             user_id=user_id,
             access_token=tokens["access_token"],
             refresh_token=tokens.get("refresh_token"),
             expires_in=tokens.get("expires_in", 3600),
-            scopes=tokens.get("scope", "")
+            scopes=tokens.get("scope", ""),
+            profile_info=profile_info
         )
         
         if not success:
@@ -317,6 +333,7 @@ async def canva_oauth_callback(
     except Exception as e:
         logger.error(f"Canva callback error: {e}")
         return RedirectResponse(f"{dashboard_url}?canva_error=unknown")
+
 
 
 @router.post("/disconnect")
