@@ -274,7 +274,7 @@ export const VIDEO_MODEL_OPTIONS = [
 
 export type VeoModel =
   | 'veo-3.1-generate-preview'
-  | 'veo-3.1-fast-preview';
+  | 'veo-3.1-fast-generate-preview';
 export type VeoResolution = '720p' | '1080p' | '4k';
 export type VeoDuration = 4 | 6 | 8;
 export type VeoAspectRatio = '16:9' | '9:16';
@@ -327,7 +327,7 @@ export interface GeneratedVeoVideo {
 
 export const VEO_MODEL_OPTIONS = [
   { value: 'veo-3.1-generate-preview', label: 'Veo 3.1', description: 'Latest with native audio', audio: true, fast: false },
-  { value: 'veo-3.1-fast-preview', label: 'Veo 3.1 Fast', description: 'Speed optimized with audio', audio: true, fast: true },
+  { value: 'veo-3.1-fast-generate-preview', label: 'Veo 3.1 Fast', description: 'Speed optimized with audio', audio: true, fast: true },
 ] as const;
 
 export const VEO_RESOLUTION_OPTIONS = [
@@ -349,9 +349,9 @@ export const VEO_ASPECT_RATIO_OPTIONS = [
 
 export const VEO_PLATFORM_PRESETS = [
   { id: 'youtube_short', name: 'YouTube Short', icon: '📹', aspectRatio: '9:16' as const, duration: 8 as const, model: 'veo-3.1-generate-preview' as const },
-  { id: 'tiktok', name: 'TikTok', icon: '🎵', aspectRatio: '9:16' as const, duration: 8 as const, model: 'veo-3.1-fast-preview' as const },
-  { id: 'instagram_reel', name: 'Insta Reel', icon: '📱', aspectRatio: '9:16' as const, duration: 8 as const, model: 'veo-3.1-fast-preview' as const },
-  { id: 'twitter', name: 'Twitter/X', icon: '🐦', aspectRatio: '16:9' as const, duration: 8 as const, model: 'veo-3.1-fast-preview' as const },
+  { id: 'tiktok', name: 'TikTok', icon: '🎵', aspectRatio: '9:16' as const, duration: 8 as const, model: 'veo-3.1-fast-generate-preview' as const },
+  { id: 'instagram_reel', name: 'Insta Reel', icon: '📱', aspectRatio: '9:16' as const, duration: 8 as const, model: 'veo-3.1-fast-generate-preview' as const },
+  { id: 'twitter', name: 'Twitter/X', icon: '🐦', aspectRatio: '16:9' as const, duration: 8 as const, model: 'veo-3.1-fast-generate-preview' as const },
   { id: 'linkedin', name: 'LinkedIn', icon: '💼', aspectRatio: '16:9' as const, duration: 8 as const, model: 'veo-3.1-generate-preview' as const },
   { id: 'landscape_hd', name: 'HD Video', icon: '🎬', aspectRatio: '16:9' as const, duration: 8 as const, model: 'veo-3.1-generate-preview' as const },
 ] as const;

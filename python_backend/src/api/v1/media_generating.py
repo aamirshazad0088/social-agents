@@ -594,7 +594,7 @@ async def api_generate_video(request: VideoGenerationRequest):
     
     Supports:
     - veo-3.1-generate-preview: Latest, best quality with native audio
-    - veo-3.1-fast-preview: Faster generation
+    - veo-3.1-fast-generate-preview: Faster generation
     """
     try:
         logger.info(f"Video generation: {request.prompt[:50]}...")
@@ -1049,7 +1049,7 @@ async def media_info():
                 "endpoints": ["/audio/speech", "/audio/music", "/audio/sound-effects", "/audio/voices", "/audio/voice-design", "/audio/dialog", "/audio/clone-voice"]
             },
             "video-veo": {
-                "models": ["veo-3.1-generate-preview", "veo-3.1-fast-preview"],
+                "models": ["veo-3.1-generate-preview", "veo-3.1-fast-generate-preview"],
                 "features": ["text-to-video", "image-to-video"],
                 "endpoints": ["/video/generate", "/video/status", "/video/image-to-video"]
             },

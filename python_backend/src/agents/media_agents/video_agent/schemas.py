@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 VeoModel = Literal[
     "veo-3.1-generate-preview",
-    "veo-3.1-fast-preview", 
+    "veo-3.1-fast-generate-preview", 
 ]
 
 VeoAspectRatio = Literal["16:9", "9:16"]
@@ -159,7 +159,7 @@ class VideoDownloadResponse(BaseModel):
 
 VEO_MODELS = [
     {"id": "veo-3.1-generate-preview", "name": "Veo 3.1", "description": "Latest with native audio", "audio": True},
-    {"id": "veo-3.1-fast-preview", "name": "Veo 3.1 Fast", "description": "Faster, good quality", "audio": True},
+    {"id": "veo-3.1-fast-generate-preview", "name": "Veo 3.1 Fast", "description": "Faster, good quality", "audio": True},
 ]
 
 VEO_ASPECT_RATIOS = [
