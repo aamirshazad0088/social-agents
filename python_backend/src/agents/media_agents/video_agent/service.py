@@ -551,27 +551,65 @@ async def download_video(request: VideoDownloadRequest) -> VideoDownloadResponse
     """
     Download completed video and upload to Cloudinary for permanent storage.
     
-    Per official docs:
-    - client.files.download(file=video) populates video with actual bytes
-    - video.video_bytes contains the binary data after download
+    The veoVideoId can be either:
+    - A full download URL (e.g., https://generativelanguage.googleapis.com/v1beta/files/xxx:download?alt=media)
+    - A video name/ID for SDK download (e.g., files/xxx)
+    
+    We download the video bytes and upload to Cloudinary for permanent storage.
     """
     try:
-        client = get_genai_client()
+        import httpx
+        import base64
         
-        logger.info(f"[Veo] Download: veoVideoId={request.veoVideoId[:50]}...")
+        veo_video_id = request.veoVideoId
+        logger.info(f"[Veo] Download: veoVideoId={veo_video_id[:80]}...")
         
-        # Create video reference from the Veo video ID/name
-        video_ref = types.Video(name=request.veoVideoId)
+        video_bytes = None
         
-        # Download video - this populates video_ref with actual data
-        client.files.download(file=video_ref)
-        
-        # Get video bytes from the downloaded reference
-        video_bytes = getattr(video_ref, "video_bytes", None)
-        
-        if not video_bytes:
-            # Try alternative property names
-            video_bytes = getattr(video_ref, "_video_bytes", None) or getattr(video_ref, "data", None)
+        # Check if veoVideoId is a URL (download directly)
+        if veo_video_id.startswith("http://") or veo_video_id.startswith("https://"):
+            logger.info(f"[Veo] Downloading from URL directly...")
+            async with httpx.AsyncClient(timeout=120.0) as http_client:
+                # Add API key for authenticated download
+                headers = {}
+                api_key = settings.gemini_key
+                if api_key and "generativelanguage.googleapis.com" in veo_video_id:
+                    # Append API key to URL for Google's API
+                    if "?" in veo_video_id:
+                        download_url = f"{veo_video_id}&key={api_key}"
+                    else:
+                        download_url = f"{veo_video_id}?key={api_key}"
+                else:
+                    download_url = veo_video_id
+                
+                response = await http_client.get(download_url)
+                if response.status_code == 200:
+                    video_bytes = response.content
+                    logger.info(f"[Veo] Downloaded {len(video_bytes)} bytes from URL")
+                else:
+                    logger.error(f"[Veo] Failed to download from URL: {response.status_code}")
+                    return VideoDownloadResponse(
+                        success=False,
+                        error=f"Failed to download video: HTTP {response.status_code}"
+                    )
+        else:
+            # Try SDK download method for video name/ID
+            try:
+                client = get_genai_client()
+                video_ref = types.Video(uri=veo_video_id)  # Use uri instead of name
+                client.files.download(file=video_ref)
+                video_bytes = getattr(video_ref, "video_bytes", None) or getattr(video_ref, "_video_bytes", None)
+            except Exception as sdk_err:
+                logger.warning(f"[Veo] SDK download failed: {sdk_err}, trying as URI...")
+                # If SDK fails, try to construct download URL
+                if veo_video_id.startswith("files/"):
+                    api_key = settings.gemini_key
+                    download_url = f"https://generativelanguage.googleapis.com/v1beta/{veo_video_id}:download?alt=media&key={api_key}"
+                    async with httpx.AsyncClient(timeout=120.0) as http_client:
+                        response = await http_client.get(download_url)
+                        if response.status_code == 200:
+                            video_bytes = response.content
+                            logger.info(f"[Veo] Downloaded {len(video_bytes)} bytes via constructed URL")
         
         if not video_bytes:
             return VideoDownloadResponse(
@@ -580,34 +618,28 @@ async def download_video(request: VideoDownloadRequest) -> VideoDownloadResponse
             )
         
         # Upload to Cloudinary for permanent storage
-        import httpx
-        import base64
+        logger.info(f"[Veo] Uploading {len(video_bytes)} bytes to Cloudinary...")
         
-        # Prepare upload to Cloudinary via backend proxy
-        form_data = {
-            "file": f"data:video/mp4;base64,{base64.b64encode(video_bytes).decode('utf-8')}",
-            "folder": "veo-videos",
-            "tags": "veo,generated"
-        }
+        # Use Cloudinary service directly (sync method, wrap in thread)
+        from src.services.cloudinary_service import CloudinaryService
+        import asyncio
         
-        async with httpx.AsyncClient(timeout=120.0) as http_client:
-            # Use the Cloudinary upload endpoint
-            upload_response = await http_client.post(
-                "http://localhost:8000/api/v1/cloudinary/upload/video",
-                json=form_data
-            )
-            
-            if upload_response.status_code == 200:
-                result = upload_response.json()
-                if result.get("success"):
-                    video_url = result.get("secure_url") or result.get("url")
-                    logger.info(f"[Veo] Uploaded to Cloudinary: {video_url}")
-                    return VideoDownloadResponse(success=True, url=video_url)
+        result = await asyncio.to_thread(
+            CloudinaryService.upload_video_bytes,
+            video_bytes=video_bytes,
+            folder="veo-videos",
+            public_id=f"veo_{request.operationId or 'video'}_{int(time.time())}"
+        )
         
-        # Fallback: try to get URI from video reference
-        video_url = getattr(video_ref, "uri", None)
-        if video_url:
+        if result.get("success"):
+            video_url = result.get("secure_url") or result.get("url")
+            logger.info(f"[Veo] Uploaded to Cloudinary: {video_url}")
             return VideoDownloadResponse(success=True, url=video_url)
+        
+        # Fallback: return the original URL if Cloudinary upload fails
+        if veo_video_id.startswith("http"):
+            logger.warning(f"[Veo] Cloudinary upload failed, returning original URL")
+            return VideoDownloadResponse(success=True, url=veo_video_id)
         
         return VideoDownloadResponse(
             success=False, 
