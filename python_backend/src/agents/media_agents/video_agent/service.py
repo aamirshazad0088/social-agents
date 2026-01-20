@@ -569,7 +569,9 @@ async def download_video(request: VideoDownloadRequest) -> VideoDownloadResponse
         # Check if veoVideoId is a URL (download directly)
         if veo_video_id.startswith("http://") or veo_video_id.startswith("https://"):
             logger.info(f"[Veo] Downloading from URL directly...")
-            async with httpx.AsyncClient(timeout=120.0) as http_client:
+            # follow_redirects=True is essential - Google's API returns 302 to actual storage URL
+            # timeout=360 for large videos that can take 4-5 minutes to download
+            async with httpx.AsyncClient(timeout=360.0, follow_redirects=True) as http_client:
                 # Add API key for authenticated download
                 headers = {}
                 api_key = settings.gemini_key
