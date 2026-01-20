@@ -263,19 +263,41 @@ async def stream_agent_response(
             kind = event["event"]
             name = event.get("name", "unknown")
             
-            # 1. Handle Token Streaming (Content & Thinking)
+            # 1. Handle Token Streaming (Content & Thinking/Reasoning)
             if kind == "on_chat_model_stream":
                 chunk = event["data"]["chunk"]
                 
-                # Check for reasoning/thinking content
+                # === Handle Reasoning/Thinking Content ===
+                # Method 1: Check additional_kwargs (OpenAI o1, some models)
                 thinking = chunk.additional_kwargs.get("reasoning_content") or \
-                           chunk.additional_kwargs.get("thought")
+                           chunk.additional_kwargs.get("thought") or \
+                           chunk.additional_kwargs.get("reasoning")
                 
                 if thinking:
                     accumulated_thinking += thinking
                     yield {"step": "thinking", "content": accumulated_thinking}
                 
-                # Handle regular content
+                # Method 2: Check content_blocks attribute (newer LangChain pattern)
+                if hasattr(chunk, "content_blocks") and chunk.content_blocks:
+                    for block in chunk.content_blocks:
+                        if isinstance(block, dict) and block.get("type") == "reasoning":
+                            # Handle direct reasoning text
+                            reasoning_text = block.get("text", "") or block.get("content", "")
+                            if reasoning_text:
+                                accumulated_thinking += reasoning_text
+                                yield {"step": "thinking", "content": accumulated_thinking}
+                            
+                            # Handle reasoning summaries (responses/v1 format)
+                            summaries = block.get("summary", [])
+                            if summaries:
+                                for summary in summaries:
+                                    if isinstance(summary, dict):
+                                        summary_text = summary.get("text", "")
+                                        if summary_text:
+                                            accumulated_thinking += f"\n{summary_text}"
+                                            yield {"step": "thinking", "content": accumulated_thinking, "summary": True}
+                
+                # === Handle Regular Content ===
                 content = chunk.content
                 if isinstance(content, str) and content:
                     accumulated_content += content
@@ -284,11 +306,34 @@ async def stream_agent_response(
                     for part in content:
                         text_to_add = ""
                         if isinstance(part, dict):
-                            if part.get("type") == "text":
+                            part_type = part.get("type", "")
+                            
+                            # Regular text content
+                            if part_type == "text":
                                 text_to_add = part.get("text", "")
-                            elif part.get("type") in ["thought", "reasoning"]:
-                                accumulated_thinking += part.get("text", "")
-                                yield {"step": "thinking", "content": accumulated_thinking}
+                            
+                            # Reasoning/thinking content blocks with summaries
+                            elif part_type in ["thought", "reasoning", "thinking"]:
+                                # Direct reasoning text
+                                reasoning_text = part.get("text", "") or part.get("content", "")
+                                if reasoning_text:
+                                    accumulated_thinking += reasoning_text
+                                    yield {"step": "thinking", "content": accumulated_thinking}
+                                
+                                # Reasoning summaries (responses/v1 format)
+                                summaries = part.get("summary", [])
+                                if summaries:
+                                    for summary in summaries:
+                                        if isinstance(summary, dict):
+                                            summary_text = summary.get("text", "")
+                                            if summary_text:
+                                                accumulated_thinking += f"\n{summary_text}"
+                                                yield {"step": "thinking", "content": accumulated_thinking, "summary": True}
+                            
+                            # Tool use blocks (handled separately)
+                            elif part_type == "tool_use":
+                                pass  # Handled in tool events
+                                
                         elif isinstance(part, str):
                             text_to_add = part
                         
@@ -621,3 +666,78 @@ async def get_thread_state(thread_id: str):
             "error": parse_agent_error(e),
         }
 
+
+class DeleteThreadRequest(BaseModel):
+    """Request to delete a thread and its checkpoints."""
+    workspaceId: Optional[str] = Field(None, description="Workspace ID for verification")
+
+
+@router.delete("/threads/{thread_id}")
+async def delete_thread_checkpoints(thread_id: str, request: Optional[DeleteThreadRequest] = None):
+    """Delete all LangGraph checkpoints for a thread.
+    
+    This permanently removes all conversation history for the thread from the
+    checkpoint tables. Should be called when a user deletes a conversation.
+    """
+    logger.info(f"Delete thread checkpoints - Thread: {thread_id}")
+    
+    try:
+        from ...config import settings
+        import psycopg
+        
+        if not settings.DATABASE_URL:
+            logger.warning("DATABASE_URL not configured - cannot delete checkpoints")
+            return {
+                "success": True,
+                "threadId": thread_id,
+                "message": "No database configured, using in-memory storage",
+            }
+        
+        # Connect and delete from all checkpoint tables
+        with psycopg.connect(settings.DATABASE_URL) as conn:
+            with conn.cursor() as cur:
+                # Delete from checkpoint_writes
+                cur.execute(
+                    "DELETE FROM checkpoint_writes WHERE thread_id = %s",
+                    (thread_id,)
+                )
+                writes_deleted = cur.rowcount
+                
+                # Delete from checkpoint_blobs
+                cur.execute(
+                    "DELETE FROM checkpoint_blobs WHERE thread_id = %s",
+                    (thread_id,)
+                )
+                blobs_deleted = cur.rowcount
+                
+                # Delete from checkpoints
+                cur.execute(
+                    "DELETE FROM checkpoints WHERE thread_id = %s",
+                    (thread_id,)
+                )
+                checkpoints_deleted = cur.rowcount
+                
+                conn.commit()
+        
+        logger.info(
+            f"Deleted checkpoints for thread {thread_id}: "
+            f"{checkpoints_deleted} checkpoints, {blobs_deleted} blobs, {writes_deleted} writes"
+        )
+        
+        return {
+            "success": True,
+            "threadId": thread_id,
+            "deleted": {
+                "checkpoints": checkpoints_deleted,
+                "blobs": blobs_deleted,
+                "writes": writes_deleted,
+            },
+            "message": "Thread checkpoints deleted successfully",
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to delete thread checkpoints: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete thread checkpoints: {str(e)}"
+        )

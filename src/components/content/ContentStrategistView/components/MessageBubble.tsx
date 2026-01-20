@@ -17,6 +17,7 @@ import { Message } from '../types';
 import { MarkdownText } from '../utils/MarkdownText';
 import { AttachmentsPreview } from './MultimodalPreview';
 import { ThinkingDisplay } from './ThinkingDisplay';
+import { getReasoningFromMessage } from '../utils';
 
 interface MessageBubbleProps {
     msg: Message;
@@ -140,13 +141,16 @@ const AIMessage: React.FC<{
                     </div>
                 )}
 
-                {/* Thinking/Reasoning Display (Gemini 2.5) */}
-                {msg.thinking && (
-                    <ThinkingDisplay
-                        thinking={msg.thinking}
-                        isThinking={msg.isThinking}
-                    />
-                )}
+                {/* Thinking/Reasoning Display - using centralized extraction */}
+                {(() => {
+                    const reasoning = getReasoningFromMessage(msg);
+                    return reasoning ? (
+                        <ThinkingDisplay
+                            thinking={reasoning}
+                            isThinking={msg.isThinking}
+                        />
+                    ) : null;
+                })()}
 
                 {/* Message content with markdown - render during both streaming and complete */}
                 {msg.content && (

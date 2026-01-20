@@ -14,7 +14,7 @@ interface SubAgentIndicatorProps {
 export const SubAgentIndicator = React.memo<SubAgentIndicatorProps>(
     ({ subAgent, onClick, isExpanded = true }) => {
         return (
-            <div className="w-fit max-w-[70vw] overflow-hidden rounded-lg border-none bg-muted/50 dark:bg-muted/10 shadow-none outline-none my-2">
+            <div className="w-fit max-w-[75%] overflow-hidden rounded-xl border border-border/50 bg-gradient-to-r from-purple-500/5 to-blue-500/5 shadow-none outline-none my-2">
                 <Button
                     variant="ghost"
                     size="sm"

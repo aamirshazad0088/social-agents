@@ -150,3 +150,110 @@ export function formatConversationForLLM(messages: Message[]): string {
     const formattedMessages = messages.map(formatMessageForLLM);
     return formattedMessages.join("\n\n---\n\n");
 }
+
+/**
+ * OpenAI reasoning summary item structure.
+ * Used when streaming reasoning tokens from OpenAI models.
+ */
+export type ReasoningSummaryItem = {
+    type: "summary_text";
+    text: string;
+    index?: number;
+};
+
+/**
+ * OpenAI reasoning structure in additional_kwargs.
+ */
+export type OpenAIReasoning = {
+    id?: string;
+    type: "reasoning";
+    summary?: ReasoningSummaryItem[];
+};
+
+/**
+ * Anthropic thinking content block structure.
+ * Used when streaming extended thinking from Claude models.
+ */
+export type ThinkingContentBlock = {
+    type: "thinking";
+    thinking: string;
+};
+
+/**
+ * Extended message type with reasoning support
+ */
+type MessageWithExtras = Message & {
+    additional_kwargs?: { reasoning?: OpenAIReasoning };
+    contentBlocks?: Array<{ type: string; thinking?: string; text?: string }>;
+};
+
+/**
+ * Extracts reasoning/thinking content from an AI message.
+ * Supports both OpenAI reasoning (additional_kwargs.reasoning.summary)
+ * and Anthropic extended thinking (contentBlocks with type "thinking").
+ *
+ * Based on LangGraph SDK pattern:
+ * https://github.com/langchain-ai/langgraphjs/blob/main/examples/ui-react/src/components/MessageBubble.tsx
+ *
+ * @param message - The AI message to extract reasoning from.
+ * @returns a string of the reasoning/thinking content if found, undefined otherwise.
+ */
+export function getReasoningFromMessage(message: Message): string | undefined {
+    const msg = message as MessageWithExtras;
+
+    // Check for direct thinking property (from our streaming)
+    if (msg.thinking && typeof msg.thinking === "string") {
+        return msg.thinking;
+    }
+
+    // Check for OpenAI reasoning in additional_kwargs
+    if (msg.additional_kwargs?.reasoning?.summary) {
+        const { summary } = msg.additional_kwargs.reasoning;
+        const content = summary
+            .filter(
+                (item): item is ReasoningSummaryItem =>
+                    item.type === "summary_text" && typeof item.text === "string"
+            )
+            .map((item) => item.text)
+            .join("");
+
+        if (content.trim()) {
+            return content;
+        }
+    }
+
+    // Check for Anthropic thinking in contentBlocks
+    if (msg.contentBlocks && Array.isArray(msg.contentBlocks)) {
+        const thinkingBlocks = msg.contentBlocks.filter(
+            (block): block is ThinkingContentBlock =>
+                block.type === "thinking" && typeof block.thinking === "string"
+        );
+
+        if (thinkingBlocks.length > 0) {
+            return thinkingBlocks.map((b) => b.thinking).join("\n");
+        }
+    }
+
+    // Check for thinking in message.content array
+    if (Array.isArray(msg.content)) {
+        const thinkingContent: string[] = [];
+        for (const block of msg.content) {
+            if (
+                typeof block === "object" &&
+                block !== null &&
+                "type" in block &&
+                (block as { type: string }).type === "thinking" &&
+                "thinking" in block &&
+                typeof (block as { thinking: unknown }).thinking === "string"
+            ) {
+                thinkingContent.push((block as { thinking: string }).thinking);
+            }
+        }
+
+        if (thinkingContent.length > 0) {
+            return thinkingContent.join("\n");
+        }
+    }
+
+    return undefined;
+}

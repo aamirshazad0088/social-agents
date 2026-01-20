@@ -46,6 +46,16 @@ export interface SubAgent {
 }
 
 /**
+ * Reasoning step for multi-step reasoning models (OpenAI o1, Claude extended thinking)
+ * Models may provide reasoning as individual steps or as a continuous stream
+ */
+export interface ReasoningStep {
+    type: 'reasoning' | 'thinking' | 'thought';
+    text: string;
+    index?: number;
+}
+
+/**
  * Content block for multimodal input
  */
 export interface ContentBlock {
@@ -68,6 +78,7 @@ export interface Message {
     suggestions?: string[];
     thinking?: string;
     isThinking?: boolean;
+    reasoning_steps?: ReasoningStep[];  // Multi-step reasoning (OpenAI o1, Claude)
     tool_calls?: ToolCall[];
     tool_call_id?: string;
     sub_agents?: SubAgent[];
@@ -168,3 +179,117 @@ export interface TodoItem {
     updatedAt?: Date;
 }
 
+// =============================================================================
+// Enhanced Hook Types (from deep-agents-ui patterns)
+// =============================================================================
+
+/**
+ * Tool call with full lifecycle tracking
+ * Based on @langchain/langgraph-sdk ToolCallWithResult pattern
+ */
+export interface ToolCallWithResult {
+    id: string;
+    call: {
+        name: string;
+        args: Record<string, unknown>;
+    };
+    result?: string;
+    state: 'pending' | 'completed' | 'error';
+}
+
+/**
+ * Submit options with optimistic update support
+ * Based on deep-agents-ui submit patterns
+ */
+export interface SubmitOptions {
+    contentBlocks?: ContentBlock[];
+    attachedFiles?: AttachedFile[];
+    /** Optimistic update function - applied immediately before server confirms */
+    optimisticValues?: (prev: { messages: Message[] }) => { messages: Message[] };
+    /** Checkpoint for branching/debugging */
+    checkpoint?: { checkpoint_id: string };
+    /** Interrupt before specified nodes (step-by-step mode) */
+    interruptBefore?: string[];
+    /** Interrupt after specified nodes */
+    interruptAfter?: string[];
+}
+
+/**
+ * Command to resume from an interrupt
+ * Based on LangGraph command pattern
+ */
+export interface ResumeCommand {
+    resume: unknown;
+}
+
+/**
+ * Command to navigate to a specific node
+ * Based on LangGraph command pattern
+ */
+export interface GotoCommand {
+    goto: string;
+    update: unknown;
+}
+
+/**
+ * Stream metadata for filtering and tracking
+ * Based on LangGraph stream metadata
+ */
+export interface StreamMetadata {
+    /** Node that generated this message */
+    langgraph_node?: string;
+    /** Tags for filtering streams */
+    tags?: string[];
+    /** Run ID for stream resumption */
+    run_id?: string;
+    /** Thread ID */
+    thread_id?: string;
+}
+
+/**
+ * Thread status for tracking
+ */
+export type ThreadStatus = 'idle' | 'busy' | 'interrupted' | 'error';
+
+/**
+ * Enhanced thread info with status
+ */
+export interface EnhancedThreadInfo extends ThreadInfo {
+    status: ThreadStatus;
+    description?: string;
+}
+
+/**
+ * useChat hook options
+ */
+export interface UseChatOptions {
+    threadId: string | null;
+    workspaceId?: string;
+    modelId?: string;
+    enableReasoning?: boolean;
+    /** Callback when a new thread is created */
+    onThreadCreated?: (threadId: string) => void;
+    /** Auto-resume streams after page refresh */
+    reconnectOnMount?: boolean;
+    /** Callback to revalidate thread history list */
+    onHistoryRevalidate?: () => void;
+}
+
+/**
+ * useChat hook return type
+ */
+export interface UseChatReturn {
+    messages: Message[];
+    isLoading: boolean;
+    isThreadLoading: boolean;
+    error: string | null;
+    toolCalls: ToolCallWithResult[];
+    submit: (content: string, options?: SubmitOptions) => Promise<string>;
+    stop: () => void;
+    continueStream: (hasTaskToolCall?: boolean) => void;
+    markThreadResolved: () => void;
+    resumeInterrupt: (value: unknown) => Promise<void>;
+    getToolCalls: (message: Message) => ToolCallWithResult[];
+    getReasoningFromMessage: (message: Message) => string | undefined;
+    getThreadState: () => Promise<{ todos: TodoItem[]; files: Record<string, string> } | null>;
+}

@@ -15,6 +15,7 @@ import type {
 import {
     extractSubAgentContent,
     extractStringFromMessageContent,
+    getReasoningFromMessage,
 } from "../utils";
 import { cn } from "@/lib/utils";
 
@@ -97,15 +98,19 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                 <div
                     className={cn(
                         "min-w-0 max-w-full",
-                        isUser ? "max-w-[70%]" : "w-full"
+                        isUser ? "max-w-[40%]" : "max-w-[80%]"
                     )}
                 >
-                    {!isUser && message.thinking && (
-                        <ThinkingDisplay
-                            thinking={message.thinking}
-                            isThinking={message.isThinking}
-                        />
-                    )}
+                    {/* Reasoning/Thinking display - supports multiple formats */}
+                    {!isUser && (() => {
+                        const reasoning = getReasoningFromMessage(message);
+                        return reasoning ? (
+                            <ThinkingDisplay
+                                thinking={reasoning}
+                                isThinking={message.isThinking}
+                            />
+                        ) : null;
+                    })()}
                     {!isUser && (isStreaming || message.activity) && !hasContent && (
                         <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                             <div className="flex gap-1">
@@ -137,7 +142,7 @@ export const ChatMessage = React.memo<ChatMessageProps>(
                         </div>
                     )}
                     {hasToolCalls && (
-                        <div className="mt-4 flex w-full flex-col">
+                        <div className="mt-4 flex w-full flex-col max-w-[75%]">
                             {toolCalls.map((toolCall: ToolCall) => {
                                 if (toolCall.name === "task") return null;
                                 const toolCallGenUiComponent = ui?.find(

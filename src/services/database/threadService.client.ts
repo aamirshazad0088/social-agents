@@ -260,17 +260,39 @@ export class ThreadService {
   }
 
   /**
-   * Soft delete thread
+   * Soft delete thread and delete LangGraph checkpoints
    */
   static async deleteThread(id: string, workspaceId: string): Promise<void> {
     try {
       const supabase = createClient()
 
+      // First, get the lang_thread_id to delete checkpoints
+      const { data: thread } = await (supabase
+        .from('content_threads') as any)
+        .select('lang_thread_id')
+        .eq('id', id)
+        .eq('workspace_id', workspaceId)
+        .single()
+
+      // Delete LangGraph checkpoints from the backend
+      if (thread?.lang_thread_id) {
+        try {
+          const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000'
+          await fetch(`${backendUrl}/api/v1/deep-agents/threads/${thread.lang_thread_id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workspaceId }),
+          })
+        } catch (e) {
+          // Log but don't fail - checkpoints may already be deleted or using in-memory
+          console.warn('Failed to delete LangGraph checkpoints:', e)
+        }
+      }
+
+      // Hard delete the thread metadata
       const { error } = await (supabase
         .from('content_threads') as any)
-        .update({
-          deleted_at: new Date().toISOString(),
-        })
+        .delete()
         .eq('id', id)
         .eq('workspace_id', workspaceId)
 

@@ -8,6 +8,7 @@ import React, { useEffect, useCallback, useState } from 'react';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useContentStrategistStore } from '@/stores/contentStrategistStore';
+import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from './hooks/useChat';
 import { useThreadManagement } from './hooks/useThreadManagement';
 import { useChatHistory } from './hooks/useChatHistory';
@@ -25,6 +26,10 @@ import { ConfigDialog } from './components/ConfigDialog';
 
 
 export default function ContentStrategistView({ onPostCreated }: ContentStrategistViewProps) {
+    // Auth context for workspace and user
+    const { workspaceId, user } = useAuth();
+    const userId = user?.id || null;
+
     // Store state
     const messages = useContentStrategistStore(state => state.messages);
     const setMessages = useContentStrategistStore(state => state.setMessages);
@@ -36,21 +41,11 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
 
     // Local state
     const [isLoading, setIsLoading] = useState(false);
-    const [workspaceId, setWorkspaceId] = useState<string | null>(null);
-    const [userId, setUserId] = useState<string | null>(null);
-    const [isHistoryVisible, setIsHistoryVisible] = useState(false);
+    const [isHistoryVisible, setIsHistoryVisible] = useState(true);
     const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
     const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
     const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
     const [selectedModelId, setSelectedModelId] = useState(DEFAULT_AI_MODEL_ID);
-
-    // Get workspace ID and user ID from localStorage
-    useEffect(() => {
-        const storedWorkspaceId = localStorage.getItem('workspaceId');
-        const storedUserId = localStorage.getItem('userId');
-        if (storedWorkspaceId) setWorkspaceId(storedWorkspaceId);
-        if (storedUserId) setUserId(storedUserId);
-    }, []);
 
     // Thread management
     const {
@@ -65,17 +60,26 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
     } = useThreadManagement();
 
     // Chat history - uses correct signature
-    const { chatHistory, isLoadingHistory, deleteThread, renameThread, refreshHistory } = useChatHistory(isHistoryVisible, workspaceId);
+    const { chatHistory, isLoadingHistory, deleteThread, renameThread, refreshHistory, addThread } = useChatHistory(isHistoryVisible, workspaceId);
 
-    // Chat hook
-    const { submit, abort, resumeInterrupt } = useChat({
+    // Chat hook with enhanced patterns from deep-agents-ui
+    const {
+        submit,
+        stop,
+        resumeInterrupt,
+        isLoading: chatIsLoading,
+        continueStream,
+        markThreadResolved,
+    } = useChat({
         threadId: langThreadId,
         workspaceId: workspaceId || undefined,
         modelId: selectedModelId,
         enableReasoning: true,
+        reconnectOnMount: true,
         onThreadCreated: (newThreadId) => {
             setLangThreadId(newThreadId);
         },
+        onHistoryRevalidate: refreshHistory,
     });
 
     // Handle new chat creation
@@ -136,8 +140,9 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
             // If this was the first message, create a thread entry in the database
             if (activeThreadId === 'new' && workspaceId && userId && langThreadId) {
                 const title = message.substring(0, 50) + (message.length > 50 ? '...' : '');
-                await createThread(title, workspaceId, userId, langThreadId);
-                refreshHistory();
+                const newThread = await createThread(title, workspaceId, userId, langThreadId);
+                // Immediately add to history (optimistic update)
+                addThread(newThread);
             }
         } catch (error) {
             console.error('Failed to send message:', error);
@@ -145,7 +150,7 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
         } finally {
             setIsLoading(false);
         }
-    }, [submit, isLoading, activeThreadId, workspaceId, userId, createThread, langThreadId, refreshHistory, setError]);
+    }, [submit, isLoading, activeThreadId, workspaceId, userId, createThread, langThreadId, addThread, setError]);
 
     // Extract files from messages for sidebar - convert to Record format
     const filesRecord = messages.flatMap(m => m.files || []).reduce((acc, file) => {
@@ -204,8 +209,8 @@ export default function ContentStrategistView({ onPostCreated }: ContentStrategi
                         onModelChange={setSelectedModelId}
                         showInput={true}
                         inputPlaceholder="What content would you like to create today?"
-                        onStopStream={abort}
-                        onResumeInterrupt={(value) => resumeInterrupt(value.action || value.decision, value.actionId, value.reason)}
+                        onStopStream={stop}
+                        onResumeInterrupt={(value) => resumeInterrupt({ action: value.action || value.decision, actionId: value.actionId, reason: value.reason })}
                     />
                 </div>
 

@@ -105,8 +105,8 @@ export const ToolCallBox = React.memo<ToolCallBoxProps>(
         return (
             <div
                 className={cn(
-                    "w-full overflow-hidden rounded-lg border-none shadow-none outline-none transition-colors duration-200 hover:bg-accent",
-                    isExpanded && hasContent && "bg-accent"
+                    "w-full overflow-hidden rounded-xl border border-border/50 bg-gradient-to-r from-purple-500/5 to-blue-500/5 transition-colors duration-200",
+                    isExpanded && hasContent && "bg-gradient-to-r from-purple-500/10 to-blue-500/10"
                 )}
             >
                 <Button

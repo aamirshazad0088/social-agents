@@ -69,8 +69,11 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("No AI provider API keys configured")
     
-    # Initialize deep_agents (uses in-memory checkpointer by default)
-    logger.info("Deep Agents initialized with in-memory checkpointer")
+    # Initialize deep_agents checkpointer (PostgresSaver if DATABASE_URL is set)
+    from .agents.deep_agents.agent import init_checkpointer, cleanup_checkpointer
+    checkpointer = await init_checkpointer()
+    checkpointer_type = type(checkpointer).__name__
+    logger.info(f"Deep Agents initialized with {checkpointer_type}")
     
     logger.info("Application startup complete")
     
@@ -78,6 +81,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Content Creator Backend...")
+    await cleanup_checkpointer()
     logger.info("Application shutdown complete")
 
 

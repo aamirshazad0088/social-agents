@@ -95,7 +95,7 @@ export const TasksFilesSidebar: React.FC<TasksFilesSidebarProps> = ({
     };
 
     return (
-        <div className="w-80 border-l border-border/60 bg-background/60 flex flex-col h-full overflow-hidden">
+        <div className="w-full border-l border-border/60 bg-background/60 flex flex-col h-full overflow-hidden">
             {/* Header */}
             <div className="p-4 border-b border-border/60 bg-background/70">
                 <h2 className="text-sm font-semibold flex items-center gap-2 text-foreground">
@@ -134,11 +134,11 @@ export const TasksFilesSidebar: React.FC<TasksFilesSidebarProps> = ({
                                                 <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                                                     {groupedLabels[status as keyof typeof groupedTodos]}
                                                 </h3>
-                                                <div className="grid grid-cols-[auto_1fr] gap-3 rounded-sm p-1 pl-0 text-xs">
+                                                <div className="grid grid-cols-[auto_1fr] gap-3 rounded-sm p-1 pl-0 text-xs min-w-0 overflow-hidden">
                                                     {group.map((todo, index) => (
                                                         <Fragment key={`${status}_${todo.id ?? todo.content}_${index}`}>
                                                             {getStatusIcon(todo.status)}
-                                                            <span className="break-words leading-relaxed text-foreground">
+                                                            <span className="break-words leading-relaxed text-foreground min-w-0 overflow-hidden" style={{ wordBreak: 'break-word' }}>
                                                                 {todo.content}
                                                             </span>
                                                         </Fragment>

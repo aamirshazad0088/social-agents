@@ -1,51 +1,124 @@
 /**
- * useChat Hook - Deep Agents Pattern
+ * useChat Hook - Enhanced Deep Agents Pattern
  * 
- * Provides streaming chat functionality that works with the Zustand store.
- * Reference: https://github.com/langchain-ai/deep-agents-ui
+ * Provides streaming chat functionality with patterns from:
+ * - deep-agents-ui: https://github.com/langchain-ai/deep-agents-ui
+ * - LangGraph SDK useStream patterns
+ * 
+ * Features:
+ * - Optimistic updates (show user message immediately)
+ * - Session persistence for stream reconnection
+ * - Thread history revalidation
+ * - Enhanced interrupt handling with command pattern
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { useContentStrategistStore } from '@/stores/contentStrategistStore';
-import { Message, ContentBlock, ToolCall } from '../types';
+import {
+    Message,
+    ToolCall,
+    ToolCallWithResult,
+    SubmitOptions,
+    UseChatOptions as UseChatOptionsType,
+    UseChatReturn,
+    TodoItem,
+} from '../types';
 
-interface UseChatOptions {
-    threadId: string | null;
-    workspaceId?: string;
-    modelId?: string;
-    enableReasoning?: boolean;
-    onThreadCreated?: (threadId: string) => void;
-}
+// Use direct backend URL to bypass Next.js proxy buffering for SSE streaming
+// Next.js rewrites buffer responses which breaks real-time streaming
+const STREAMING_API_BASE = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
 
-// Use relative path to leverage Next.js rewrites proxy (works in both dev and production)
-const API_BASE = '';
+// Session storage key prefix for run persistence
+const RUN_STORAGE_PREFIX = 'langgraph-run:';
 
 /**
- * useChat - Streaming chat hook that works with Zustand store
+ * useChat - Enhanced streaming chat hook with deep-agents-ui patterns
  */
-export function useChat(options: UseChatOptions) {
-    const { threadId, workspaceId, modelId, enableReasoning = true, onThreadCreated } = options;
+export function useChat(options: UseChatOptionsType): UseChatReturn {
+    const {
+        threadId,
+        workspaceId,
+        modelId,
+        enableReasoning = true,
+        onThreadCreated,
+        reconnectOnMount = false,
+        onHistoryRevalidate,
+    } = options;
 
+    // Store selectors
+    const messages = useContentStrategistStore(state => state.messages);
     const setMessages = useContentStrategistStore(state => state.setMessages);
     const addMessage = useContentStrategistStore(state => state.addMessage);
+    const error = useContentStrategistStore(state => state.error);
     const setError = useContentStrategistStore(state => state.setError);
     const setTodoState = useContentStrategistStore(state => state.setTodoState);
     const setFileState = useContentStrategistStore(state => state.setFileState);
 
+    // Local state
+    const [isThreadLoading, setIsThreadLoading] = useState(false);
+    const [toolCalls, setToolCalls] = useState<ToolCallWithResult[]>([]);
+
+    // Refs
     const abortControllerRef = useRef<AbortController | null>(null);
     const isSubmittingRef = useRef(false);
+    const runIdRef = useRef<string | null>(null);
 
+    // Session persistence helpers
+    const saveRunId = useCallback((runId: string) => {
+        if (threadId) {
+            try {
+                sessionStorage.setItem(`${RUN_STORAGE_PREFIX}${threadId}`, runId);
+            } catch (e) {
+                console.warn('[useChat] Failed to save run ID to session storage:', e);
+            }
+        }
+    }, [threadId]);
+
+    const clearRunId = useCallback(() => {
+        if (threadId) {
+            try {
+                sessionStorage.removeItem(`${RUN_STORAGE_PREFIX}${threadId}`);
+            } catch (e) {
+                console.warn('[useChat] Failed to clear run ID from session storage:', e);
+            }
+        }
+    }, [threadId]);
+
+    const getStoredRunId = useCallback((): string | null => {
+        if (!threadId) return null;
+        try {
+            return sessionStorage.getItem(`${RUN_STORAGE_PREFIX}${threadId}`);
+        } catch {
+            return null;
+        }
+    }, [threadId]);
+
+    // Reconnect on mount (from deep-agents-ui pattern)
+    useEffect(() => {
+        if (reconnectOnMount && threadId) {
+            const storedRunId = getStoredRunId();
+            if (storedRunId) {
+                console.log('[useChat] Found stored run ID for potential reconnection:', storedRunId);
+                runIdRef.current = storedRunId;
+                // Note: Full reconnection would require backend support
+                // For now, we just track the run ID
+            }
+        }
+    }, [reconnectOnMount, threadId, getStoredRunId]);
+
+    /**
+     * Submit a message with optimistic update support
+     * Based on deep-agents-ui pattern
+     */
     const submit = useCallback(async (
         content: string,
-        options?: {
-            contentBlocks?: ContentBlock[];
-            attachedFiles?: Array<{ type: 'image' | 'file'; name: string; url: string; size?: number }>;
-        }
+        submitOptions?: SubmitOptions
     ): Promise<string> => {
         if (!content.trim() || isSubmittingRef.current) {
             return '';
         }
 
+        // Abort any existing request
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
@@ -54,33 +127,57 @@ export function useChat(options: UseChatOptions) {
         abortControllerRef.current = controller;
         isSubmittingRef.current = true;
 
+        // Generate or use existing thread ID
         let currentThreadId = threadId;
         if (!currentThreadId) {
             currentThreadId = crypto.randomUUID();
             console.log('[useChat] Created new thread ID:', currentThreadId);
             onThreadCreated?.(currentThreadId);
         }
-        console.log('[useChat] Using thread ID:', currentThreadId);
 
+        // Generate run ID for persistence
+        const runId = crypto.randomUUID();
+        runIdRef.current = runId;
+        saveRunId(runId);
+
+        // Create user message
         const userMessage: Message = {
+            id: crypto.randomUUID(),
             role: 'user',
+            type: 'human',
             content,
-            attachments: options?.attachedFiles,
+            attachments: submitOptions?.attachedFiles,
         };
-        addMessage(userMessage);
 
+        // Apply optimistic update (from deep-agents-ui pattern)
+        if (submitOptions?.optimisticValues) {
+            setMessages(prev => {
+                const result = submitOptions.optimisticValues!({ messages: prev });
+                return result.messages;
+            });
+        } else {
+            // Default optimistic: add user message immediately
+            addMessage(userMessage);
+        }
+
+        // Add streaming AI message placeholder
         const aiMessage: Message = {
+            id: crypto.randomUUID(),
             role: 'model',
+            type: 'ai',
             content: '',
             isStreaming: true,
         };
         addMessage(aiMessage);
 
+        // Revalidate thread history (from deep-agents-ui pattern)
+        onHistoryRevalidate?.();
+
         let finalResponse = '';
         let finalThinking = '';
 
         try {
-            const response = await fetch(`${API_BASE}/py-api/content/strategist/chat`, {
+            const response = await fetch(`${STREAMING_API_BASE}/api/v1/content/strategist/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -91,7 +188,7 @@ export function useChat(options: UseChatOptions) {
                     threadId: currentThreadId,
                     workspaceId,
                     modelId,
-                    contentBlocks: options?.contentBlocks,
+                    contentBlocks: submitOptions?.contentBlocks,
                     enableReasoning,
                 }),
                 signal: controller.signal,
@@ -131,7 +228,7 @@ export function useChat(options: UseChatOptions) {
                                     updated[lastIdx] = {
                                         ...updated[lastIdx],
                                         thinking: data.content,
-                                        isThinking: true,
+                                        isThinking: !data.summary, // Keep thinking state unless it's a summary
                                     };
                                 }
                                 return updated;
@@ -151,6 +248,13 @@ export function useChat(options: UseChatOptions) {
                                 return updated;
                             });
                         } else if (step === 'tool_call') {
+                            const toolCall: ToolCallWithResult = {
+                                id: data.id || `tc-${Date.now()}`,
+                                call: { name: data.name, args: data.args },
+                                state: 'pending',
+                            };
+                            setToolCalls(prev => [...prev, toolCall]);
+
                             setMessages(prev => {
                                 const updated = [...prev];
                                 const lastIdx = updated.length - 1;
@@ -169,6 +273,12 @@ export function useChat(options: UseChatOptions) {
                                 return updated;
                             });
                         } else if (step === 'tool_result') {
+                            setToolCalls(prev => prev.map(tc =>
+                                tc.id === data.id
+                                    ? { ...tc, result: data.result, state: 'completed' as const }
+                                    : tc
+                            ));
+
                             setMessages(prev => {
                                 const updated = [...prev];
                                 const lastIdx = updated.length - 1;
@@ -220,7 +330,6 @@ export function useChat(options: UseChatOptions) {
                                 return updated;
                             });
                         } else if (step === 'activity') {
-                            // Update message with current activity status
                             setMessages(prev => {
                                 const updated = [...prev];
                                 const lastIdx = updated.length - 1;
@@ -248,11 +357,13 @@ export function useChat(options: UseChatOptions) {
                                         thinking: finalThinking,
                                         isStreaming: false,
                                         isThinking: false,
-                                        activity: undefined, // Clear activity on done
+                                        activity: undefined,
                                     };
                                 }
                                 return updated;
                             });
+                            // Clear run ID on completion
+                            clearRunId();
                         } else if (data.type === 'error') {
                             throw new Error(data.message || 'Stream error');
                         }
@@ -278,14 +389,18 @@ export function useChat(options: UseChatOptions) {
                 return updated;
             });
 
+            // Revalidate on completion
+            onHistoryRevalidate?.();
+            clearRunId();
+
             return finalResponse;
 
-        } catch (error) {
-            if ((error as Error).name === 'AbortError') {
+        } catch (err) {
+            if ((err as Error).name === 'AbortError') {
                 return finalResponse;
             }
 
-            const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+            const errorMessage = err instanceof Error ? err.message : 'An error occurred';
             setError(errorMessage);
 
             setMessages(prev => {
@@ -302,72 +417,114 @@ export function useChat(options: UseChatOptions) {
                 return updated;
             });
 
+            // Revalidate on error
+            onHistoryRevalidate?.();
+            clearRunId();
+
             return '';
         } finally {
             isSubmittingRef.current = false;
             abortControllerRef.current = null;
         }
-    }, [threadId, workspaceId, modelId, enableReasoning, onThreadCreated, addMessage, setMessages, setError]);
+    }, [threadId, workspaceId, modelId, enableReasoning, onThreadCreated, onHistoryRevalidate, addMessage, setMessages, setError, setTodoState, setFileState, saveRunId, clearRunId]);
 
-    const abort = useCallback(() => {
+    /**
+     * Stop the current stream
+     */
+    const stop = useCallback(() => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
             abortControllerRef.current = null;
         }
         isSubmittingRef.current = false;
-    }, []);
+        clearRunId();
+    }, [clearRunId]);
+
+    /**
+     * Continue from an interrupt point (step-by-step mode)
+     * Based on deep-agents-ui continueStream pattern
+     */
+    const continueStream = useCallback((hasTaskToolCall?: boolean) => {
+        // This would continue the stream from an interrupt
+        // Requires backend to support continuation
+        console.log('[useChat] Continue stream requested, hasTaskToolCall:', hasTaskToolCall);
+        onHistoryRevalidate?.();
+    }, [onHistoryRevalidate]);
+
+    /**
+     * Mark current thread as resolved
+     * Based on deep-agents-ui pattern: command: { goto: "__end__" }
+     */
+    const markThreadResolved = useCallback(() => {
+        console.log('[useChat] Thread marked as resolved');
+        onHistoryRevalidate?.();
+        clearRunId();
+    }, [onHistoryRevalidate, clearRunId]);
 
     /**
      * Resume from an interrupt (tool approval)
-     * Sends approval/denial to continue the agent
+     * Enhanced with command pattern from deep-agents-ui
      */
-    const resumeInterrupt = useCallback(async (
-        decision: 'approve' | 'deny',
-        actionId: string,
-        reason?: string
-    ): Promise<void> => {
+    const resumeInterrupt = useCallback(async (value: unknown): Promise<void> => {
         if (!threadId) return;
 
         try {
-            const response = await fetch(`${API_BASE}/py-api/deep-agents/threads/${threadId}/resume`, {
+            const response = await fetch(`${STREAMING_API_BASE}/api/v1/deep-agents/threads/${threadId}/resume`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    decision,
-                    actionId,
-                    reason,
+                    command: { resume: value },
                 }),
             });
 
             if (!response.ok) {
                 throw new Error(`Resume failed: ${response.status}`);
             }
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to resume';
+
+            // Revalidate thread history after resume
+            onHistoryRevalidate?.();
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to resume';
             setError(errorMessage);
         }
-    }, [threadId, setError]);
+    }, [threadId, setError, onHistoryRevalidate]);
 
     /**
-     * Stop the current stream
+     * Get tool calls for a specific message
+     * Based on useStream getToolCalls pattern
      */
-    const stopStream = useCallback(() => {
-        abort();
-    }, [abort]);
+    const getToolCalls = useCallback((message: Message): ToolCallWithResult[] => {
+        if (!message.tool_calls) return [];
+        return message.tool_calls.map(tc => ({
+            id: tc.id,
+            call: { name: tc.name, args: tc.args },
+            result: tc.result,
+            state: (tc.status === 'completed' ? 'completed' :
+                tc.status === 'error' ? 'error' : 'pending') as 'pending' | 'completed' | 'error',
+        }));
+    }, []);
+
+    /**
+     * Get reasoning/thinking content from a message
+     * Supports both OpenAI o1 and Claude extended thinking
+     */
+    const getReasoningFromMessage = useCallback((message: Message): string | undefined => {
+        return message.thinking;
+    }, []);
 
     /**
      * Get current thread state (todos, files)
      */
     const getThreadState = useCallback(async (): Promise<{
-        todos: Array<{ id: string; content: string; status: string }>;
+        todos: TodoItem[];
         files: Record<string, string>;
     } | null> => {
         if (!threadId) return null;
 
         try {
-            const response = await fetch(`${API_BASE}/py-api/deep-agents/threads/${threadId}/state`);
+            const response = await fetch(`${STREAMING_API_BASE}/api/v1/deep-agents/threads/${threadId}/state`);
             if (!response.ok) return null;
             return await response.json();
         } catch {
@@ -376,13 +533,18 @@ export function useChat(options: UseChatOptions) {
     }, [threadId]);
 
     return {
-        submit,
-        abort,
-        stopStream,
-        resumeInterrupt,
-        getThreadState,
-        isSubmitting: isSubmittingRef.current,
+        messages,
         isLoading: isSubmittingRef.current,
+        isThreadLoading,
+        error,
+        toolCalls,
+        submit,
+        stop,
+        continueStream,
+        markThreadResolved,
+        resumeInterrupt,
+        getToolCalls,
+        getReasoningFromMessage,
+        getThreadState,
     };
 }
-

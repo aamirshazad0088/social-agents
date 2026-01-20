@@ -22,10 +22,15 @@ from typing import Literal
 
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.postgres import PostgresSaver
+import psycopg
 from deepagents import create_deep_agent
 from deepagents.backends import StateBackend
 from ...config import settings
 from .middleware import SkillMiddleware
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Directory containing this agent's files
 AGENT_DIR = Path(__file__).parent
@@ -186,7 +191,62 @@ def load_subagents(config_path: Path) -> list:
 
 # Global instances for persistence
 _agent = None
-_checkpointer = MemorySaver()
+_checkpointer = None
+_checkpointer_context = None  # Store the context manager for cleanup
+
+def get_checkpointer():
+    """Get the checkpointer. Must call init_checkpointer() first at startup."""
+    global _checkpointer
+    if _checkpointer is not None:
+        return _checkpointer
+    
+    # Fallback to MemorySaver if not initialized
+    logger.warning("Checkpointer not initialized - using MemorySaver fallback")
+    _checkpointer = MemorySaver()
+    return _checkpointer
+
+
+async def init_checkpointer():
+    """Initialize the checkpointer at startup.
+    
+    Creates PostgresSaver if DATABASE_URL is configured, otherwise uses MemorySaver.
+    """
+    global _checkpointer, _checkpointer_context
+    
+    if _checkpointer is not None:
+        return _checkpointer
+    
+    if settings.DATABASE_URL:
+        try:
+            logger.info("Initializing PostgresSaver with DATABASE_URL...")
+            # Create the context manager and enter it
+            _checkpointer_context = PostgresSaver.from_conn_string(settings.DATABASE_URL)
+            _checkpointer = await _checkpointer_context.__aenter__()
+            
+            # Setup tables (creates if not exists)
+            await _checkpointer.setup()
+            logger.info("PostgresSaver initialized successfully - chat history will persist!")
+        except Exception as e:
+            logger.warning(f"Failed to initialize PostgresSaver: {e}. Falling back to MemorySaver.")
+            _checkpointer = MemorySaver()
+            _checkpointer_context = None
+    else:
+        logger.warning("DATABASE_URL not configured - using MemorySaver (history lost on restart)")
+        _checkpointer = MemorySaver()
+    
+    return _checkpointer
+
+
+async def cleanup_checkpointer():
+    """Cleanup the checkpointer at shutdown."""
+    global _checkpointer_context
+    
+    if _checkpointer_context is not None:
+        try:
+            await _checkpointer_context.__aexit__(None, None, None)
+            logger.info("PostgresSaver connection pool closed")
+        except Exception as e:
+            logger.warning(f"Error closing checkpointer: {e}")
 
 from langchain_openai import ChatOpenAI
 
@@ -201,9 +261,19 @@ def create_content_writer():
     """
     if settings.OPENAI_API_KEY and not os.environ.get("OPENAI_API_KEY"):
         os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
+    
+    # Reasoning configuration for models that support extended thinking (o1, o3, etc.)
+    # 'low', 'medium', or 'high' effort levels control how much reasoning the model does
+    reasoning = {
+        "effort": "medium",  # Balance between speed and depth
+        "summary": "auto",   # 'detailed', 'auto', or None
+    }
+    
     llm = ChatOpenAI(
-        model="gpt-4o-mini",
+        model="gpt-5.2",
         api_key=settings.OPENAI_API_KEY,
+        reasoning=reasoning,
+        output_version="responses/v1",  # Uncomment for newer response format
     )
     return create_deep_agent(
         model=llm,
@@ -213,7 +283,7 @@ def create_content_writer():
         subagents=load_subagents(AGENT_DIR / "subagents.yaml"),
         middleware=[SkillMiddleware()],
         backend=(lambda rt: StateBackend(rt)),  # Store files in state, not filesystem
-        checkpointer=_checkpointer,       # Persistent in-memory checkpointer
+        checkpointer=get_checkpointer(),  # PostgresSaver or MemorySaver fallback
     )
 
 
