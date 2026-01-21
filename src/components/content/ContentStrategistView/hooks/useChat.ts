@@ -14,6 +14,7 @@
 
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { useContentStrategistStore } from '@/stores/contentStrategistStore';
+import { PYTHON_BACKEND_URL } from '@/lib/python-backend/config';
 import {
     Message,
     ToolCall,
@@ -24,9 +25,9 @@ import {
     TodoItem,
 } from '../types';
 
-// Use direct backend URL to bypass Next.js proxy buffering for SSE streaming
-// Next.js rewrites buffer responses which breaks real-time streaming
-const STREAMING_API_BASE = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://localhost:8000';
+// Use the properly normalized backend URL from config
+// This handles Render's hostname format (adds https:// prefix as needed)
+const STREAMING_API_BASE = PYTHON_BACKEND_URL || 'http://localhost:8000';
 
 // Session storage key prefix for run persistence
 const RUN_STORAGE_PREFIX = 'langgraph-run:';
