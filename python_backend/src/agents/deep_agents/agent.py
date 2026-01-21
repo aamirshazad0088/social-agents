@@ -284,7 +284,7 @@ def create_content_writer():
         model="gpt-5.2",
         api_key=settings.OPENAI_API_KEY,
         reasoning=reasoning,
-        output_version="responses/v1",  # Uncomment for newer response format
+        #output_version="responses/v1",  # Uncomment for newer response format
     )
     return create_deep_agent(
         model=llm,
